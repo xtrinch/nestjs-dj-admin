@@ -66,6 +66,13 @@ Run the demo app during development:
 npm run dev
 ```
 
+Demo admin login:
+
+```text
+email: ada@example.com
+password: admin123
+```
+
 Start the demo database first:
 
 ```bash

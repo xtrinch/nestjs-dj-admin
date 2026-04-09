@@ -25,6 +25,12 @@ a {
   grid-template-columns: 17rem minmax(0, 1fr);
 }
 
+.shell--auth {
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: 2rem;
+}
+
 .sidebar {
   padding: 2rem 1.5rem;
   background: linear-gradient(180deg, #111827 0%, #172554 100%);
@@ -77,7 +83,100 @@ a {
 }
 
 .content {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  min-height: 4.25rem;
+  padding: 0 2rem;
+  background: linear-gradient(180deg, #e7eef8 0%, #d8e5f4 100%);
+  border-bottom: 1px solid #b9c8dc;
+  backdrop-filter: blur(12px);
+}
+
+.content__body {
+  padding: 1.25rem 2rem 2rem;
+}
+
+.session-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  justify-self: end;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.session-bar__label {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.session-bar__link {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.session-bar__link:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.session-bar__link:active {
+  transform: translateY(1px);
+}
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  color: #475467;
+  font-size: 0.95rem;
+}
+
+.breadcrumbs__sep {
+  color: #98a2b3;
+}
+
+.breadcrumbs__current {
+  color: #101828;
+  font-weight: 700;
+}
+
+.auth-card {
+  width: min(100%, 28rem);
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 1.5rem;
   padding: 2rem;
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
+}
+
+.auth-card h1 {
+  margin: 0.4rem 0 0.8rem;
+}
+
+.auth-card__copy {
+  margin: 0 0 1.5rem;
+  color: #475467;
 }
 
 .panel {
@@ -181,6 +280,20 @@ a {
   }
 
   .content {
+    grid-template-rows: auto 1fr;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    padding: 0.85rem 1rem;
+    min-height: auto;
+  }
+
+  .session-bar {
+    justify-self: start;
+  }
+
+  .content__body {
     padding: 1rem;
   }
 

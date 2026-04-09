@@ -20,6 +20,9 @@ export class User {
   })
   role!: Role;
 
+  @Column()
+  passwordHash!: string;
+
   @Column({ default: true })
   active!: boolean;
 

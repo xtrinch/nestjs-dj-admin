@@ -8,28 +8,63 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { AdminAuthService } from '../services/admin-auth.service.js';
 import { AdminService } from '../services/admin.service.js';
-import type { AdminListQuery, AdminRequestUser } from '../types/admin.types.js';
+import type {
+  AdminAuthCredentials,
+  AdminListQuery,
+  AdminRequestUser,
+} from '../types/admin.types.js';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly adminAuthService: AdminAuthService,
+  ) {}
+
+  @Get('_auth/me')
+  me(@Req() request: Request) {
+    return {
+      user: this.adminAuthService.requireUser(request),
+    };
+  }
+
+  @Post('_auth/login')
+  async login(
+    @Body() credentials: AdminAuthCredentials,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return {
+      user: await this.adminAuthService.login(credentials, request, response),
+    };
+  }
+
+  @Post('_auth/logout')
+  logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    this.adminAuthService.logout(request, response);
+    return { success: true };
+  }
 
   @Get('_meta')
   getResources(@Req() request: Request) {
+    const user = this.adminAuthService.requireUser(request);
     return {
       resources: this.adminService
         .getResources()
-        .filter((resource) => canReadResource(resource, request.user as AdminRequestUser)),
+        .filter((resource) => canReadResource(resource, user)),
     };
   }
 
   @Get('_meta/:resource')
   async getResourceMeta(@Param('resource') resource: string, @Req() request: Request) {
-    const schema = this.adminService.getResourceSchema(resource, request.user as AdminRequestUser);
-    const filters = await this.adminService.getFilterOptions(resource, request.user as AdminRequestUser);
+    const user = this.adminAuthService.requireUser(request);
+    const schema = this.adminService.getResourceSchema(resource, user);
+    const filters = await this.adminService.getFilterOptions(resource, user);
 
     return {
       resource: schema,
@@ -43,12 +78,16 @@ export class AdminController {
     @Query() query: Record<string, string | string[]>,
     @Req() request: Request,
   ) {
-    return this.adminService.list(resource, parseListQuery(query), request.user as AdminRequestUser);
+    return this.adminService.list(
+      resource,
+      parseListQuery(query),
+      this.adminAuthService.requireUser(request),
+    );
   }
 
   @Get(':resource/:id')
   detail(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
-    return this.adminService.detail(resource, id, request.user as AdminRequestUser);
+    return this.adminService.detail(resource, id, this.adminAuthService.requireUser(request));
   }
 
   @Post(':resource')
@@ -57,7 +96,7 @@ export class AdminController {
     @Body() payload: Record<string, unknown>,
     @Req() request: Request,
   ) {
-    return this.adminService.create(resource, payload, request.user as AdminRequestUser);
+    return this.adminService.create(resource, payload, this.adminAuthService.requireUser(request));
   }
 
   @Patch(':resource/:id')
@@ -67,12 +106,12 @@ export class AdminController {
     @Body() payload: Record<string, unknown>,
     @Req() request: Request,
   ) {
-    return this.adminService.update(resource, id, payload, request.user as AdminRequestUser);
+    return this.adminService.update(resource, id, payload, this.adminAuthService.requireUser(request));
   }
 
   @Delete(':resource/:id')
   remove(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
-    return this.adminService.remove(resource, id, request.user as AdminRequestUser);
+    return this.adminService.remove(resource, id, this.adminAuthService.requireUser(request));
   }
 
   @Post(':resource/:id/actions/:action')
@@ -82,7 +121,7 @@ export class AdminController {
     @Param('action') action: string,
     @Req() request: Request,
   ) {
-    return this.adminService.runAction(resource, id, action, request.user as AdminRequestUser);
+    return this.adminService.runAction(resource, id, action, this.adminAuthService.requireUser(request));
   }
 }
 

@@ -19,6 +19,8 @@ The roadmap should stay aligned with that constraint.
 Implemented or in progress:
 
 - `AdminModule.forRoot(...)`
+- admin login/logout/session flow
+- protected admin site and API
 - `@AdminResource(...)` resource registration
 - automatic CRUD API generation
 - pagination, sorting, filtering, search
@@ -43,6 +45,14 @@ Implemented or in progress:
 
 Goal: make the current system stable, credible, and usable for small real projects.
 
+### Authentication
+
+- Keep the admin site itself behind login
+- Support real login/logout flow under `/admin`
+- Protect both admin UI and admin API with the same auth layer
+- Authenticate against the host app's actual `User` model
+- Treat authorization as a layer on top of authentication, not a replacement for it
+
 ### Backend
 
 - Harden resource metadata typing and inference
@@ -63,6 +73,7 @@ Goal: make the current system stable, credible, and usable for small real projec
 ### Demo and docs
 
 - Stabilize the TypeORM demo app
+- Document the default demo admin credentials and login flow
 - Document recommended setup for real projects
 - Clarify how adapters, DTOs, guards, and resources fit together
 - Add side-by-side examples for typical resources like `User` and `Order`

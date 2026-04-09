@@ -1,5 +1,5 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useState } from 'react';
-import { adminUrl } from '../api.js';
+import { adminFetch, readJson } from '../api.js';
 import type { ResourceField, ResourceSchema } from '../types.js';
 
 type MetaResponse = {
@@ -9,9 +9,11 @@ type MetaResponse = {
 export function EditPage({
   resource,
   id,
+  onTitleChange,
 }: {
   resource: ResourceSchema;
   id?: string;
+  onTitleChange?: (label: string) => void;
 }) {
   const [fields, setFields] = useState<ResourceField[]>(resource.fields);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -22,33 +24,30 @@ export function EditPage({
   }, [resource.resourceName, id]);
 
   async function load() {
-    const metaResponse = await fetch(adminUrl(`/_meta/${resource.resourceName}`), {
-      headers: { 'x-admin-role': 'admin' },
-    });
-    const metaJson = (await metaResponse.json()) as MetaResponse;
+    const metaResponse = await adminFetch(`/_meta/${resource.resourceName}`);
+    const metaJson = await readJson<MetaResponse>(metaResponse);
     setFields(metaJson.resource.fields);
 
     if (id) {
-      const entityResponse = await fetch(adminUrl(`/${resource.resourceName}/${id}`), {
-        headers: { 'x-admin-role': 'admin' },
-      });
-      const entityJson = (await entityResponse.json()) as Record<string, unknown>;
+      const entityResponse = await adminFetch(`/${resource.resourceName}/${id}`);
+      const entityJson = await readJson<Record<string, unknown>>(entityResponse);
       setValues(entityJson);
+      onTitleChange?.(resolveEntityLabel(entityJson, id));
     } else {
       setValues({});
+      onTitleChange?.('New');
     }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const payload = normalizeValues(fields, values);
-    const response = await fetch(
-      id ? adminUrl(`/${resource.resourceName}/${id}`) : adminUrl(`/${resource.resourceName}`),
+    const response = await adminFetch(
+      id ? `/${resource.resourceName}/${id}` : `/${resource.resourceName}`,
       {
         method: id ? 'PATCH' : 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-admin-role': 'admin',
         },
         body: JSON.stringify(payload),
       },
@@ -95,6 +94,23 @@ export function EditPage({
       </form>
     </section>
   );
+}
+
+function resolveEntityLabel(entity: Record<string, unknown>, fallback: string): string {
+  const candidates = ['email', 'name', 'title', 'number', 'slug', 'id'];
+
+  for (const key of candidates) {
+    const value = entity[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return String(value);
+    }
+  }
+
+  return fallback;
 }
 
 function normalizeValues(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { adminUrl } from '../api.js';
+import { adminFetch, adminUrl, readJson } from '../api.js';
 import type { ResourceSchema } from '../types.js';
 
 type MetaResponse = {
@@ -7,7 +7,13 @@ type MetaResponse = {
   filterOptions: Array<{ field: string; values: Array<string | number> }>;
 };
 
-export function ListPage({ resourceName }: { resourceName: string }) {
+export function ListPage({
+  resourceName,
+  onTitleChange,
+}: {
+  resourceName: string;
+  onTitleChange?: (label: string | null) => void;
+}) {
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [search, setSearch] = useState('');
@@ -20,11 +26,10 @@ export function ListPage({ resourceName }: { resourceName: string }) {
 
   async function load() {
     try {
-      const metaResponse = await fetch(adminUrl(`/_meta/${resourceName}`), {
-        headers: { 'x-admin-role': 'admin' },
-      });
-      const metaJson = (await metaResponse.json()) as MetaResponse;
+      const metaResponse = await adminFetch(`/_meta/${resourceName}`);
+      const metaJson = await readJson<MetaResponse>(metaResponse);
       setMeta(metaJson);
+      onTitleChange?.(null);
 
       const params = new URLSearchParams({
         page: '1',
@@ -37,10 +42,8 @@ export function ListPage({ resourceName }: { resourceName: string }) {
         params.set(`filter.${metaJson.resource.filters[0]}`, filter);
       }
 
-      const listResponse = await fetch(`${adminUrl(`/${resourceName}`)}?${params.toString()}`, {
-        headers: { 'x-admin-role': 'admin' },
-      });
-      const listJson = (await listResponse.json()) as { items: Array<Record<string, unknown>> };
+      const listResponse = await adminFetch(`/${resourceName}?${params.toString()}`);
+      const listJson = await readJson<{ items: Array<Record<string, unknown>> }>(listResponse);
       setItems(listJson.items);
       setError(null);
     } catch (reason) {
@@ -49,17 +52,15 @@ export function ListPage({ resourceName }: { resourceName: string }) {
   }
 
   async function runAction(id: string, actionSlug: string) {
-    await fetch(adminUrl(`/${resourceName}/${id}/actions/${actionSlug}`), {
+    await adminFetch(`/${resourceName}/${id}/actions/${actionSlug}`, {
       method: 'POST',
-      headers: { 'x-admin-role': 'admin' },
     });
     await load();
   }
 
   async function remove(id: string) {
-    await fetch(adminUrl(`/${resourceName}/${id}`), {
+    await adminFetch(`/${resourceName}/${id}`, {
       method: 'DELETE',
-      headers: { 'x-admin-role': 'admin' },
     });
     await load();
   }

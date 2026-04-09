@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import express, { type NextFunction, type Request, type Response } from 'express';
+import express, { type Request, type Response } from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
@@ -21,14 +21,6 @@ async function bootstrap(): Promise<void> {
       forbidUnknownValues: false,
     }),
   );
-
-  app.use((request: Request, _response: Response, next: NextFunction) => {
-    request.user = {
-      id: request.header('x-admin-user-id') ?? 'demo-admin',
-      role: request.header('x-admin-role') ?? 'admin',
-    };
-    next();
-  });
 
   const frontendDist = join(process.cwd(), 'dist', 'admin-ui');
   if (existsSync(frontendDist)) {

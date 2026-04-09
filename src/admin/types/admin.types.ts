@@ -1,10 +1,12 @@
 import type { Provider, Type } from '@nestjs/common';
+import type { Request } from 'express';
 
 export type PermissionRole = string;
 
 export interface AdminRequestUser {
   id: string;
   role: string;
+  email?: string;
 }
 
 export interface AdminListQuery {
@@ -111,6 +113,20 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
 export interface AdminModuleOptions {
   path: string;
   adapter?: Type<AdminAdapter> | Provider<AdminAdapter>;
+  auth?: AdminAuthOptions;
+}
+
+export interface AdminAuthCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AdminAuthOptions {
+  cookieName?: string;
+  authenticate: (
+    credentials: AdminAuthCredentials,
+    request: Request,
+  ) => Promise<AdminRequestUser | null>;
 }
 
 export interface AdminFieldSchema {

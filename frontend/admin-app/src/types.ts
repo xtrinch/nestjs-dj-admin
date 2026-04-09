@@ -7,6 +7,12 @@ export interface ResourceField {
   enumValues?: string[];
 }
 
+export interface AdminUser {
+  id: string;
+  role: string;
+  email?: string;
+}
+
 export interface ResourceSchema {
   resourceName: string;
   label: string;

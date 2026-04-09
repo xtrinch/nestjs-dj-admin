@@ -1,27 +1,23 @@
 import { useEffect, useState } from 'react';
-import { adminUrl } from './api.js';
+import { adminFetch, readJson } from './api.js';
+import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { ListPage } from './pages/ListPage.js';
 import { EditPage } from './pages/EditPage.js';
-import type { AdminMetaResponse, ResourceSchema } from './types.js';
+import { LoginPage } from './pages/LoginPage.js';
+import type { AdminMetaResponse, AdminUser, ResourceSchema } from './types.js';
 
 export function App() {
   const [meta, setMeta] = useState<AdminMetaResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<AdminUser | null>(null);
+  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>(
+    'loading',
+  );
   const [hash, setHash] = useState(() => window.location.hash);
+  const [pageLabel, setPageLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(adminUrl('/_meta'), {
-      headers: {
-        'x-admin-role': 'admin',
-      },
-    })
-      .then((response) => response.json())
-      .then((data: AdminMetaResponse) => {
-        setMeta(data);
-      })
-      .catch((reason: Error) => {
-        setError(reason.message);
-      });
+    void loadAdmin();
   }, []);
 
   useEffect(() => {
@@ -35,11 +31,62 @@ export function App() {
     };
   }, []);
 
+  const route = meta?.resources.length ? parseRoute(hash, meta.resources) : null;
+  const categories = meta ? groupResources(meta.resources) : [];
+
+  useEffect(() => {
+    if (!route) {
+      setPageLabel(null);
+      return;
+    }
+
+    setPageLabel(route.mode === 'edit' ? (route.id ? route.id : 'New') : null);
+  }, [route]);
+
+  async function loadAdmin() {
+    try {
+      const meResponse = await adminFetch('/_auth/me');
+      if (meResponse.status === 401) {
+        setAuthState('unauthenticated');
+        setMeta(null);
+        setUser(null);
+        setError(null);
+        return;
+      }
+
+      const meJson = await readJson<{ user: AdminUser }>(meResponse);
+      const metaResponse = await adminFetch('/_meta');
+      const metaJson = await readJson<AdminMetaResponse>(metaResponse);
+
+      setUser(meJson.user);
+      setMeta(metaJson);
+      setAuthState('authenticated');
+      setError(null);
+    } catch (reason) {
+      setError((reason as Error).message);
+    }
+  }
+
+  async function logout() {
+    await adminFetch('/_auth/logout', { method: 'POST' });
+    setUser(null);
+    setMeta(null);
+    setAuthState('unauthenticated');
+  }
+
   if (error) {
     return <div className="shell">Failed to load admin metadata: {error}</div>;
   }
 
-  if (!meta) {
+  if (authState === 'loading') {
+    return <div className="shell">Loading admin resources…</div>;
+  }
+
+  if (authState === 'unauthenticated') {
+    return <LoginPage onAuthenticated={loadAdmin} />;
+  }
+
+  if (!meta || !user) {
     return <div className="shell">Loading admin resources…</div>;
   }
 
@@ -47,8 +94,10 @@ export function App() {
     return <div className="shell">No admin resources are registered.</div>;
   }
 
-  const route = parseRoute(hash, meta.resources);
-  const categories = groupResources(meta.resources);
+  const activeRoute = route;
+  if (!activeRoute) {
+    return <div className="shell">Loading admin resources…</div>;
+  }
 
   return (
     <div className="shell">
@@ -64,7 +113,7 @@ export function App() {
               {resources.map((resource) => (
                 <a
                   key={resource.resourceName}
-                  className={route.resourceName === resource.resourceName ? 'nav__link active' : 'nav__link'}
+                  className={activeRoute.resourceName === resource.resourceName ? 'nav__link active' : 'nav__link'}
                   href={`#/${resource.resourceName}`}
                 >
                   {resource.label}
@@ -75,15 +124,36 @@ export function App() {
         </nav>
       </aside>
       <main className="content">
-        {route.mode === 'list' ? (
-          <ListPage key={`list:${route.resourceName}`} resourceName={route.resourceName} />
-        ) : (
-          <EditPage
-            key={`edit:${route.resourceName}:${route.id ?? 'new'}`}
-            resource={route.resource}
-            id={route.id}
+        <header className="topbar">
+          <div className="topbar__spacer" />
+          <div className="session-bar">
+            <span className="session-bar__label">Welcome, {user.email ?? user.id}</span>
+            <button className="session-bar__link" type="button" onClick={() => void logout()}>
+              Log out
+            </button>
+          </div>
+        </header>
+        <div className="content__body">
+          <Breadcrumbs
+            category={activeRoute.resource.category}
+            resourceLabel={activeRoute.resource.label}
+            pageLabel={pageLabel}
           />
-        )}
+          {activeRoute.mode === 'list' ? (
+            <ListPage
+              key={`list:${activeRoute.resourceName}`}
+              resourceName={activeRoute.resourceName}
+              onTitleChange={setPageLabel}
+            />
+          ) : (
+            <EditPage
+              key={`edit:${activeRoute.resourceName}:${activeRoute.id ?? 'new'}`}
+              resource={activeRoute.resource}
+              id={activeRoute.id}
+              onTitleChange={setPageLabel}
+            />
+          )}
+        </div>
       </main>
     </div>
   );
