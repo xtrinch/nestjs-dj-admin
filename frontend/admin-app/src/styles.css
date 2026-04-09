@@ -45,11 +45,26 @@ a {
 
 .nav {
   display: grid;
-  gap: 0.5rem;
+  gap: 1rem;
   margin-top: 2rem;
 }
 
+.nav__group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.nav__group-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.64);
+  padding: 0 0.25rem;
+}
+
 .nav__link {
+  display: block;
   padding: 0.8rem 0.95rem;
   border-radius: 0.9rem;
   background: rgba(255, 255, 255, 0.06);

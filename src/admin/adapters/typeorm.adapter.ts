@@ -1,12 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Brackets, DataSource, type ObjectLiteral, type Repository } from 'typeorm';
-import type { AdminAdapter, AdminAdapterResource, AdminListQuery } from '../types/admin.types.js';
+import type {
+  AdminAdapter,
+  AdminAdapterResource,
+  AdminEntity,
+  AdminListQuery,
+} from '../types/admin.types.js';
 
 @Injectable()
 export class TypeOrmAdminAdapter implements AdminAdapter {
   constructor(private readonly dataSource: DataSource) {}
 
-  async findMany(resource: AdminAdapterResource, query: AdminListQuery) {
+  async findMany<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    query: AdminListQuery,
+  ) {
     const repository = this.getRepository(resource);
     const alias = 'entity';
     const builder = repository.createQueryBuilder(alias);
@@ -43,33 +51,42 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
 
     const [items, total] = await builder.getManyAndCount();
 
-    return { items, total };
+    return { items: items as TModel[], total };
   }
 
-  async findOne(resource: AdminAdapterResource, id: string) {
+  async findOne<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const repository = this.getRepository(resource);
-    return repository.findOne({ where: { id: this.coerceId(repository, id) } as never });
+    return (await repository.findOne({
+      where: { id: this.coerceId(repository, id) } as never,
+    })) as TModel | null;
   }
 
-  async create(resource: AdminAdapterResource, data: Record<string, unknown>) {
+  async create<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    data: Partial<TModel>,
+  ) {
     const repository = this.getRepository(resource);
     const entity = repository.create(data);
-    return repository.save(entity);
+    return (await repository.save(entity)) as TModel;
   }
 
-  async update(resource: AdminAdapterResource, id: string, data: Record<string, unknown>) {
+  async update<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    id: string,
+    data: Partial<TModel>,
+  ) {
     const repository = this.getRepository(resource);
     const entityId = this.coerceId(repository, id);
     await repository.update({ id: entityId } as never, data as never);
-    return repository.findOneByOrFail({ id: entityId } as never);
+    return (await repository.findOneByOrFail({ id: entityId } as never)) as TModel;
   }
 
-  async delete(resource: AdminAdapterResource, id: string) {
+  async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const repository = this.getRepository(resource);
     await repository.delete({ id: this.coerceId(repository, id) } as never);
   }
 
-  async distinct(resource: AdminAdapterResource, field: string) {
+  async distinct<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, field: string) {
     const repository = this.getRepository(resource);
     const alias = 'entity';
     const rows = await repository
@@ -80,7 +97,9 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     return rows.map((row) => row[field]);
   }
 
-  private getRepository(resource: AdminAdapterResource): Repository<ObjectLiteral> {
+  private getRepository<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+  ): Repository<ObjectLiteral> {
     const target = resource.model ?? this.resolveTarget(resource);
     return this.dataSource.getRepository(target as never);
   }

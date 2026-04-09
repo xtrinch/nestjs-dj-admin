@@ -6,6 +6,7 @@ import { Order, OrderStatus } from './order.entity.js';
 @Injectable()
 @AdminResource({
   model: Order,
+  category: 'Sales',
   list: ['number', 'userEmail', 'status', 'total', 'createdAt'],
   search: ['number', 'userEmail'],
   filters: ['status'],

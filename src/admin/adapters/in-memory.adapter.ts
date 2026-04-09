@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import type {
   AdminAdapter,
+  AdminEntity,
   AdminAdapterResource,
   AdminListQuery,
   AdminListResult,
@@ -72,7 +73,10 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
     }
   }
 
-  async findMany(resource: AdminAdapterResource, query: AdminListQuery): Promise<AdminListResult> {
+  async findMany<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    query: AdminListQuery,
+  ): Promise<AdminListResult<TModel>> {
     const resourceName = resource.resourceName;
     const rows = [...(this.store[resourceName] ?? [])];
     const filtered = rows.filter((row) => matchesSearch(row, query.search) && matchesFilters(row, query.filters));
@@ -81,17 +85,18 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
     const items = sorted.slice(start, start + query.pageSize);
 
     return {
-      items,
+      items: items as TModel[],
       total: filtered.length,
     };
   }
 
-  async findOne(resource: AdminAdapterResource, id: string) {
+  async findOne<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const resourceName = resource.resourceName;
-    return (this.store[resourceName] ?? []).find((row) => String(row.id) === id) ?? null;
+    return (((this.store[resourceName] ?? []).find((row) => String(row.id) === id) as TModel) ??
+      null) as TModel | null;
   }
 
-  async create(resource: AdminAdapterResource, data: Record<string, unknown>) {
+  async create<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, data: Partial<TModel>) {
     const resourceName = resource.resourceName;
     const record = {
       id: String(Date.now()),
@@ -100,10 +105,14 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
     };
     this.store[resourceName] = this.store[resourceName] ?? [];
     this.store[resourceName].unshift(record);
-    return record;
+    return record as TModel;
   }
 
-  async update(resource: AdminAdapterResource, id: string, data: Record<string, unknown>) {
+  async update<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    id: string,
+    data: Partial<TModel>,
+  ) {
     const resourceName = resource.resourceName;
     const rows = this.store[resourceName] ?? [];
     const index = rows.findIndex((row) => String(row.id) === id);
@@ -113,16 +122,16 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
     }
 
     rows[index] = { ...rows[index], ...data };
-    return rows[index];
+    return rows[index] as TModel;
   }
 
-  async delete(resource: AdminAdapterResource, id: string) {
+  async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const resourceName = resource.resourceName;
     const rows = this.store[resourceName] ?? [];
     this.store[resourceName] = rows.filter((row) => String(row.id) !== id);
   }
 
-  async distinct(resource: AdminAdapterResource, field: string) {
+  async distinct<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, field: string) {
     const resourceName = resource.resourceName;
     const rows = this.store[resourceName] ?? [];
     return [...new Set(rows.map((row) => row[field] as string | number).filter(Boolean))];

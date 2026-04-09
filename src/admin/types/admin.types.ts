@@ -21,25 +21,41 @@ export interface AdminListResult<T = Record<string, unknown>> {
   total: number;
 }
 
-export interface AdminAdapterResource {
+export type AdminEntity = object;
+
+export type AdminEntityClass<TModel extends AdminEntity = AdminEntity> = Type<TModel>;
+
+export interface AdminAdapterResource<TModel extends AdminEntity = AdminEntity> {
   resourceName: string;
   label: string;
-  model?: Type<unknown>;
+  model?: AdminEntityClass<TModel>;
   search: string[];
   filters: string[];
 }
 
 export interface AdminAdapter {
-  findMany(resource: AdminAdapterResource, query: AdminListQuery): Promise<AdminListResult>;
-  findOne(resource: AdminAdapterResource, id: string): Promise<Record<string, unknown> | null>;
-  create(resource: AdminAdapterResource, data: Record<string, unknown>): Promise<Record<string, unknown>>;
-  update(
-    resource: AdminAdapterResource,
+  findMany<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    query: AdminListQuery,
+  ): Promise<AdminListResult<TModel>>;
+  findOne<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
     id: string,
-    data: Record<string, unknown>,
-  ): Promise<Record<string, unknown>>;
-  delete(resource: AdminAdapterResource, id: string): Promise<void>;
-  distinct?(resource: AdminAdapterResource, field: string): Promise<Array<string | number>>;
+  ): Promise<TModel | null>;
+  create<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    data: Partial<TModel>,
+  ): Promise<TModel>;
+  update<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    id: string,
+    data: Partial<TModel>,
+  ): Promise<TModel>;
+  delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string): Promise<void>;
+  distinct?<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    field: string,
+  ): Promise<Array<string | number>>;
 }
 
 export interface AdminFieldRelationOption {
@@ -57,20 +73,20 @@ export interface AdminDtoFieldConfig {
   };
 }
 
-export interface AdminActionContext {
+export interface AdminActionContext<TModel extends AdminEntity = AdminEntity> {
   adapter: AdminAdapter;
   resourceName: string;
-  resource: AdminAdapterResource;
+  resource: AdminAdapterResource<TModel>;
   user: AdminRequestUser;
 }
 
-export interface AdminAction {
+export interface AdminAction<TModel extends AdminEntity = AdminEntity> {
   name: string;
   slug?: string;
   handler: (
-    entity: Record<string, unknown>,
-    context: AdminActionContext,
-  ) => Promise<Record<string, unknown> | void>;
+    entity: TModel,
+    context: AdminActionContext<TModel>,
+  ) => Promise<TModel | void>;
 }
 
 export interface AdminPermissions {
@@ -78,8 +94,8 @@ export interface AdminPermissions {
   write?: PermissionRole[];
 }
 
-export interface AdminResourceOptions {
-  model: Type<unknown>;
+export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> {
+  model: AdminEntityClass<TModel>;
   resourceName?: string;
   category?: string;
   list: string[];
@@ -87,7 +103,7 @@ export interface AdminResourceOptions {
   filters?: string[];
   readonly?: string[];
   permissions?: AdminPermissions;
-  actions?: AdminAction[];
+  actions?: AdminAction<TModel>[];
   createDto?: Type<unknown>;
   updateDto?: Type<unknown>;
 }

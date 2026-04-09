@@ -1,12 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import type { AdminAdapter, AdminAdapterResource, AdminListQuery } from '../types/admin.types.js';
+import type {
+  AdminAdapter,
+  AdminAdapterResource,
+  AdminEntity,
+  AdminListQuery,
+} from '../types/admin.types.js';
 
 @Injectable()
 export class PrismaAdminAdapter implements AdminAdapter {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findMany(resource: AdminAdapterResource, query: AdminListQuery) {
+  async findMany<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    query: AdminListQuery,
+  ) {
     const delegate = this.getDelegate(resource.resourceName);
     const where = buildPrismaWhere(query);
     const orderBy = query.sort ? { [query.sort]: query.order ?? 'asc' } : undefined;
@@ -20,27 +28,37 @@ export class PrismaAdminAdapter implements AdminAdapter {
       delegate.count({ where }),
     ]);
 
-    return { items, total };
+    return { items: items as TModel[], total };
   }
 
-  async findOne(resource: AdminAdapterResource, id: string) {
+  async findOne<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const delegate = this.getDelegate(resource.resourceName);
-    return delegate.findUnique({ where: { id } });
+    return (await delegate.findUnique({ where: { id } })) as TModel | null;
   }
 
-  async create(resource: AdminAdapterResource, data: Record<string, unknown>) {
-    return this.getDelegate(resource.resourceName).create({ data });
+  async create<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    data: Partial<TModel>,
+  ) {
+    return (await this.getDelegate(resource.resourceName).create({ data })) as TModel;
   }
 
-  async update(resource: AdminAdapterResource, id: string, data: Record<string, unknown>) {
-    return this.getDelegate(resource.resourceName).update({ where: { id }, data });
+  async update<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    id: string,
+    data: Partial<TModel>,
+  ) {
+    return (await this.getDelegate(resource.resourceName).update({
+      where: { id },
+      data,
+    })) as TModel;
   }
 
-  async delete(resource: AdminAdapterResource, id: string) {
+  async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     await this.getDelegate(resource.resourceName).delete({ where: { id } });
   }
 
-  async distinct(resource: AdminAdapterResource, field: string) {
+  async distinct<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, field: string) {
     const rows = await this.getDelegate(resource.resourceName).findMany({
       distinct: [field],
       select: { [field]: true },
