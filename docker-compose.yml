@@ -1,0 +1,15 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: nestjs_dj_admin_demo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - dj-admin-postgres:/var/lib/postgresql/data
+
+volumes:
+  dj-admin-postgres:

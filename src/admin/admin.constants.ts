@@ -1,0 +1,3 @@
+export const ADMIN_RESOURCE_METADATA = Symbol('ADMIN_RESOURCE_METADATA');
+export const ADMIN_ADAPTER = Symbol('ADMIN_ADAPTER');
+export const ADMIN_OPTIONS = Symbol('ADMIN_OPTIONS');

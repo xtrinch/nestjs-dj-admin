@@ -1,0 +1,82 @@
+{
+  "name": "nestjs-dj-admin",
+  "version": "0.1.0",
+  "description": "NestJS-native admin framework inspired by Django admin",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "clean:shadow": "node scripts/clean-shadow-build.mjs",
+    "clean": "npm run clean:shadow && rm -rf dist examples/demo-app/dist",
+    "dev:example": "npm run clean:shadow && nodemon --watch src --watch examples/demo-app/src --ext ts --exec \"TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm examples/demo-app/src/main.ts\"",
+    "dev:ui": "vite --config frontend/admin-app/vite.config.ts",
+    "dev": "concurrently \"npm run dev:example\" \"npm run dev:ui\"",
+    "build:lib": "tsc -p tsconfig.build.json",
+    "build:ui": "vite build --config frontend/admin-app/vite.config.ts",
+    "build": "npm run clean && npm run build:lib && npm run build:ui",
+    "start:example": "node examples/demo-app/dist/main.js",
+    "build:example": "npm run clean && npm run build:lib && tsc -p examples/demo-app/tsconfig.json",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "5.1.0"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
+    "@prisma/client": "^6.15.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typeorm": "^0.3.25"
+  },
+  "peerDependenciesMeta": {
+    "@prisma/client": {
+      "optional": true
+    },
+    "typeorm": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nestjs/common": "11.1.6",
+    "@nestjs/core": "11.1.6",
+    "@nestjs/platform-express": "11.1.6",
+    "@prisma/client": "6.15.0",
+    "@types/express": "5.0.3",
+    "@types/node": "24.6.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "5.0.4",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.2",
+    "concurrently": "9.2.1",
+    "mysql2": "3.15.2",
+    "nodemon": "^3.1.14",
+    "pg": "8.16.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "^7.8.2",
+    "ts-node": "^10.9.2",
+    "tsx": "4.20.6",
+    "typeorm": "0.3.25",
+    "typescript": "5.9.3",
+    "vite": "7.1.10"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "esModuleInterop": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "nestjs-dj-admin": ["./src/index.ts"],
+      "#src/*": ["./src/*"]
+    },
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "examples/**/*.ts",
+    "frontend/admin-app/src/**/*.tsx",
+    "frontend/admin-app/src/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

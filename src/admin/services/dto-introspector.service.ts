@@ -1,0 +1,113 @@
+import 'reflect-metadata';
+import { Injectable } from '@nestjs/common';
+import { getMetadataStorage } from 'class-validator';
+import { ADMIN_DTO_FIELD_METADATA } from '../decorators/admin-field.decorator.js';
+import type { AdminFieldSchema } from '../types/admin.types.js';
+
+type ValidationMetadata = {
+  propertyName: string;
+  type: string;
+  constraints?: unknown[];
+};
+
+@Injectable()
+export class DtoIntrospectorService {
+  buildFields(
+    dtoClass: Function | undefined,
+    readonlyFields: string[],
+  ): AdminFieldSchema[] {
+    if (!dtoClass) {
+      return [];
+    }
+
+    const storage = getMetadataStorage() as {
+      getTargetValidationMetadatas: (
+        target: Function,
+        targetSchema: string,
+        always: boolean,
+        strictGroups: boolean,
+      ) => ValidationMetadata[];
+    };
+
+    const metadata = storage.getTargetValidationMetadatas(dtoClass, '', false, false);
+    const byProperty = new Map<string, ValidationMetadata[]>();
+
+    for (const item of metadata) {
+      const group = byProperty.get(item.propertyName) ?? [];
+      group.push(item);
+      byProperty.set(item.propertyName, group);
+    }
+
+    return [...byProperty.entries()].map(([propertyName, validators]) => {
+      const type = Reflect.getMetadata('design:type', dtoClass.prototype, propertyName) as
+        | Function
+        | undefined;
+      const extra =
+        Reflect.getMetadata(ADMIN_DTO_FIELD_METADATA, dtoClass.prototype, propertyName) ?? {};
+
+      return {
+        name: propertyName,
+        label: extra.label ?? startCase(propertyName),
+        input: this.resolveInput(validators, type, extra.relation?.kind),
+        required: !validators.some((validator) => validator.type === 'conditionalValidation'),
+        readOnly: readonlyFields.includes(propertyName),
+        enumValues: this.resolveEnumValues(validators),
+        relation: extra.relation,
+      };
+    });
+  }
+
+  private resolveInput(
+    validators: ValidationMetadata[],
+    runtimeType: Function | undefined,
+    relationKind?: 'many-to-one' | 'many-to-many',
+  ): AdminFieldSchema['input'] {
+    if (relationKind === 'many-to-many') {
+      return 'multiselect';
+    }
+
+    if (relationKind === 'many-to-one') {
+      return 'select';
+    }
+
+    if (validators.some((validator) => validator.type === 'isEmail')) {
+      return 'email';
+    }
+
+    if (validators.some((validator) => validator.type === 'isBoolean')) {
+      return 'checkbox';
+    }
+
+    if (validators.some((validator) => validator.type === 'isDate')) {
+      return 'date';
+    }
+
+    if (validators.some((validator) => validator.type === 'isEnum')) {
+      return 'select';
+    }
+
+    if (runtimeType === Number) {
+      return 'number';
+    }
+
+    return 'text';
+  }
+
+  private resolveEnumValues(validators: ValidationMetadata[]): string[] | undefined {
+    const enumValidator = validators.find((validator) => validator.type === 'isEnum');
+    const candidate = enumValidator?.constraints?.[0];
+
+    if (!candidate || typeof candidate !== 'object') {
+      return undefined;
+    }
+
+    return Object.values(candidate as Record<string, string>).filter(
+      (value) => typeof value === 'string',
+    );
+  }
+}
+
+function startCase(value: string): string {
+  const spaced = value.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  return `${spaced.charAt(0).toUpperCase()}${spaced.slice(1)}`;
+}
