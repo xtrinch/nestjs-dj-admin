@@ -38,11 +38,20 @@ export class AdminRegistry {
       }
 
       const resourceName = options.resourceName ?? buildResourceName(options.model.name);
+      const listDisplayLinks =
+        options.listDisplayLinks === null
+          ? []
+          : options.listDisplayLinks && options.listDisplayLinks.length > 0
+            ? options.listDisplayLinks
+            : options.list.length > 0
+              ? [options.list[0]]
+              : [];
       const schema: AdminResourceSchema = {
         resourceName,
         label: options.model.name,
         category: options.category ?? 'General',
         list: options.list,
+        listDisplayLinks,
         search: options.search ?? [],
         filters: options.filters ?? [],
         readonly: options.readonly ?? [],

@@ -13,15 +13,20 @@ import {
 import type { Request, Response } from 'express';
 import { AdminAuthService } from '../services/admin-auth.service.js';
 import { AdminService } from '../services/admin.service.js';
+import { ADMIN_OPTIONS } from '../admin.constants.js';
 import type {
   AdminAuthCredentials,
+  AdminDisplaySchema,
   AdminListQuery,
+  AdminModuleOptions,
   AdminRequestUser,
 } from '../types/admin.types.js';
+import { Inject } from '@nestjs/common';
 
 @Controller('admin')
 export class AdminController {
   constructor(
+    @Inject(ADMIN_OPTIONS) private readonly adminOptions: AdminModuleOptions,
     private readonly adminService: AdminService,
     private readonly adminAuthService: AdminAuthService,
   ) {}
@@ -57,6 +62,7 @@ export class AdminController {
       resources: this.adminService
         .getResources()
         .filter((resource) => canReadResource(resource, user)),
+      display: resolveDisplay(this.adminOptions),
     };
   }
 
@@ -153,4 +159,22 @@ function asString(value: string | string[] | undefined): string | undefined {
 function canReadResource(resource: { permissions?: { read?: string[] } }, user: AdminRequestUser) {
   const allowed = resource.permissions?.read;
   return !allowed || allowed.length === 0 || allowed.includes(user.role);
+}
+
+function resolveDisplay(options: AdminModuleOptions): AdminDisplaySchema {
+  return {
+    locale: options.display?.locale ?? 'en-US',
+    dateFormat: options.display?.dateFormat ?? {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    },
+    dateTimeFormat: options.display?.dateTimeFormat ?? {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    },
+  };
 }

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { adminFetch, adminUrl, readJson } from '../api.js';
-import type { ResourceSchema } from '../types.js';
+import { BooleanIcon } from '../components/BooleanIcon.js';
+import { formatAdminValue } from '../formatters.js';
+import {
+  getResourceMeta,
+  listResource,
+  runResourceAction,
+} from '../services/resources.service.js';
+import type { ResourceMetaResponse } from '../types.js';
 
-type MetaResponse = {
-  resource: ResourceSchema;
-  filterOptions: Array<{ field: string; values: Array<string | number> }>;
-};
+const PAGE_SIZE = 20;
 
 export function ListPage({
   resourceName,
@@ -14,37 +17,40 @@ export function ListPage({
   resourceName: string;
   onTitleChange?: (label: string | null) => void;
 }) {
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
+  const [meta, setMeta] = useState<ResourceMetaResponse | null>(null);
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedAction, setSelectedAction] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
+  }, [resourceName, search, filter, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [resourceName, search, filter]);
 
   async function load() {
     try {
-      const metaResponse = await adminFetch(`/_meta/${resourceName}`);
-      const metaJson = await readJson<MetaResponse>(metaResponse);
+      const metaJson = await getResourceMeta(resourceName);
       setMeta(metaJson);
       onTitleChange?.(null);
-
-      const params = new URLSearchParams({
-        page: '1',
-        pageSize: '20',
+      const listJson = await listResource(resourceName, {
+        page,
+        pageSize: PAGE_SIZE,
+        search,
+        filterField: metaJson.resource.filters[0],
+        filterValue: filter,
       });
-      if (search) {
-        params.set('search', search);
-      }
-      if (filter) {
-        params.set(`filter.${metaJson.resource.filters[0]}`, filter);
-      }
-
-      const listResponse = await adminFetch(`/${resourceName}?${params.toString()}`);
-      const listJson = await readJson<{ items: Array<Record<string, unknown>> }>(listResponse);
       setItems(listJson.items);
+      setSelectedIds([]);
+      setSelectedAction('');
+      setTotal(listJson.total);
       setError(null);
     } catch (reason) {
       setError((reason as Error).message);
@@ -52,17 +58,16 @@ export function ListPage({
   }
 
   async function runAction(id: string, actionSlug: string) {
-    await adminFetch(`/${resourceName}/${id}/actions/${actionSlug}`, {
-      method: 'POST',
-    });
+    await runResourceAction(resourceName, id, actionSlug);
     await load();
   }
 
-  async function remove(id: string) {
-    await adminFetch(`/${resourceName}/${id}`, {
-      method: 'DELETE',
-    });
-    await load();
+  function runBulkAction() {
+    if (selectedAction !== 'delete_selected' || selectedIds.length === 0) {
+      return;
+    }
+
+    window.location.hash = `#/${resourceName}/delete/${selectedIds.join(',')}`;
   }
 
   if (error) {
@@ -72,6 +77,10 @@ export function ListPage({
   if (!meta) {
     return <section>Loading {resourceName}…</section>;
   }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const allVisibleSelected =
+    items.length > 0 && items.every((item) => selectedIds.includes(String(item.id)));
 
   return (
     <section className="panel">
@@ -86,6 +95,22 @@ export function ListPage({
       </header>
 
       <div className="toolbar">
+        <select
+          className="input toolbar__action-select"
+          value={selectedAction}
+          onChange={(event) => setSelectedAction(event.target.value)}
+        >
+          <option value="">Select action</option>
+          <option value="delete_selected">Delete selected</option>
+        </select>
+        <button
+          className="button"
+          disabled={!selectedAction || selectedIds.length === 0}
+          type="button"
+          onClick={runBulkAction}
+        >
+          Go
+        </button>
         <input
           className="input"
           placeholder={`Search ${meta.resource.search.join(', ') || meta.resource.label}`}
@@ -107,6 +132,21 @@ export function ListPage({
       <table className="table">
         <thead>
           <tr>
+            <th>
+              <input
+                checked={allVisibleSelected}
+                className="checkbox"
+                type="checkbox"
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    setSelectedIds(items.map((item) => String(item.id)));
+                    return;
+                  }
+
+                  setSelectedIds([]);
+                }}
+              />
+            </th>
             {meta.resource.list.map((field) => (
               <th key={field}>{field}</th>
             ))}
@@ -116,13 +156,42 @@ export function ListPage({
         <tbody>
           {items.map((item) => (
             <tr key={String(item.id)}>
-              {meta.resource.list.map((field) => (
-                <td key={field}>{String(item[field] ?? '')}</td>
-              ))}
+              <td>
+                <input
+                  checked={selectedIds.includes(String(item.id))}
+                  className="checkbox"
+                  type="checkbox"
+                  onChange={(event) => {
+                    const itemId = String(item.id);
+                    setSelectedIds((current) =>
+                      event.target.checked
+                        ? [...current, itemId]
+                        : current.filter((candidate) => candidate !== itemId),
+                    );
+                  }}
+                />
+              </td>
+              {meta.resource.list.map((field) => {
+                const value =
+                  typeof item[field] === 'boolean' ? (
+                    <BooleanIcon value={item[field] as boolean} />
+                  ) : (
+                    formatAdminValue(item[field], field, meta.display)
+                  );
+
+                return (
+                  <td key={field}>
+                    {meta.resource.listDisplayLinks.includes(field) ? (
+                      <a className="table__link" href={`#/${resourceName}/edit/${String(item.id)}`}>
+                        {value}
+                      </a>
+                    ) : (
+                      value
+                    )}
+                  </td>
+                );
+              })}
               <td className="table__actions">
-                <a className="button" href={`#/${resourceName}/edit/${String(item.id)}`}>
-                  Edit
-                </a>
                 {meta.resource.actions.map((action) => (
                   <button
                     key={action.slug}
@@ -133,14 +202,35 @@ export function ListPage({
                     {action.name}
                   </button>
                 ))}
-                <button className="button button--danger" type="button" onClick={() => void remove(String(item.id))}>
-                  Delete
-                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      <footer className="pagination">
+        <span className="pagination__summary">
+          Page {page} of {totalPages} • {total} items
+        </span>
+        <div className="pagination__controls">
+          <button
+            className="button"
+            disabled={page <= 1}
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </button>
+          <button
+            className="button"
+            disabled={page >= totalPages}
+            type="button"
+            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </footer>
     </section>
   );
 }

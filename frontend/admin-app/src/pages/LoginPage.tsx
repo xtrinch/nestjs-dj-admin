@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { adminFetch } from '../api.js';
+import { loginAdmin } from '../services/auth.service.js';
 
 export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<void> }) {
   const [email, setEmail] = useState('');
@@ -13,18 +13,7 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
     setError(null);
 
     try {
-      const response = await adminFetch('/_auth/login', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Invalid admin credentials');
-      }
-
+      await loginAdmin(email, password);
       await onAuthenticated();
     } catch (reason) {
       setError((reason as Error).message);

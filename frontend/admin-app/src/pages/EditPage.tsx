@@ -1,10 +1,13 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useState } from 'react';
-import { adminFetch, readJson } from '../api.js';
-import type { ResourceField, ResourceSchema } from '../types.js';
-
-type MetaResponse = {
-  resource: ResourceSchema;
-};
+import { AdminApiError } from '../api.js';
+import { formatAdminValue } from '../formatters.js';
+import {
+  createResourceEntity,
+  getResourceEntity,
+  getResourceMeta,
+  updateResourceEntity,
+} from '../services/resources.service.js';
+import type { AdminDisplayConfig, ResourceField, ResourceSchema } from '../types.js';
 
 export function EditPage({
   resource,
@@ -16,6 +19,7 @@ export function EditPage({
   onTitleChange?: (label: string) => void;
 }) {
   const [fields, setFields] = useState<ResourceField[]>(resource.fields);
+  const [display, setDisplay] = useState<AdminDisplayConfig | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -24,13 +28,12 @@ export function EditPage({
   }, [resource.resourceName, id]);
 
   async function load() {
-    const metaResponse = await adminFetch(`/_meta/${resource.resourceName}`);
-    const metaJson = await readJson<MetaResponse>(metaResponse);
+    const metaJson = await getResourceMeta(resource.resourceName);
     setFields(metaJson.resource.fields);
+    setDisplay(metaJson.display ?? null);
 
     if (id) {
-      const entityResponse = await adminFetch(`/${resource.resourceName}/${id}`);
-      const entityJson = await readJson<Record<string, unknown>>(entityResponse);
+      const entityJson = await getResourceEntity(resource.resourceName, id);
       setValues(entityJson);
       onTitleChange?.(resolveEntityLabel(entityJson, id));
     } else {
@@ -42,30 +45,21 @@ export function EditPage({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const payload = normalizeValues(fields, values);
-    const response = await adminFetch(
-      id ? `/${resource.resourceName}/${id}` : `/${resource.resourceName}`,
-      {
-        method: id ? 'PATCH' : 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      },
-    );
+    try {
+      if (id) {
+        await updateResourceEntity(resource.resourceName, id, payload);
+      } else {
+        await createResourceEntity(resource.resourceName, payload);
+      }
 
-    if (!response.ok) {
-      const json = (await response.json()) as {
-        message?: string;
-        errors?: Array<{ field: string; constraints?: Record<string, string> }>;
-      };
+      window.location.hash = `#/${resource.resourceName}`;
+    } catch (reason) {
+      const json = reason instanceof AdminApiError ? reason : new AdminApiError('Invalid value', 400);
       const nextErrors = Object.fromEntries(
         (json.errors ?? []).map((error) => [error.field, Object.values(error.constraints ?? {})[0] ?? 'Invalid value']),
       );
       setErrors(nextErrors);
-      return;
     }
-
-    window.location.hash = `#/${resource.resourceName}`;
   }
 
   return (
@@ -84,7 +78,7 @@ export function EditPage({
         {fields.map((field) => (
           <label className="field" key={field.name}>
             <span>{field.label}</span>
-            <FieldInput field={field} values={values} setValues={setValues} />
+            <FieldInput field={field} values={values} setValues={setValues} display={display} />
             {errors[field.name] ? <small className="field__error">{errors[field.name]}</small> : null}
           </label>
         ))}
@@ -142,10 +136,12 @@ function FieldInput({
   field,
   values,
   setValues,
+  display,
 }: {
   field: ResourceField;
   values: Record<string, unknown>;
   setValues: Dispatch<SetStateAction<Record<string, unknown>>>;
+  display: AdminDisplayConfig | null;
 }) {
   if (field.input === 'select') {
     return (
@@ -192,7 +188,11 @@ function FieldInput({
       className="input"
       disabled={field.readOnly}
       type={field.input}
-      value={String(values[field.name] ?? '')}
+      value={
+        field.readOnly && display
+          ? formatAdminValue(values[field.name], field.name, display)
+          : String(values[field.name] ?? '')
+      }
       onChange={(event) =>
         setValues((current) => ({
           ...current,

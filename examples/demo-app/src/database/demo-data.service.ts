@@ -48,27 +48,29 @@ export class DemoDataService implements OnApplicationBootstrap {
     }
 
     const orderRepository = this.dataSource.getRepository(Order);
-    if ((await orderRepository.count()) === 0) {
-      await orderRepository.save([
-        orderRepository.create({
-          number: 'ORD-1001',
-          userEmail: 'ada@example.com',
-          status: OrderStatus.PENDING,
-          total: 129.99,
-        }),
-        orderRepository.create({
-          number: 'ORD-1002',
-          userEmail: 'grace@example.com',
-          status: OrderStatus.PAID,
-          total: 349.5,
-        }),
-        orderRepository.create({
-          number: 'ORD-1003',
-          userEmail: 'linus@example.com',
-          status: OrderStatus.CANCELLED,
-          total: 79,
-        }),
-      ]);
+    const minimumOrders = 22;
+    const existingOrders = await orderRepository.count();
+
+    if (existingOrders < minimumOrders) {
+      const ordersToSeed = buildDemoOrders().slice(existingOrders, minimumOrders);
+      await orderRepository.save(ordersToSeed.map((order) => orderRepository.create(order)));
     }
   }
+}
+
+function buildDemoOrders(): Array<{
+  number: string;
+  userEmail: string;
+  status: OrderStatus;
+  total: number;
+}> {
+  const users = ['ada@example.com', 'grace@example.com', 'linus@example.com'];
+  const statuses = [OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.CANCELLED];
+
+  return Array.from({ length: 24 }, (_, index) => ({
+    number: `ORD-${String(1001 + index)}`,
+    userEmail: users[index % users.length],
+    status: statuses[index % statuses.length],
+    total: Number((79 + index * 17.35).toFixed(2)),
+  }));
 }

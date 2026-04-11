@@ -101,6 +101,7 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   resourceName?: string;
   category?: string;
   list: string[];
+  listDisplayLinks?: string[] | null;
   search?: string[];
   filters?: string[];
   readonly?: string[];
@@ -114,6 +115,7 @@ export interface AdminModuleOptions {
   path: string;
   adapter?: Type<AdminAdapter> | Provider<AdminAdapter>;
   auth?: AdminAuthOptions;
+  display?: AdminDisplayOptions;
 }
 
 export interface AdminAuthCredentials {
@@ -144,10 +146,23 @@ export interface AdminResourceSchema {
   label: string;
   category: string;
   list: string[];
+  listDisplayLinks: string[];
   search: string[];
   filters: string[];
   readonly: string[];
   actions: Array<{ name: string; slug: string }>;
   permissions?: AdminPermissions;
   fields: AdminFieldSchema[];
+}
+
+export interface AdminDisplayOptions {
+  locale?: string;
+  dateFormat?: Intl.DateTimeFormatOptions;
+  dateTimeFormat?: Intl.DateTimeFormatOptions;
+}
+
+export interface AdminDisplaySchema {
+  locale: string;
+  dateFormat: Intl.DateTimeFormatOptions;
+  dateTimeFormat: Intl.DateTimeFormatOptions;
 }

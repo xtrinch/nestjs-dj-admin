@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { adminFetch, readJson } from './api.js';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { ListPage } from './pages/ListPage.js';
 import { EditPage } from './pages/EditPage.js';
+import { DeleteConfirmPage } from './pages/DeleteConfirmPage.js';
 import { LoginPage } from './pages/LoginPage.js';
+import { getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
+import { getAdminMeta } from './services/resources.service.js';
 import type { AdminMetaResponse, AdminUser, ResourceSchema } from './types.js';
 
 export function App() {
@@ -40,13 +42,19 @@ export function App() {
       return;
     }
 
-    setPageLabel(route.mode === 'edit' ? (route.id ? route.id : 'New') : null);
+    if (route.mode === 'edit') {
+      setPageLabel(route.id ? route.id : 'New');
+    } else if (route.mode === 'delete') {
+      setPageLabel('Delete');
+    } else {
+      setPageLabel(null);
+    }
   }, [route]);
 
   async function loadAdmin() {
     try {
-      const meResponse = await adminFetch('/_auth/me');
-      if (meResponse.status === 401) {
+      const currentUser = await getCurrentAdminUser();
+      if (!currentUser) {
         setAuthState('unauthenticated');
         setMeta(null);
         setUser(null);
@@ -54,12 +62,8 @@ export function App() {
         return;
       }
 
-      const meJson = await readJson<{ user: AdminUser }>(meResponse);
-      const metaResponse = await adminFetch('/_meta');
-      const metaJson = await readJson<AdminMetaResponse>(metaResponse);
-
-      setUser(meJson.user);
-      setMeta(metaJson);
+      setUser(currentUser);
+      setMeta(await getAdminMeta());
       setAuthState('authenticated');
       setError(null);
     } catch (reason) {
@@ -68,7 +72,7 @@ export function App() {
   }
 
   async function logout() {
-    await adminFetch('/_auth/logout', { method: 'POST' });
+    await logoutAdmin();
     setUser(null);
     setMeta(null);
     setAuthState('unauthenticated');
@@ -145,6 +149,13 @@ export function App() {
               resourceName={activeRoute.resourceName}
               onTitleChange={setPageLabel}
             />
+          ) : activeRoute.mode === 'delete' ? (
+            <DeleteConfirmPage
+              key={`delete:${activeRoute.resourceName}:${activeRoute.deleteIds.join(',')}`}
+              resourceName={activeRoute.resourceName}
+              ids={activeRoute.deleteIds}
+              onTitleChange={setPageLabel}
+            />
           ) : (
             <EditPage
               key={`edit:${activeRoute.resourceName}:${activeRoute.id ?? 'new'}`}
@@ -177,10 +188,21 @@ function parseRoute(hash: string, resources: ResourceSchema[]) {
   const fallback = resources[0];
   const resource = resources.find((item) => item.resourceName === resourceName) ?? fallback;
 
+  if (mode === 'delete' && id) {
+    return {
+      resource,
+      resourceName: resource.resourceName,
+      mode: 'delete' as const,
+      id: undefined,
+      deleteIds: id.split(','),
+    };
+  }
+
   return {
     resource,
     resourceName: resource.resourceName,
-    mode: mode === 'new' || mode === 'edit' ? 'edit' : 'list',
+    mode: mode === 'new' || mode === 'edit' ? ('edit' as const) : ('list' as const),
     id: mode === 'edit' ? id : undefined,
+    deleteIds: [] as string[],
   };
 }

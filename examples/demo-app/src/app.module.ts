@@ -16,6 +16,21 @@ import { UserModule } from './modules/user/user.module.js';
     UserModule,
     AdminModule.forRoot({
       path: '/admin',
+      display: {
+        locale: 'en-US',
+        dateFormat: {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        },
+        dateTimeFormat: {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        },
+      },
       auth: {
         authenticate: async ({ email, password }) => {
           if (!demoDataSource.isInitialized) {

@@ -13,11 +13,18 @@ export interface AdminUser {
   email?: string;
 }
 
+export interface AdminDisplayConfig {
+  locale: string;
+  dateFormat: Intl.DateTimeFormatOptions;
+  dateTimeFormat: Intl.DateTimeFormatOptions;
+}
+
 export interface ResourceSchema {
   resourceName: string;
   label: string;
   category: string;
   list: string[];
+  listDisplayLinks: string[];
   search: string[];
   filters: string[];
   readonly: string[];
@@ -27,4 +34,11 @@ export interface ResourceSchema {
 
 export interface AdminMetaResponse {
   resources: ResourceSchema[];
+  display: AdminDisplayConfig;
+}
+
+export interface ResourceMetaResponse {
+  resource: ResourceSchema;
+  filterOptions: Array<{ field: string; values: Array<string | number> }>;
+  display?: AdminDisplayConfig;
 }

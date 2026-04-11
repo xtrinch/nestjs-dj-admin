@@ -90,6 +90,11 @@ DB_PASSWORD=postgres
 DB_NAME=nestjs_dj_admin_demo
 ```
 
+Destroy the postgres container:
+```bash
+docker compose down -v
+```
+
 Build and run the demo app explicitly:
 
 ```bash
