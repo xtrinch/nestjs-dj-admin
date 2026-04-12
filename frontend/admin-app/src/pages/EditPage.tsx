@@ -89,9 +89,16 @@ export function EditPage({
           <span className="panel__eyebrow">{id ? 'Edit' : 'Create'}</span>
           <h2>{resource.label}</h2>
         </div>
-        <a className="button" href={`#/${resource.resourceName}`}>
-          Back to list
-        </a>
+        <div className="panel__actions">
+          {id ? (
+            <a className="button button--danger" href={`#/${resource.resourceName}/delete/${id}`}>
+              Delete
+            </a>
+          ) : null}
+          <a className="button" href={`#/${resource.resourceName}`}>
+            Back to list
+          </a>
+        </div>
       </header>
 
       <form className="form" onSubmit={submit}>

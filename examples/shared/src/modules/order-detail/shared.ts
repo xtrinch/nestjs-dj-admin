@@ -79,6 +79,7 @@ export class UpdateOrderDetailDto {
 
 export const orderDetailAdminOptions = {
   category: 'Sales',
+  objectLabel: 'id',
   list: ['id', 'orderId', 'productId', 'unitPrice', 'quantity', 'discount', 'createdAt', 'updatedAt'],
   defaultSort: {
     field: 'updatedAt',

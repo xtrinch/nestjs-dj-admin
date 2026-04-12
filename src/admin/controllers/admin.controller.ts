@@ -91,6 +91,32 @@ export class AdminController {
     );
   }
 
+  @Get(':resource/_delete-summary')
+  getDeleteSummary(
+    @Param('resource') resource: string,
+    @Query('ids') idsParam: string,
+    @Req() request: Request,
+  ) {
+    return this.adminService.getDeleteSummary(
+      resource,
+      parseIds(idsParam),
+      this.adminAuthService.requireUser(request),
+    );
+  }
+
+  @Post(':resource/_bulk-delete')
+  bulkRemove(
+    @Param('resource') resource: string,
+    @Body('ids') ids: string[],
+    @Req() request: Request,
+  ) {
+    return this.adminService.bulkRemove(
+      resource,
+      parseIds(ids),
+      this.adminAuthService.requireUser(request),
+    );
+  }
+
   @Get(':resource/:id')
   detail(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
     return this.adminService.detail(resource, id, this.adminAuthService.requireUser(request));
@@ -154,6 +180,15 @@ function asString(value: string | string[] | undefined): string | undefined {
   }
 
   return Array.isArray(value) ? value[0] : value;
+}
+
+function parseIds(value: string | string[] | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  const ids = Array.isArray(value) ? value : value.split(',');
+  return ids.map((item) => String(item).trim()).filter(Boolean);
 }
 
 function canReadResource(resource: { permissions?: { read?: string[] } }, user: AdminRequestUser) {

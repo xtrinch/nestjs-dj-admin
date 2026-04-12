@@ -1,5 +1,6 @@
 import { adminFetch, readJson } from '../api.js';
 import type {
+  AdminDeleteSummary,
   AdminDisplayConfig,
   AdminMetaResponse,
   ResourceMetaResponse,
@@ -97,6 +98,29 @@ export async function deleteResourceEntity(resourceName: string, id: string): Pr
   });
 
   await readJson<{ success: boolean }>(response);
+}
+
+export async function getDeleteSummary(
+  resourceName: string,
+  ids: string[],
+): Promise<AdminDeleteSummary> {
+  const params = new URLSearchParams({
+    ids: ids.join(','),
+  });
+  const response = await adminFetch(`/${resourceName}/_delete-summary?${params.toString()}`);
+  return readJson<AdminDeleteSummary>(response);
+}
+
+export async function bulkDeleteResourceEntities(resourceName: string, ids: string[]): Promise<void> {
+  const response = await adminFetch(`/${resourceName}/_bulk-delete`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ ids }),
+  });
+
+  await readJson<{ success: boolean; count: number }>(response);
 }
 
 export async function runResourceAction(

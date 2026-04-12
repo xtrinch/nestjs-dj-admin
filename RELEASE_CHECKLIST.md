@@ -59,8 +59,6 @@ Must-have areas:
 
 - relation selector UX
 - relation labels in changelist and edit flows
-- proper bulk delete backend path
-- consistent delete confirmation UX
 - stable field labels and readonly handling
 
 ### 4. Example apps must be reproducible from a clean setup
@@ -132,9 +130,7 @@ What is still missing:
 
 The UX should align more closely with admin expectations:
 
-- backend-backed bulk delete
-- clearer confirmation surfaces
-- better summary of what is being deleted
+- better handling of related-object deletion summaries
 
 ## Safe to defer to `0.2.x`
 
@@ -163,7 +159,6 @@ It is not yet a defended `0.1.0` stable release.
 
 1. Adapter contract tests
 2. Core Nest integration tests
-3. Finish bulk delete / destructive flow quality
-4. Tighten relation handling and labels
-5. Expand docs into release-quality guidance
-6. Final release metadata and changelog
+3. Tighten relation handling and labels
+4. Expand docs into release-quality guidance
+5. Final release metadata and changelog

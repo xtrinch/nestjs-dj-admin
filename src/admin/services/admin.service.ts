@@ -12,6 +12,7 @@ import { AdminRegistry } from '../admin.registry.js';
 import type {
   AdminAdapter,
   AdminAdapterResource,
+  AdminDeleteSummary,
   AdminListQuery,
   AdminRequestUser,
   AdminResourceSchema,
@@ -106,6 +107,47 @@ export class AdminService implements OnModuleInit {
     return { success: true };
   }
 
+  async getDeleteSummary(resourceName: string, ids: string[], user: AdminRequestUser): Promise<AdminDeleteSummary> {
+    const resource = this.registry.get(resourceName);
+    this.permissionService.assertCanWrite(user, resource.schema);
+
+    const items = await Promise.all(
+      ids.map(async (id) => {
+        const entity = await this.adapter.findOne(this.toAdapterResource(resource), id);
+
+        if (!entity) {
+          throw new NotFoundException(`${resource.schema.label} "${id}" not found`);
+        }
+
+        return {
+          id: String((entity as Record<string, unknown>).id ?? id),
+          label: this.resolveEntityLabel(resource.schema, entity as Record<string, unknown>, id),
+        };
+      }),
+    );
+
+    return {
+      resourceName,
+      label: resource.schema.label,
+      count: items.length,
+      items,
+    };
+  }
+
+  async bulkRemove(resourceName: string, ids: string[], user: AdminRequestUser) {
+    const resource = this.registry.get(resourceName);
+    this.permissionService.assertCanWrite(user, resource.schema);
+
+    await Promise.all(
+      ids.map((id) => this.adapter.delete(this.toAdapterResource(resource), id)),
+    );
+
+    return {
+      success: true,
+      count: ids.length,
+    };
+  }
+
   async runAction(resourceName: string, id: string, actionSlug: string, user: AdminRequestUser) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
@@ -185,5 +227,38 @@ export class AdminService implements OnModuleInit {
       filters: resource.schema.filters,
       fields: resource.schema.fields,
     };
+  }
+
+  private resolveEntityLabel(
+    schema: AdminResourceSchema,
+    entity: Record<string, unknown>,
+    fallback: string,
+  ): string {
+    const candidates = [
+      ...(schema.objectLabel ? [schema.objectLabel] : []),
+      'email',
+      'name',
+      'title',
+      'number',
+      'sku',
+      'slug',
+      ...schema.listDisplayLinks.filter((field) => field !== 'id'),
+      ...schema.list.filter((field) => field !== 'id'),
+      'id',
+    ];
+
+    for (const field of candidates) {
+      const value = entity[field];
+
+      if (typeof value === 'string' && value.trim()) {
+        return value;
+      }
+
+      if (typeof value === 'number') {
+        return String(value);
+      }
+    }
+
+    return fallback;
   }
 }

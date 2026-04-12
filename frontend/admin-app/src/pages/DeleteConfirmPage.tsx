@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  deleteResourceEntity,
-  getResourceEntity,
-  getResourceMeta,
+  bulkDeleteResourceEntities,
+  getDeleteSummary,
 } from '../services/resources.service.js';
-import type { ResourceMetaResponse } from '../types.js';
+import type { AdminDeleteSummary } from '../types.js';
 
 export function DeleteConfirmPage({
   resourceName,
@@ -15,8 +14,7 @@ export function DeleteConfirmPage({
   ids: string[];
   onTitleChange?: (label: string | null) => void;
 }) {
-  const [meta, setMeta] = useState<ResourceMetaResponse | null>(null);
-  const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
+  const [summary, setSummary] = useState<AdminDeleteSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,10 +28,7 @@ export function DeleteConfirmPage({
 
   async function load() {
     try {
-      const metaJson = await getResourceMeta(resourceName);
-      setMeta(metaJson);
-      const fetched = await Promise.all(ids.map((id) => getResourceEntity(resourceName, id)));
-      setItems(fetched);
+      setSummary(await getDeleteSummary(resourceName, ids));
       setLoading(false);
     } catch (reason) {
       setError((reason as Error).message);
@@ -43,9 +38,7 @@ export function DeleteConfirmPage({
   async function confirmDelete() {
     setDeleting(true);
     try {
-      for (const id of ids) {
-        await deleteResourceEntity(resourceName, id);
-      }
+      await bulkDeleteResourceEntities(resourceName, ids);
       window.location.hash = `#/${resourceName}`;
     } catch (reason) {
       setError((reason as Error).message);
@@ -57,36 +50,33 @@ export function DeleteConfirmPage({
     return <section className="panel">Error: {error}</section>;
   }
 
-  if (loading || !meta) {
+  if (loading || !summary) {
     return <section className="panel">Loading…</section>;
   }
 
-  const { label, list: listFields } = meta.resource;
-  const count = ids.length;
-
-  function getItemLabel(item: Record<string, unknown>): string {
-    const primary = listFields[0];
-    return primary ? String(item[primary] ?? item.id) : String(item.id);
-  }
+  const { label, count, items } = summary;
+  const pluralLabel = pluralizeLabel(label);
+  const title = count === 1 ? `Delete ${label}` : `Delete multiple ${pluralLabel}`;
+  const question =
+    count === 1
+      ? `Are you sure you want to delete the selected ${label}? All of the following objects and their related items will be deleted:`
+      : `Are you sure you want to delete the selected ${pluralLabel}? All of the following objects and their related items will be deleted:`;
 
   return (
     <section className="panel">
       <header className="panel__header">
         <div>
           <span className="panel__eyebrow">Confirm deletion</span>
-          <h2>Delete {count === 1 ? label : `${count} ${label}s`}</h2>
+          <h2>{title}</h2>
         </div>
       </header>
 
-      <p className="delete-confirm__question">
-        Are you sure you want to delete the selected {count === 1 ? label : `${count} ${label}s`}?
-        All of the following objects and their related items will be deleted:
-      </p>
+      <p className="delete-confirm__question">{question}</p>
 
       <div className="delete-confirm__block">
         <h3 className="delete-confirm__block-title">Summary</h3>
         <ul className="delete-confirm__list">
-          <li>{label}: {count}</li>
+          <li>{count === 1 ? label : pluralLabel}: {count}</li>
         </ul>
       </div>
 
@@ -94,8 +84,8 @@ export function DeleteConfirmPage({
         <h3 className="delete-confirm__block-title">Objects</h3>
         <ul className="delete-confirm__list">
           {items.map((item) => (
-            <li key={String(item.id)}>
-              {label}: {getItemLabel(item)}
+            <li key={item.id}>
+              {label}: {item.label}
             </li>
           ))}
         </ul>
@@ -116,4 +106,16 @@ export function DeleteConfirmPage({
       </div>
     </section>
   );
+}
+
+function pluralizeLabel(label: string): string {
+  if (label.endsWith('y') && !/[aeiou]y$/i.test(label)) {
+    return `${label.slice(0, -1)}ies`;
+  }
+
+  if (label.endsWith('s')) {
+    return label;
+  }
+
+  return `${label}s`;
 }

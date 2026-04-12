@@ -22,6 +22,7 @@ export class UpdateCategoryDto {
 
 export const categoryAdminOptions = {
   category: 'Catalog',
+  objectLabel: 'name',
   list: ['id', 'name', 'description', 'createdAt', 'updatedAt'],
   defaultSort: {
     field: 'updatedAt',

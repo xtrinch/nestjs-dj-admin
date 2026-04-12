@@ -35,6 +35,7 @@ export class UpdateUserDto {
 
 export const userAdminOptions = {
   category: 'Accounts',
+  objectLabel: 'email',
   list: ['id', 'email', 'role', 'active', 'createdAt', 'updatedAt'],
   defaultSort: {
     field: 'updatedAt',

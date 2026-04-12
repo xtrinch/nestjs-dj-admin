@@ -27,10 +27,23 @@ export interface AdminDisplayConfig {
   dateTimeFormat: Intl.DateTimeFormatOptions;
 }
 
+export interface AdminDeleteSummaryItem {
+  id: string;
+  label: string;
+}
+
+export interface AdminDeleteSummary {
+  resourceName: string;
+  label: string;
+  count: number;
+  items: AdminDeleteSummaryItem[];
+}
+
 export interface ResourceSchema {
   resourceName: string;
   label: string;
   category: string;
+  objectLabel?: string;
   list: string[];
   defaultSort?: {
     field: string;

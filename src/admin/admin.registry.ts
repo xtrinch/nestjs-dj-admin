@@ -50,6 +50,7 @@ export class AdminRegistry {
         resourceName,
         label: options.model.name,
         category: options.category ?? 'General',
+        objectLabel: options.objectLabel,
         list: options.list,
         defaultSort: options.defaultSort,
         sortable: options.sortable ?? (options.defaultSort ? [options.defaultSort.field] : []),

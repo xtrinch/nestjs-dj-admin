@@ -92,7 +92,16 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
 
   async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const repository = this.getRepository(resource);
-    await repository.delete({ id: this.coerceId(repository, id) } as never);
+    const entity = await repository.findOne({
+      relations: this.getDeleteRelationNames(repository),
+      where: { id: this.coerceId(repository, id) } as never,
+    });
+
+    if (!entity) {
+      return;
+    }
+
+    await repository.remove(entity);
   }
 
   async distinct<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, field: string) {
@@ -139,6 +148,12 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     return resource.fields
       .filter((field) => field.relation?.kind === 'many-to-many')
       .map((field) => field.name);
+  }
+
+  private getDeleteRelationNames(repository: Repository<ObjectLiteral>): string[] {
+    return repository.metadata.relations
+      .filter((relation) => relation.isManyToMany)
+      .map((relation) => relation.propertyName);
   }
 
   private normalizeMutationData<TModel extends AdminEntity>(

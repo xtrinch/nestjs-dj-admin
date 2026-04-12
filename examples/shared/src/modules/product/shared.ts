@@ -79,6 +79,7 @@ export class UpdateProductDto {
 
 export const productAdminOptions = {
   category: 'Catalog',
+  objectLabel: 'name',
   list: ['id', 'sku', 'name', 'unitPrice', 'unitsInStock', 'discontinued', 'createdAt', 'updatedAt'],
   defaultSort: {
     field: 'updatedAt',

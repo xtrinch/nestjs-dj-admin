@@ -23,6 +23,18 @@ export interface AdminListResult<T = Record<string, unknown>> {
   total: number;
 }
 
+export interface AdminDeleteSummaryItem {
+  id: string;
+  label: string;
+}
+
+export interface AdminDeleteSummary {
+  resourceName: string;
+  label: string;
+  count: number;
+  items: AdminDeleteSummaryItem[];
+}
+
 export type AdminEntity = object;
 
 export type AdminEntityClass<TModel extends AdminEntity = AdminEntity> = Type<TModel>;
@@ -101,6 +113,7 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   model: AdminEntityClass<TModel>;
   resourceName?: string;
   category?: string;
+  objectLabel?: string;
   list: string[];
   defaultSort?: AdminSortConfig;
   sortable?: string[];
@@ -148,6 +161,7 @@ export interface AdminResourceSchema {
   resourceName: string;
   label: string;
   category: string;
+  objectLabel?: string;
   list: string[];
   defaultSort?: AdminSortConfig;
   sortable: string[];
