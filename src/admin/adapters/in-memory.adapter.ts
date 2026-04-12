@@ -39,7 +39,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
       {
         id: '101',
         number: 'ORD-1001',
-        userEmail: 'ada@example.com',
+        userId: '1',
         status: 'pending',
         total: 129.99,
         createdAt: '2026-04-02T09:20:00.000Z',
@@ -47,7 +47,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
       {
         id: '102',
         number: 'ORD-1002',
-        userEmail: 'grace@example.com',
+        userId: '2',
         status: 'paid',
         total: 349.5,
         createdAt: '2026-04-06T14:45:00.000Z',
@@ -55,10 +55,113 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
       {
         id: '103',
         number: 'ORD-1003',
-        userEmail: 'linus@example.com',
+        userId: '3',
         status: 'cancelled',
         total: 79,
         createdAt: '2026-04-08T11:05:00.000Z',
+      },
+    ],
+    products: [
+      {
+        id: '201',
+        sku: 'NW-001',
+        name: 'Chai',
+        unitPrice: 18,
+        unitsInStock: 39,
+        discontinued: false,
+        categories: ['401'],
+        createdAt: '2026-04-03T08:00:00.000Z',
+      },
+      {
+        id: '202',
+        sku: 'NW-002',
+        name: 'Chang',
+        unitPrice: 19,
+        unitsInStock: 17,
+        discontinued: false,
+        categories: ['401'],
+        createdAt: '2026-04-03T08:10:00.000Z',
+      },
+      {
+        id: '203',
+        sku: 'NW-003',
+        name: 'Aniseed Syrup',
+        unitPrice: 10,
+        unitsInStock: 13,
+        discontinued: false,
+        categories: ['402'],
+        createdAt: '2026-04-03T08:20:00.000Z',
+      },
+      {
+        id: '204',
+        sku: 'NW-010',
+        name: 'Ikura',
+        unitPrice: 31,
+        unitsInStock: 20,
+        discontinued: false,
+        categories: ['405'],
+        createdAt: '2026-04-03T08:30:00.000Z',
+      },
+    ],
+    categories: [
+      {
+        id: '401',
+        name: 'Beverages',
+        description: 'Soft drinks, coffees, teas, beers, and ales.',
+        createdAt: '2026-04-03T07:40:00.000Z',
+      },
+      {
+        id: '402',
+        name: 'Condiments',
+        description: 'Sweet and savory sauces, relishes, spreads, and seasonings.',
+        createdAt: '2026-04-03T07:41:00.000Z',
+      },
+      {
+        id: '403',
+        name: 'Confections',
+        description: 'Desserts, candies, and sweet baked goods.',
+        createdAt: '2026-04-03T07:42:00.000Z',
+      },
+      {
+        id: '404',
+        name: 'Produce',
+        description: 'Dried fruit and bean curd.',
+        createdAt: '2026-04-03T07:43:00.000Z',
+      },
+      {
+        id: '405',
+        name: 'Seafood',
+        description: 'Seaweed and fish products.',
+        createdAt: '2026-04-03T07:44:00.000Z',
+      },
+    ],
+    'order-details': [
+      {
+        id: '301',
+        orderId: '101',
+        productId: '201',
+        unitPrice: 18,
+        quantity: 2,
+        discount: 0,
+        createdAt: '2026-04-04T09:00:00.000Z',
+      },
+      {
+        id: '302',
+        orderId: '102',
+        productId: '202',
+        unitPrice: 19,
+        quantity: 4,
+        discount: 0.05,
+        createdAt: '2026-04-06T15:00:00.000Z',
+      },
+      {
+        id: '303',
+        orderId: '103',
+        productId: '204',
+        unitPrice: 31,
+        quantity: 1,
+        discount: 0.1,
+        createdAt: '2026-04-08T11:20:00.000Z',
       },
     ],
   };
@@ -70,6 +173,18 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
 
     if (!this.store.orders.length) {
       this.store.orders = [];
+    }
+
+    if (!this.store.products.length) {
+      this.store.products = [];
+    }
+
+    if (!this.store.categories.length) {
+      this.store.categories = [];
+    }
+
+    if (!this.store['order-details'].length) {
+      this.store['order-details'] = [];
     }
   }
 

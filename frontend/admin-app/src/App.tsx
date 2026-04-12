@@ -140,6 +140,7 @@ export function App() {
         <div className="content__body">
           <Breadcrumbs
             category={activeRoute.resource.category}
+            resourceName={activeRoute.resourceName}
             resourceLabel={activeRoute.resource.label}
             pageLabel={pageLabel}
           />

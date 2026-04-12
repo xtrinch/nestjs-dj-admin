@@ -4,6 +4,7 @@ import type {
   AdminAdapter,
   AdminAdapterResource,
   AdminEntity,
+  AdminFieldSchema,
   AdminListQuery,
 } from '../types/admin.types.js';
 
@@ -57,6 +58,7 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
   async findOne<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const repository = this.getRepository(resource);
     return (await repository.findOne({
+      relations: this.getRelationNames(resource),
       where: { id: this.coerceId(repository, id) } as never,
     })) as TModel | null;
   }
@@ -66,7 +68,7 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     data: Partial<TModel>,
   ) {
     const repository = this.getRepository(resource);
-    const entity = repository.create(data);
+    const entity = repository.create(this.normalizeMutationData(resource, data, repository) as never);
     return (await repository.save(entity)) as TModel;
   }
 
@@ -77,8 +79,15 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
   ) {
     const repository = this.getRepository(resource);
     const entityId = this.coerceId(repository, id);
-    await repository.update({ id: entityId } as never, data as never);
-    return (await repository.findOneByOrFail({ id: entityId } as never)) as TModel;
+    const existing = await repository.findOneOrFail({
+      relations: this.getRelationNames(resource),
+      where: { id: entityId } as never,
+    });
+    const merged = repository.merge(
+      existing,
+      this.normalizeMutationData(resource, data, repository) as never,
+    );
+    return (await repository.save(merged)) as TModel;
   }
 
   async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
@@ -124,5 +133,44 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     }
 
     return (metadata.target as ObjectLiteral | undefined) ?? metadata.name;
+  }
+
+  private getRelationNames(resource: AdminAdapterResource): string[] {
+    return resource.fields
+      .filter((field) => field.relation?.kind === 'many-to-many')
+      .map((field) => field.name);
+  }
+
+  private normalizeMutationData<TModel extends AdminEntity>(
+    resource: AdminAdapterResource<TModel>,
+    data: Partial<TModel>,
+    repository: Repository<ObjectLiteral>,
+  ): Record<string, unknown> {
+    const next = { ...(data as Record<string, unknown>) };
+
+    for (const field of resource.fields) {
+      if (field.relation?.kind !== 'many-to-many') {
+        continue;
+      }
+
+      const rawValue = next[field.name];
+      if (!Array.isArray(rawValue)) {
+        continue;
+      }
+
+      const relation = repository.metadata.findRelationWithPropertyPath(field.name);
+      const relatedRepository = relation
+        ? this.dataSource.getRepository(relation.inverseEntityMetadata.target as never)
+        : null;
+      const relatedIdColumn = relatedRepository?.metadata.findColumnWithPropertyName('id');
+
+      next[field.name] = rawValue.map((value) => ({
+        id: relatedIdColumn?.type === Number && /^\d+$/.test(String(value))
+          ? Number(value)
+          : value,
+      }));
+    }
+
+    return next;
   }
 }

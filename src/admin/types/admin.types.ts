@@ -33,6 +33,7 @@ export interface AdminAdapterResource<TModel extends AdminEntity = AdminEntity> 
   model?: AdminEntityClass<TModel>;
   search: string[];
   filters: string[];
+  fields: AdminFieldSchema[];
 }
 
 export interface AdminAdapter {

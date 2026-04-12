@@ -160,6 +160,15 @@ a {
   color: #7c6c58;
 }
 
+.breadcrumbs__link {
+  color: #d8c3a5;
+}
+
+.breadcrumbs__link:hover {
+  color: #fbbf24;
+  text-decoration: underline;
+}
+
 .breadcrumbs__current {
   color: #fff7ed;
   font-weight: 700;

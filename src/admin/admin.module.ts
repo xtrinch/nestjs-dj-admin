@@ -7,6 +7,7 @@ import { AdminAuthService } from './services/admin-auth.service.js';
 import { DtoIntrospectorService } from './services/dto-introspector.service.js';
 import { AdminPermissionService } from './services/admin-permission.service.js';
 import { AdminService } from './services/admin.service.js';
+import { AdminUiService } from './services/admin-ui.service.js';
 import type { AdminModuleOptions } from './types/admin.types.js';
 
 @Module({
@@ -19,6 +20,7 @@ import type { AdminModuleOptions } from './types/admin.types.js';
     DtoIntrospectorService,
     AdminPermissionService,
     AdminService,
+    AdminUiService,
   ],
   exports: [AdminRegistry, AdminService, AdminAuthService],
 })

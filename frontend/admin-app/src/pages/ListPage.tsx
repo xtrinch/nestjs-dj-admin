@@ -9,6 +9,7 @@ import {
 import type { ResourceMetaResponse } from '../types.js';
 
 const PAGE_SIZE = 20;
+const RELATION_LOOKUP_PAGE_SIZE = 200;
 
 export function ListPage({
   resourceName,
@@ -26,6 +27,7 @@ export function ListPage({
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [relationLabels, setRelationLabels] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
     void load();
@@ -39,6 +41,7 @@ export function ListPage({
     try {
       const metaJson = await getResourceMeta(resourceName);
       setMeta(metaJson);
+      setRelationLabels(await loadRelationLabels(metaJson));
       onTitleChange?.(null);
       const listJson = await listResource(resourceName, {
         page,
@@ -81,6 +84,7 @@ export function ListPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const allVisibleSelected =
     items.length > 0 && items.every((item) => selectedIds.includes(String(item.id)));
+  const fieldLabels = Object.fromEntries(meta.resource.fields.map((field) => [field.name, field.label]));
 
   return (
     <section className="panel">
@@ -148,7 +152,7 @@ export function ListPage({
               />
             </th>
             {meta.resource.list.map((field) => (
-              <th key={field}>{field}</th>
+              <th key={field}>{fieldLabels[field] ?? field}</th>
             ))}
             <th>Actions</th>
           </tr>
@@ -172,9 +176,12 @@ export function ListPage({
                 />
               </td>
               {meta.resource.list.map((field) => {
+                const relationField = meta.resource.fields.find((candidate) => candidate.name === field);
                 const value =
                   typeof item[field] === 'boolean' ? (
                     <BooleanIcon value={item[field] as boolean} />
+                  ) : relationField?.relation ? (
+                    resolveRelationLabel(relationLabels[field], item[field])
                   ) : (
                     formatAdminValue(item[field], field, meta.display)
                   );
@@ -233,4 +240,44 @@ export function ListPage({
       </footer>
     </section>
   );
+}
+
+async function loadRelationLabels(meta: ResourceMetaResponse): Promise<Record<string, Record<string, string>>> {
+  const relationFields = meta.resource.fields.filter(
+    (field) => field.relation && meta.resource.list.includes(field.name),
+  );
+
+  if (relationFields.length === 0) {
+    return {};
+  }
+
+  const entries = await Promise.all(
+    relationFields.map(async (field) => {
+      const { resource, labelField, valueField = 'id' } = field.relation!.option;
+      const data = await listResource(resource, {
+        page: 1,
+        pageSize: RELATION_LOOKUP_PAGE_SIZE,
+      });
+
+      const labels = Object.fromEntries(
+        data.items.map((item) => [String(item[valueField] ?? ''), String(item[labelField] ?? '')]),
+      );
+
+      return [field.name, labels] as const;
+    }),
+  );
+
+  return Object.fromEntries(entries);
+}
+
+function resolveRelationLabel(
+  labels: Record<string, string> | undefined,
+  value: unknown,
+): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const key = String(value);
+  return labels?.[key] ?? key;
 }

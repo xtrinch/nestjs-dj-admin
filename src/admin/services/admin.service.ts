@@ -172,6 +172,7 @@ export class AdminService implements OnModuleInit {
       model: resource.options.model,
       search: resource.schema.search,
       filters: resource.schema.filters,
+      fields: resource.schema.fields,
     };
   }
 }

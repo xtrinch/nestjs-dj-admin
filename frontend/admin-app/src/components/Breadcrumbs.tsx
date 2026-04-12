@@ -1,19 +1,23 @@
 export function Breadcrumbs({
   category,
+  resourceName,
   resourceLabel,
   pageLabel,
 }: {
   category: string;
+  resourceName: string;
   resourceLabel: string;
   pageLabel: string | null;
 }) {
   return (
     <nav aria-label="Breadcrumb" className="breadcrumbs">
-      <span>Home</span>
+      <a className="breadcrumbs__link" href="#">Home</a>
       <span className="breadcrumbs__sep">›</span>
       <span>{category}</span>
       <span className="breadcrumbs__sep">›</span>
-      <span>{resourceLabel}</span>
+      <a className="breadcrumbs__link" href={`#/${resourceName}`}>
+        {resourceLabel}
+      </a>
       {pageLabel ? (
         <>
           <span className="breadcrumbs__sep">›</span>

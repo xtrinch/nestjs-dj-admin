@@ -11,6 +11,7 @@ export { AdminService } from './admin/services/admin.service.js';
 export { AdminAuthService } from './admin/services/admin-auth.service.js';
 export { AdminPermissionService } from './admin/services/admin-permission.service.js';
 export { DtoIntrospectorService } from './admin/services/dto-introspector.service.js';
+export { AdminUiService } from './admin/services/admin-ui.service.js';
 
 export { PrismaAdminAdapter } from './admin/adapters/prisma.adapter.js';
 export { TypeOrmAdminAdapter } from './admin/adapters/typeorm.adapter.js';

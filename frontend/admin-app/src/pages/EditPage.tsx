@@ -5,9 +5,12 @@ import {
   createResourceEntity,
   getResourceEntity,
   getResourceMeta,
+  listResource,
   updateResourceEntity,
 } from '../services/resources.service.js';
 import type { AdminDisplayConfig, ResourceField, ResourceSchema } from '../types.js';
+
+type RelationOption = { label: string; value: string };
 
 export function EditPage({
   resource,
@@ -22,6 +25,7 @@ export function EditPage({
   const [display, setDisplay] = useState<AdminDisplayConfig | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [relationOptions, setRelationOptions] = useState<Record<string, RelationOption[]>>({});
 
   useEffect(() => {
     void load();
@@ -31,6 +35,22 @@ export function EditPage({
     const metaJson = await getResourceMeta(resource.resourceName);
     setFields(metaJson.resource.fields);
     setDisplay(metaJson.display ?? null);
+
+    const relationFields = metaJson.resource.fields.filter((f) => f.relation);
+    if (relationFields.length > 0) {
+      const entries = await Promise.all(
+        relationFields.map(async (field) => {
+          const { resource: relResource, labelField, valueField = 'id' } = field.relation!.option;
+          const data = await listResource(relResource, { page: 1, pageSize: 200 });
+          const options = data.items.map((item) => ({
+            label: String(item[labelField] ?? ''),
+            value: String(item[valueField] ?? ''),
+          }));
+          return [field.name, options] as const;
+        }),
+      );
+      setRelationOptions(Object.fromEntries(entries));
+    }
 
     if (id) {
       const entityJson = await getResourceEntity(resource.resourceName, id);
@@ -78,7 +98,7 @@ export function EditPage({
         {fields.map((field) => (
           <label className="field" key={field.name}>
             <span>{field.label}</span>
-            <FieldInput field={field} values={values} setValues={setValues} display={display} />
+            <FieldInput field={field} values={values} setValues={setValues} display={display} relationOptions={relationOptions} />
             {errors[field.name] ? <small className="field__error">{errors[field.name]}</small> : null}
           </label>
         ))}
@@ -117,6 +137,14 @@ function normalizeValues(
 }
 
 function normalizeValue(field: ResourceField, value: unknown): unknown {
+  if (field.input === 'multiselect') {
+    const arr = Array.isArray(value) ? value : [];
+    const valueField = field.relation?.option.valueField ?? 'id';
+    return arr.map((item) =>
+      item !== null && typeof item === 'object' ? String((item as Record<string, unknown>)[valueField] ?? '') : String(item),
+    );
+  }
+
   if (value === '' || value === null || value === undefined) {
     return undefined;
   }
@@ -137,12 +165,38 @@ function FieldInput({
   values,
   setValues,
   display,
+  relationOptions,
 }: {
   field: ResourceField;
   values: Record<string, unknown>;
   setValues: Dispatch<SetStateAction<Record<string, unknown>>>;
   display: AdminDisplayConfig | null;
+  relationOptions: Record<string, RelationOption[]>;
 }) {
+  if (field.input === 'select' && field.relation) {
+    const options = relationOptions[field.name] ?? [];
+    return (
+      <select
+        className="input"
+        disabled={field.readOnly}
+        value={String(values[field.name] ?? '')}
+        onChange={(event) =>
+          setValues((current) => ({
+            ...current,
+            [field.name]: event.target.value,
+          }))
+        }
+      >
+        <option value="">---------</option>
+        {options.map(({ label, value }) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   if (field.input === 'select') {
     return (
       <select
@@ -156,10 +210,41 @@ function FieldInput({
           }))
         }
       >
-        <option value="">Select {field.label}</option>
+        <option value="">---------</option>
         {(field.enumValues ?? []).map((value) => (
           <option key={value} value={value}>
             {value}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (field.input === 'multiselect') {
+    const options = relationOptions[field.name] ?? [];
+    const valueField = field.relation?.option.valueField ?? 'id';
+    const rawValue = values[field.name];
+    const currentValues = Array.isArray(rawValue)
+      ? rawValue.map((item) =>
+          item !== null && typeof item === 'object'
+            ? String((item as Record<string, unknown>)[valueField] ?? '')
+            : String(item),
+        )
+      : [];
+    return (
+      <select
+        className="input"
+        multiple
+        disabled={field.readOnly}
+        value={currentValues}
+        onChange={(event) => {
+          const selected = Array.from(event.target.selectedOptions).map((o) => o.value);
+          setValues((current) => ({ ...current, [field.name]: selected }));
+        }}
+      >
+        {options.map(({ label, value }) => (
+          <option key={value} value={value}>
+            {label}
           </option>
         ))}
       </select>

@@ -5,6 +5,14 @@ export interface ResourceField {
   required: boolean;
   readOnly: boolean;
   enumValues?: string[];
+  relation?: {
+    kind: 'many-to-one' | 'many-to-many';
+    option: {
+      resource: string;
+      labelField: string;
+      valueField?: string;
+    };
+  };
 }
 
 export interface AdminUser {
