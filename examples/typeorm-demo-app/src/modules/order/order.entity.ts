@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 export { OrderStatus } from '../../../../shared/src/modules/order/shared.js';
 import { OrderStatus } from '../../../../shared/src/modules/order/shared.js';
 
@@ -24,4 +24,7 @@ export class Order {
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
 }

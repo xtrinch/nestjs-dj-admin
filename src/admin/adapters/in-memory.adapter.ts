@@ -19,6 +19,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         role: 'admin',
         active: true,
         createdAt: '2026-04-01T08:00:00.000Z',
+        updatedAt: '2026-04-10T09:30:00.000Z',
       },
       {
         id: '2',
@@ -26,6 +27,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         role: 'editor',
         active: true,
         createdAt: '2026-04-05T10:30:00.000Z',
+        updatedAt: '2026-04-11T11:05:00.000Z',
       },
       {
         id: '3',
@@ -33,6 +35,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         role: 'viewer',
         active: false,
         createdAt: '2026-04-07T12:15:00.000Z',
+        updatedAt: '2026-04-09T16:40:00.000Z',
       },
     ],
     orders: [
@@ -43,6 +46,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         status: 'pending',
         total: 129.99,
         createdAt: '2026-04-02T09:20:00.000Z',
+        updatedAt: '2026-04-10T14:10:00.000Z',
       },
       {
         id: '102',
@@ -51,6 +55,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         status: 'paid',
         total: 349.5,
         createdAt: '2026-04-06T14:45:00.000Z',
+        updatedAt: '2026-04-11T08:55:00.000Z',
       },
       {
         id: '103',
@@ -59,6 +64,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         status: 'cancelled',
         total: 79,
         createdAt: '2026-04-08T11:05:00.000Z',
+        updatedAt: '2026-04-08T15:25:00.000Z',
       },
     ],
     products: [
@@ -71,6 +77,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         discontinued: false,
         categories: ['401'],
         createdAt: '2026-04-03T08:00:00.000Z',
+        updatedAt: '2026-04-10T08:00:00.000Z',
       },
       {
         id: '202',
@@ -81,6 +88,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         discontinued: false,
         categories: ['401'],
         createdAt: '2026-04-03T08:10:00.000Z',
+        updatedAt: '2026-04-09T13:20:00.000Z',
       },
       {
         id: '203',
@@ -91,6 +99,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         discontinued: false,
         categories: ['402'],
         createdAt: '2026-04-03T08:20:00.000Z',
+        updatedAt: '2026-04-11T07:45:00.000Z',
       },
       {
         id: '204',
@@ -101,6 +110,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         discontinued: false,
         categories: ['405'],
         createdAt: '2026-04-03T08:30:00.000Z',
+        updatedAt: '2026-04-08T17:10:00.000Z',
       },
     ],
     categories: [
@@ -109,30 +119,35 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         name: 'Beverages',
         description: 'Soft drinks, coffees, teas, beers, and ales.',
         createdAt: '2026-04-03T07:40:00.000Z',
+        updatedAt: '2026-04-10T07:40:00.000Z',
       },
       {
         id: '402',
         name: 'Condiments',
         description: 'Sweet and savory sauces, relishes, spreads, and seasonings.',
         createdAt: '2026-04-03T07:41:00.000Z',
+        updatedAt: '2026-04-10T07:41:00.000Z',
       },
       {
         id: '403',
         name: 'Confections',
         description: 'Desserts, candies, and sweet baked goods.',
         createdAt: '2026-04-03T07:42:00.000Z',
+        updatedAt: '2026-04-10T07:42:00.000Z',
       },
       {
         id: '404',
         name: 'Produce',
         description: 'Dried fruit and bean curd.',
         createdAt: '2026-04-03T07:43:00.000Z',
+        updatedAt: '2026-04-10T07:43:00.000Z',
       },
       {
         id: '405',
         name: 'Seafood',
         description: 'Seaweed and fish products.',
         createdAt: '2026-04-03T07:44:00.000Z',
+        updatedAt: '2026-04-10T07:44:00.000Z',
       },
     ],
     'order-details': [
@@ -144,6 +159,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         quantity: 2,
         discount: 0,
         createdAt: '2026-04-04T09:00:00.000Z',
+        updatedAt: '2026-04-10T12:00:00.000Z',
       },
       {
         id: '302',
@@ -153,6 +169,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         quantity: 4,
         discount: 0.05,
         createdAt: '2026-04-06T15:00:00.000Z',
+        updatedAt: '2026-04-11T16:20:00.000Z',
       },
       {
         id: '303',
@@ -162,6 +179,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
         quantity: 1,
         discount: 0.1,
         createdAt: '2026-04-08T11:20:00.000Z',
+        updatedAt: '2026-04-08T18:15:00.000Z',
       },
     ],
   };
@@ -216,6 +234,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
     const record = {
       id: String(Date.now()),
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       ...data,
     };
     this.store[resourceName] = this.store[resourceName] ?? [];
@@ -236,7 +255,7 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
       throw new Error(`Record "${id}" not found`);
     }
 
-    rows[index] = { ...rows[index], ...data };
+    rows[index] = { ...rows[index], ...data, updatedAt: new Date().toISOString() };
     return rows[index] as TModel;
   }
 

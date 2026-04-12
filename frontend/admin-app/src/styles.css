@@ -260,6 +260,33 @@ a {
   color: #b8aa95;
 }
 
+.table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #e7d7bf;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.table__sort-indicator {
+  color: rgba(251, 191, 36, 0.5);
+  font-size: 0.72rem;
+}
+
+.table__sort:hover {
+  color: #fff7ed;
+}
+
+.table__sort-indicator--active {
+  color: #fbbf24;
+}
+
 .table__actions {
   flex-wrap: wrap;
 }

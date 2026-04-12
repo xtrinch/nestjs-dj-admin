@@ -6,4 +6,5 @@ export class OrderDetail {
   quantity!: number;
   discount!: number;
   createdAt!: Date;
+  updatedAt!: Date;
 }

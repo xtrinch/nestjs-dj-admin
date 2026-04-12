@@ -33,6 +33,7 @@ model User {
   passwordHash String
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   orders       Order[]
 }
 
@@ -44,6 +45,7 @@ model Order {
   status       OrderStatus
   total        Decimal       @db.Decimal(10, 2)
   createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   orderDetails OrderDetail[]
 }
 
@@ -55,6 +57,7 @@ model Product {
   unitsInStock  Int
   discontinued  Boolean         @default(false)
   createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   orderDetails  OrderDetail[]
   categories    Category[]
 }
@@ -64,6 +67,7 @@ model Category {
   name        String    @unique
   description String
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   products    Product[]
 }
 
@@ -77,4 +81,5 @@ model OrderDetail {
   quantity  Int
   discount  Decimal  @default(0) @db.Decimal(4, 2)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

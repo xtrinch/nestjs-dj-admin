@@ -8,4 +8,5 @@ export class User {
   passwordHash!: string;
   active!: boolean;
   createdAt!: Date;
+  updatedAt!: Date;
 }

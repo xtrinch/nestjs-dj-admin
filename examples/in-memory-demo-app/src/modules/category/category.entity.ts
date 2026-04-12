@@ -3,4 +3,5 @@ export class Category {
   name!: string;
   description!: string;
   createdAt!: string;
+  updatedAt!: string;
 }

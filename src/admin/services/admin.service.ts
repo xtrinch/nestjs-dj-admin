@@ -54,7 +54,18 @@ export class AdminService implements OnModuleInit {
   async list(resourceName: string, query: AdminListQuery, user: AdminRequestUser) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanRead(user, resource.schema);
-    return this.adapter.findMany(this.toAdapterResource(resource), query);
+    const resolvedSort = query.sort && resource.schema.sortable.includes(query.sort)
+      ? query.sort
+      : resource.schema.defaultSort?.field;
+
+    return this.adapter.findMany(this.toAdapterResource(resource), {
+      ...query,
+      sort: resolvedSort,
+      order:
+        resolvedSort === query.sort
+          ? query.order
+          : resource.schema.defaultSort?.order ?? query.order,
+    });
   }
 
   async detail(resourceName: string, id: string, user: AdminRequestUser) {

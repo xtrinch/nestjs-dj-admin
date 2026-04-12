@@ -35,10 +35,15 @@ export class UpdateUserDto {
 
 export const userAdminOptions = {
   category: 'Accounts',
-  list: ['id', 'email', 'role', 'active', 'createdAt'],
+  list: ['id', 'email', 'role', 'active', 'createdAt', 'updatedAt'],
+  defaultSort: {
+    field: 'updatedAt',
+    order: 'desc',
+  },
+  sortable: ['updatedAt', 'email'],
   search: ['email'],
   filters: ['role', 'active'],
-  readonly: ['createdAt'],
+  readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],
     write: ['admin'],

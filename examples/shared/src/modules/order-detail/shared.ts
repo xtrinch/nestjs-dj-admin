@@ -79,9 +79,14 @@ export class UpdateOrderDetailDto {
 
 export const orderDetailAdminOptions = {
   category: 'Sales',
-  list: ['id', 'orderId', 'productId', 'unitPrice', 'quantity', 'discount', 'createdAt'],
+  list: ['id', 'orderId', 'productId', 'unitPrice', 'quantity', 'discount', 'createdAt', 'updatedAt'],
+  defaultSort: {
+    field: 'updatedAt',
+    order: 'desc',
+  },
+  sortable: ['updatedAt', 'quantity'],
   search: [],
-  readonly: ['createdAt'],
+  readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],
     write: ['admin'],

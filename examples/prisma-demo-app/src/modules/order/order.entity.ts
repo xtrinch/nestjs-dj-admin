@@ -8,4 +8,5 @@ export class Order {
   status!: OrderStatus;
   total!: number;
   createdAt!: Date;
+  updatedAt!: Date;
 }

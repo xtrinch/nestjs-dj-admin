@@ -22,9 +22,14 @@ export class UpdateCategoryDto {
 
 export const categoryAdminOptions = {
   category: 'Catalog',
-  list: ['id', 'name', 'description', 'createdAt'],
+  list: ['id', 'name', 'description', 'createdAt', 'updatedAt'],
+  defaultSort: {
+    field: 'updatedAt',
+    order: 'desc',
+  },
+  sortable: ['updatedAt', 'name'],
   search: ['name', 'description'],
-  readonly: ['createdAt'],
+  readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],
     write: ['admin'],

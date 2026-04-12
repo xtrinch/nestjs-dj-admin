@@ -25,21 +25,32 @@ export function ListPage({
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<string | null>(null);
+  const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [relationLabels, setRelationLabels] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
     void load();
-  }, [resourceName, search, filter, page]);
+  }, [resourceName, search, filter, page, sort, order]);
 
   useEffect(() => {
     setPage(1);
-  }, [resourceName, search, filter]);
+  }, [resourceName, search, filter, sort, order]);
+
+  useEffect(() => {
+    setSort(null);
+    setOrder('asc');
+  }, [resourceName]);
 
   async function load() {
     try {
       const metaJson = await getResourceMeta(resourceName);
+      const activeSort = sort ?? metaJson.resource.defaultSort?.field;
+      const activeOrder = sort
+        ? order
+        : metaJson.resource.defaultSort?.order ?? order;
       setMeta(metaJson);
       setRelationLabels(await loadRelationLabels(metaJson));
       onTitleChange?.(null);
@@ -47,6 +58,8 @@ export function ListPage({
         page,
         pageSize: PAGE_SIZE,
         search,
+        sort: activeSort,
+        order: activeOrder,
         filterField: metaJson.resource.filters[0],
         filterValue: filter,
       });
@@ -85,6 +98,10 @@ export function ListPage({
   const allVisibleSelected =
     items.length > 0 && items.every((item) => selectedIds.includes(String(item.id)));
   const fieldLabels = Object.fromEntries(meta.resource.fields.map((field) => [field.name, field.label]));
+  const activeSort = sort ?? meta.resource.defaultSort?.field ?? null;
+  const activeOrder = sort
+    ? order
+    : meta.resource.defaultSort?.order ?? order;
 
   return (
     <section className="panel">
@@ -151,9 +168,39 @@ export function ListPage({
                 }}
               />
             </th>
-            {meta.resource.list.map((field) => (
-              <th key={field}>{fieldLabels[field] ?? field}</th>
-            ))}
+            {meta.resource.list.map((field) => {
+              const isSortable = meta.resource.sortable.includes(field);
+
+              return (
+                <th key={field}>
+                  {isSortable ? (
+                    <button
+                      className="table__sort"
+                      type="button"
+                      onClick={() => {
+                        if (activeSort === field) {
+                          setSort(field);
+                          setOrder(activeOrder === 'asc' ? 'desc' : 'asc');
+                          return;
+                        }
+
+                        setSort(field);
+                        setOrder('asc');
+                      }}
+                    >
+                      <span>{fieldLabels[field] ?? field}</span>
+                      <span
+                        className={`table__sort-indicator${activeSort === field ? ' table__sort-indicator--active' : ''}`}
+                      >
+                        {activeSort === field ? (activeOrder === 'asc' ? '▲' : '▼') : '↕'}
+                      </span>
+                    </button>
+                  ) : (
+                    fieldLabels[field] ?? field
+                  )}
+                </th>
+              );
+            })}
             <th>Actions</th>
           </tr>
         </thead>

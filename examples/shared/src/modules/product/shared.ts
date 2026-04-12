@@ -79,10 +79,15 @@ export class UpdateProductDto {
 
 export const productAdminOptions = {
   category: 'Catalog',
-  list: ['id', 'sku', 'name', 'unitPrice', 'unitsInStock', 'discontinued'],
+  list: ['id', 'sku', 'name', 'unitPrice', 'unitsInStock', 'discontinued', 'createdAt', 'updatedAt'],
+  defaultSort: {
+    field: 'updatedAt',
+    order: 'desc',
+  },
+  sortable: ['updatedAt', 'name'],
   search: ['sku', 'name'],
   filters: ['discontinued'],
-  readonly: ['createdAt'],
+  readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],
     write: ['admin'],

@@ -7,4 +7,5 @@ export class Product {
   discontinued!: boolean;
   categories!: string[];
   createdAt!: string;
+  updatedAt!: string;
 }

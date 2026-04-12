@@ -32,6 +32,11 @@ export interface ResourceSchema {
   label: string;
   category: string;
   list: string[];
+  defaultSort?: {
+    field: string;
+    order: 'asc' | 'desc';
+  };
+  sortable: string[];
   listDisplayLinks: string[];
   search: string[];
   filters: string[];

@@ -55,10 +55,15 @@ export class UpdateOrderDto {
 
 export const orderAdminOptions = {
   category: 'Sales',
-  list: ['id', 'number', 'userId', 'status', 'total', 'createdAt'],
+  list: ['id', 'number', 'userId', 'status', 'total', 'createdAt', 'updatedAt'],
+  defaultSort: {
+    field: 'updatedAt',
+    order: 'desc',
+  },
+  sortable: ['updatedAt', 'number'],
   search: ['number'],
   filters: ['status'],
-  readonly: ['createdAt'],
+  readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],
     write: ['admin'],

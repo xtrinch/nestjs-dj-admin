@@ -9,4 +9,5 @@ export class Product {
   discontinued!: boolean;
   categories!: Category[];
   createdAt!: Date;
+  updatedAt!: Date;
 }

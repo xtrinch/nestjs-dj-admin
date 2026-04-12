@@ -102,6 +102,8 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   resourceName?: string;
   category?: string;
   list: string[];
+  defaultSort?: AdminSortConfig;
+  sortable?: string[];
   listDisplayLinks?: string[] | null;
   search?: string[];
   filters?: string[];
@@ -147,6 +149,8 @@ export interface AdminResourceSchema {
   label: string;
   category: string;
   list: string[];
+  defaultSort?: AdminSortConfig;
+  sortable: string[];
   listDisplayLinks: string[];
   search: string[];
   filters: string[];
@@ -154,6 +158,11 @@ export interface AdminResourceSchema {
   actions: Array<{ name: string; slug: string }>;
   permissions?: AdminPermissions;
   fields: AdminFieldSchema[];
+}
+
+export interface AdminSortConfig {
+  field: string;
+  order: 'asc' | 'desc';
 }
 
 export interface AdminDisplayOptions {

@@ -17,7 +17,15 @@ export async function getResourceMeta(resourceName: string): Promise<ResourceMet
 
 export async function listResource(
   resourceName: string,
-  query: { page: number; pageSize: number; search?: string; filterField?: string; filterValue?: string },
+  query: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    sort?: string;
+    order?: 'asc' | 'desc';
+    filterField?: string;
+    filterValue?: string;
+  },
 ): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
   const params = new URLSearchParams({
     page: String(query.page),
@@ -26,6 +34,14 @@ export async function listResource(
 
   if (query.search) {
     params.set('search', query.search);
+  }
+
+  if (query.sort) {
+    params.set('sort', query.sort);
+  }
+
+  if (query.order) {
+    params.set('order', query.order);
   }
 
   if (query.filterField && query.filterValue) {

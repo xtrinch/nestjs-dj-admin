@@ -51,6 +51,8 @@ export class AdminRegistry {
         label: options.model.name,
         category: options.category ?? 'General',
         list: options.list,
+        defaultSort: options.defaultSort,
+        sortable: options.sortable ?? (options.defaultSort ? [options.defaultSort.field] : []),
         listDisplayLinks,
         search: options.search ?? [],
         filters: options.filters ?? [],
