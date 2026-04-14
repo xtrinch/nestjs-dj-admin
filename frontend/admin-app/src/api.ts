@@ -31,7 +31,7 @@ export function adminFetch(path = '', init: RequestInit = {}): Promise<Response>
 
 export async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let payload: ErrorPayload | null = null;
+    let payload: ErrorPayload | null;
 
     try {
       payload = (await response.json()) as ErrorPayload;

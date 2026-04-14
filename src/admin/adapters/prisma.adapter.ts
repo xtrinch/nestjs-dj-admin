@@ -4,7 +4,6 @@ import type {
   AdminAdapter,
   AdminAdapterResource,
   AdminEntity,
-  AdminFieldSchema,
   AdminListQuery,
 } from '../types/admin.types.js';
 

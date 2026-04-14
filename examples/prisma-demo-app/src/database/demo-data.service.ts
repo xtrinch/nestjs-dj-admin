@@ -10,17 +10,28 @@ export class DemoDataService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap(): Promise<void> {
     const defaultUsers = [
-      { email: 'ada@example.com', role: Role.ADMIN, passwordHash: hashPassword('admin123'), active: true },
-      { email: 'grace@example.com', role: Role.EDITOR, passwordHash: hashPassword('editor123'), active: true },
-      { email: 'linus@example.com', role: Role.VIEWER, passwordHash: hashPassword('viewer123'), active: false },
+      { email: 'ada@example.com', phone: '+1 206 555 0101', profileUrl: 'https://example.com/users/ada', role: Role.ADMIN, passwordHash: hashPassword('admin123'), active: true },
+      { email: 'grace@example.com', phone: '+1 206 555 0102', profileUrl: 'https://example.com/users/grace', role: Role.EDITOR, passwordHash: hashPassword('editor123'), active: true },
+      { email: 'linus@example.com', phone: '+1 206 555 0103', profileUrl: 'https://example.com/users/linus', role: Role.VIEWER, passwordHash: hashPassword('viewer123'), active: false },
     ];
 
     for (const defaults of defaultUsers) {
       const existing = await this.prisma.user.findUnique({ where: { email: defaults.email } });
       if (!existing) {
-        await this.prisma.user.create({ data: defaults });
-      } else if (!existing.passwordHash) {
-        await this.prisma.user.update({ where: { email: defaults.email }, data: { passwordHash: defaults.passwordHash } });
+        await this.prisma.user.create({ data: defaults as never });
+      } else if (
+        !existing.passwordHash ||
+        !(existing as Record<string, unknown>).phone ||
+        !(existing as Record<string, unknown>).profileUrl
+      ) {
+        await this.prisma.user.update({
+          where: { email: defaults.email },
+          data: {
+            passwordHash: defaults.passwordHash,
+            phone: defaults.phone,
+            profileUrl: defaults.profileUrl,
+          } as never,
+        });
       }
     }
 
@@ -35,9 +46,13 @@ export class DemoDataService implements OnApplicationBootstrap {
         const index = existingOrders + i;
         return {
           number: `ORD-${String(1001 + index)}`,
+          orderDate: buildOrderDate(index),
+          deliveryTime: buildDeliveryTime(index),
+          fulfillmentAt: buildFulfillmentAt(index),
           userId: savedUsers[index % savedUsers.length].id,
           status: statuses[index % statuses.length],
           total: Number((79 + index * 17.35).toFixed(2)),
+          internalNote: buildInternalNote(index),
         };
       });
       await this.prisma.order.createMany({ data: ordersToSeed, skipDuplicates: true });
@@ -101,6 +116,39 @@ export class DemoDataService implements OnApplicationBootstrap {
       await this.prisma.orderDetail.createMany({ data: orderDetailsToSeed, skipDuplicates: false });
     }
   }
+}
+
+function buildOrderDate(index: number): Date {
+  return new Date(Date.UTC(2026, 3, 1 + (index % 28)));
+}
+
+function buildFulfillmentAt(index: number): Date | null {
+  if (index % 4 === 0) {
+    return null;
+  }
+
+  return new Date(Date.UTC(2026, 3, 1 + (index % 28), 9 + (index % 8), 30));
+}
+
+function buildDeliveryTime(index: number): string | null {
+  if (index % 5 === 0) {
+    return null;
+  }
+
+  const hour = 8 + (index % 9);
+  const minute = index % 2 === 0 ? '00' : '30';
+  return `${String(hour).padStart(2, '0')}:${minute}`;
+}
+
+function buildInternalNote(index: number): string {
+  const notes = [
+    'Call before delivery.',
+    'Gift order. Do not include invoice in the parcel.',
+    'Customer requested split fulfillment if stock is low.',
+    '',
+  ];
+
+  return notes[index % notes.length];
 }
 
 function buildDemoProductDefs(): Array<{

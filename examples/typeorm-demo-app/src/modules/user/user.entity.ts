@@ -10,6 +10,12 @@ export class User {
   @Column({ unique: true })
   email!: string;
 
+  @Column({ default: '' })
+  phone!: string;
+
+  @Column({ default: '' })
+  profileUrl!: string;
+
   @Column({
     type: 'enum',
     enum: Role,

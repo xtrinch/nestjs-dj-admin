@@ -163,6 +163,16 @@ export class AdminController {
     return this.adminService.update(resource, id, payload, this.adminAuthService.requireUser(request));
   }
 
+  @Post(':resource/:id/password')
+  changePassword(
+    @Param('resource') resource: string,
+    @Param('id') id: string,
+    @Body() payload: Record<string, unknown>,
+    @Req() request: Request,
+  ) {
+    return this.adminService.changePassword(resource, id, payload, this.adminAuthService.requireUser(request));
+  }
+
   @Delete(':resource/:id')
   remove(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
     return this.adminService.remove(resource, id, this.adminAuthService.requireUser(request));

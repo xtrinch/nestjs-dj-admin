@@ -1,9 +1,11 @@
 export interface ResourceField {
   name: string;
   label: string;
-  input: 'text' | 'email' | 'number' | 'checkbox' | 'date' | 'select' | 'multiselect';
+  input: 'text' | 'email' | 'tel' | 'url' | 'password' | 'number' | 'checkbox' | 'date' | 'time' | 'datetime-local' | 'textarea' | 'select' | 'multiselect';
   required: boolean;
   readOnly: boolean;
+  modes?: Array<'create' | 'update'>;
+  helpText?: string;
   enumValues?: string[];
   relation?: {
     kind: 'many-to-one' | 'many-to-many';
@@ -32,11 +34,32 @@ export interface AdminDeleteSummaryItem {
   label: string;
 }
 
+export interface AdminDeleteRelatedSummary {
+  field: string;
+  label: string;
+  count: number;
+  items: AdminDeleteSummaryItem[];
+}
+
+export interface AdminDeleteImpactGroup {
+  resourceName: string;
+  label: string;
+  count: number;
+  items: AdminDeleteSummaryItem[];
+  via?: string;
+}
+
 export interface AdminDeleteSummary {
   resourceName: string;
   label: string;
   count: number;
   items: AdminDeleteSummaryItem[];
+  related: AdminDeleteRelatedSummary[];
+  impact: {
+    delete: AdminDeleteImpactGroup[];
+    disconnect: AdminDeleteImpactGroup[];
+    blocked: AdminDeleteImpactGroup[];
+  };
 }
 
 export interface AdminLookupItem {
@@ -66,6 +89,12 @@ export interface ResourceSchema {
   readonly: string[];
   actions: Array<{ name: string; slug: string }>;
   fields: ResourceField[];
+  createFields: ResourceField[];
+  updateFields: ResourceField[];
+  password?: {
+    enabled: boolean;
+    helpText?: string;
+  };
 }
 
 export interface AdminMetaResponse {

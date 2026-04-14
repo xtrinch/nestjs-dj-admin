@@ -10,6 +10,15 @@ export class Order {
   @Column({ unique: true })
   number!: string;
 
+  @Column({ type: 'date' })
+  orderDate!: string;
+
+  @Column({ type: 'time', nullable: true })
+  deliveryTime!: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  fulfillmentAt!: Date | null;
+
   @Column()
   userId!: number;
 
@@ -21,6 +30,9 @@ export class Order {
 
   @Column('decimal', { precision: 10, scale: 2 })
   total!: number;
+
+  @Column({ type: 'text', default: '' })
+  internalNote!: string;
 
   @CreateDateColumn()
   createdAt!: Date;

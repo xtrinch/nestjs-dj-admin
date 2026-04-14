@@ -3,6 +3,7 @@ import {
   bulkDeleteResourceEntities,
   getDeleteSummary,
 } from '../services/resources.service.js';
+import { queueToast, showToast } from '../services/toast.service.js';
 import type { AdminDeleteSummary } from '../types.js';
 
 export function DeleteConfirmPage({
@@ -31,7 +32,9 @@ export function DeleteConfirmPage({
       setSummary(await getDeleteSummary(resourceName, ids));
       setLoading(false);
     } catch (reason) {
-      setError((reason as Error).message);
+      const message = (reason as Error).message;
+      setError(message);
+      showToast({ message, variant: 'error' });
     }
   }
 
@@ -39,9 +42,17 @@ export function DeleteConfirmPage({
     setDeleting(true);
     try {
       await bulkDeleteResourceEntities(resourceName, ids);
+      queueToast({
+        message:
+          ids.length === 1
+            ? `${summary?.label ?? 'Record'} deleted.`
+            : `${ids.length} ${pluralizeLabel(summary?.label ?? 'record').toLowerCase()} deleted.`,
+      });
       window.location.hash = `#/${resourceName}`;
     } catch (reason) {
-      setError((reason as Error).message);
+      const message = (reason as Error).message;
+      setError(message);
+      showToast({ message, variant: 'error' });
       setDeleting(false);
     }
   }
@@ -54,13 +65,16 @@ export function DeleteConfirmPage({
     return <section className="panel">Loading…</section>;
   }
 
-  const { label, count, items } = summary;
+  const { label, count, items, impact } = summary;
+  const related = summary.related ?? [];
   const pluralLabel = pluralizeLabel(label);
+  const hasBlockingImpact = impact.blocked.length > 0;
+  const singleId = ids.length === 1 ? ids[0] : null;
   const title = count === 1 ? `Delete ${label}` : `Delete multiple ${pluralLabel}`;
   const question =
     count === 1
-      ? `Are you sure you want to delete the selected ${label}? All of the following objects and their related items will be deleted:`
-      : `Are you sure you want to delete the selected ${pluralLabel}? All of the following objects and their related items will be deleted:`;
+      ? `Review the deletion impact for the selected ${label} before continuing.`
+      : `Review the deletion impact for the selected ${pluralLabel} before continuing.`;
 
   return (
     <section className="panel">
@@ -91,15 +105,60 @@ export function DeleteConfirmPage({
         </ul>
       </div>
 
+      <ImpactBlock
+        title="Will delete"
+        groups={impact.delete}
+      />
+
+      {impact.disconnect.length > 0 ? (
+        <ImpactBlock
+          title="Will disconnect"
+          groups={impact.disconnect}
+        />
+      ) : null}
+
+      {impact.blocked.length > 0 ? (
+        <ImpactBlock
+          title="Would block deletion"
+          groups={impact.blocked}
+        />
+      ) : null}
+
+      {related.length > 0 ? (
+        <div className="delete-confirm__block">
+          <h3 className="delete-confirm__block-title">Related links</h3>
+          <ul className="delete-confirm__list">
+            {related.map((group) => (
+              <li key={group.field}>
+                {group.label}: {group.count}
+                {group.items.length > 0 ? ` (${group.items.map((item) => item.label).join(', ')})` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="delete-confirm__actions">
-        <button
-          className="button button--danger"
-          disabled={deleting}
-          type="button"
-          onClick={() => void confirmDelete()}
-        >
-          {deleting ? 'Deleting…' : "Yes, I'm sure"}
-        </button>
+        {hasBlockingImpact ? (
+          singleId ? (
+            <a className="button button--danger" href={`#/${resourceName}/edit/${singleId}`}>
+              Resolve linked records first
+            </a>
+          ) : (
+            <a className="button button--danger" href={`#/${resourceName}`}>
+              Resolve linked records first
+            </a>
+          )
+        ) : (
+          <button
+            className="button button--danger"
+            disabled={deleting}
+            type="button"
+            onClick={() => void confirmDelete()}
+          >
+            {deleting ? 'Deleting…' : "Yes, I'm sure"}
+          </button>
+        )}
         <a className="button" href={`#/${resourceName}`}>
           No, take me back
         </a>
@@ -118,4 +177,27 @@ function pluralizeLabel(label: string): string {
   }
 
   return `${label}s`;
+}
+
+function ImpactBlock({
+  title,
+  groups,
+}: {
+  title: string;
+  groups: AdminDeleteSummary['impact']['delete'];
+}) {
+  return (
+    <div className="delete-confirm__block">
+      <h3 className="delete-confirm__block-title">{title}</h3>
+      <ul className="delete-confirm__list">
+        {groups.map((group) => (
+          <li key={`${group.resourceName}:${group.via ?? 'root'}`}>
+            {group.label}: {group.count}
+            {group.via ? ` via ${group.via}` : ''}
+            {group.items.length > 0 ? ` (${group.items.map((item) => item.label).join(', ')})` : ''}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }

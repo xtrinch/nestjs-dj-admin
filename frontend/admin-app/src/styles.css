@@ -108,6 +108,36 @@ a {
   padding: 0.85rem 1.25rem 1.25rem;
 }
 
+.toast-layer {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 10px 26px rgba(2, 6, 23, 0.28);
+  pointer-events: auto;
+}
+
+.toast--success {
+  border: 1px solid rgba(163, 177, 138, 0.28);
+  background: linear-gradient(180deg, rgba(32, 58, 35, 0.92) 0%, rgba(24, 46, 29, 0.92) 100%);
+  color: #e7f5df;
+}
+
+.toast--error {
+  border: 1px solid rgba(248, 113, 113, 0.34);
+  background: linear-gradient(180deg, rgba(80, 25, 25, 0.94) 0%, rgba(61, 18, 18, 0.94) 100%);
+  color: #fee2e2;
+}
+
 .session-bar {
   display: flex;
   align-items: center;
@@ -204,7 +234,6 @@ a {
 
 .panel__header,
 .toolbar,
-.table__actions,
 .form {
   display: flex;
   gap: 0.5rem;
@@ -293,8 +322,10 @@ a {
   color: #fbbf24;
 }
 
-.table__actions {
+.table__actions-list {
   flex-wrap: wrap;
+  display: flex;
+  gap: 0.5rem;
 }
 
 .table__link {
@@ -347,6 +378,12 @@ a {
   max-width: 28rem;
 }
 
+.form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .field {
   display: grid;
   gap: 0.3rem;
@@ -362,6 +399,12 @@ a {
   color: #b8aa95;
   font-size: 0.8rem;
   font-weight: 500;
+}
+
+.field__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .input,
@@ -384,8 +427,22 @@ a {
   font-size: 0.92rem;
 }
 
+.textarea {
+  min-height: 7.5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .input::placeholder {
   color: #a8a29e;
+}
+
+.input[type="date"]::-webkit-calendar-picker-indicator,
+.input[type="time"]::-webkit-calendar-picker-indicator,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(84%) sepia(31%) saturate(962%) hue-rotate(333deg) brightness(101%) contrast(98%);
+  cursor: pointer;
+  opacity: 0.9;
 }
 
 .button {

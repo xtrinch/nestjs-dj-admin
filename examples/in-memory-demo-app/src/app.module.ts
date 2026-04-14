@@ -1,21 +1,12 @@
 import { Module } from '@nestjs/common';
-import { InMemoryAdminAdapter } from '#src/admin/adapters/in-memory.adapter.js';
+import { IN_MEMORY_ADMIN_STORE, InMemoryAdminAdapter } from '#src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { verifyPassword } from './auth/password.js';
 import { CategoryModule } from './modules/category/category.module.js';
 import { OrderDetailModule } from './modules/order-detail/order-detail.module.js';
 import { OrderModule } from './modules/order/order.module.js';
 import { ProductModule } from './modules/product/product.module.js';
 import { UserModule } from './modules/user/user.module.js';
-
-const DEMO_USERS = [
-  {
-    id: '1',
-    email: 'ada@example.com',
-    password: 'admin123',
-    role: 'admin',
-    active: true,
-  },
-];
 
 @Module({
   imports: [
@@ -44,20 +35,22 @@ const DEMO_USERS = [
       },
       auth: {
         authenticate: async ({ email, password }) => {
-          const user = DEMO_USERS.find((candidate) => candidate.email === email);
+          const user = IN_MEMORY_ADMIN_STORE.users.find(
+            (candidate) => String(candidate.email ?? '') === email,
+          );
 
-          if (!user || !user.active || user.role !== 'admin') {
+          if (!user || user.active !== true || user.role !== 'admin') {
             return null;
           }
 
-          if (password !== user.password) {
+          if (!verifyPassword(password, String(user.passwordHash ?? ''))) {
             return null;
           }
 
           return {
-            id: user.id,
-            role: user.role,
-            email: user.email,
+            id: String(user.id),
+            role: String(user.role),
+            email: String(user.email),
           };
         },
       },

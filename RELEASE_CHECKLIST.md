@@ -14,46 +14,16 @@ Recommended versioning stance:
 
 ## Must-have for `0.1.0`
 
-### 1. Adapter contract tests
-
-Define one shared adapter contract suite and run it against:
-
-- in-memory adapter
-- TypeORM adapter
-- Prisma adapter
-
-Minimum coverage:
-
-- `findMany`
-- `findOne`
-- `create`
-- `update`
-- `delete`
-- `distinct`
-- pagination
-- sorting
-- filtering
-- search
-
-Without this, adapter parity is still assumed rather than demonstrated.
-
-### 2. End-to-end backend tests
-
-Add integration coverage for the Nest admin flow:
-
-- login/logout
-- protected `/admin` API access
-- resource metadata endpoints
-- CRUD routes
-- custom action routes
-- permission denial paths
-- validation error shape
-
-This is needed to make the core library behavior defensible.
-
 ### 3. Finish the Django-admin baseline
 
 The baseline experience should be coherent and predictable.
+
+Concrete remaining work:
+
+- tighten breadcrumbs, page titles, and object labeling across edit, delete, and password flows
+- make destructive actions feel more consistent and predictable across list, edit, and delete-confirm flows
+- clean up relation label behavior so list, edit, delete summary, and selectors all present objects consistently
+- polish readonly field and help-text presentation so forms feel deliberate rather than generator-like
 
 ### 4. Example apps must be reproducible from a clean setup
 
@@ -99,6 +69,20 @@ Before `0.1.0`, add:
 - known limitations section
 - versioning expectations
 
+### 7. Primitive field coverage
+
+The current form layer now covers:
+
+- text
+- email
+- password
+- number
+- checkbox / boolean
+- date
+- datetime
+- enum select
+- relation select / multiselect
+
 ## Strongly recommended before `0.1.0`
 
 ### TypeORM demo maturity
@@ -123,8 +107,6 @@ What is still missing:
 ### Better destructive action handling
 
 The UX should align more closely with admin expectations:
-
-- better handling of related-object deletion summaries
 
 ## Safe to defer to `0.2.x`
 
@@ -151,8 +133,7 @@ It is not yet a defended `0.1.0` stable release.
 
 ## Suggested order of work
 
-1. Adapter contract tests
-2. Core Nest integration tests
-3. Tighten relation handling and labels
-4. Expand docs into release-quality guidance
-5. Final release metadata and changelog
+1. Finish the Django-admin baseline
+2. Verify all example apps from a clean setup
+3. Expand docs into release-quality guidance
+4. Final release metadata and changelog

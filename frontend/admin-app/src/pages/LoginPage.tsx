@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { loginAdminWithOptions } from '../services/auth.service.js';
+import { showToast } from '../services/toast.service.js';
 
 const REMEMBERED_EMAIL_KEY = 'dj-admin.remembered-email';
 
@@ -24,7 +25,9 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
       }
       await onAuthenticated();
     } catch (reason) {
-      setError((reason as Error).message);
+      const message = (reason as Error).message;
+      setError(message);
+      showToast({ message, variant: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -36,11 +39,13 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
         <span className="panel__eyebrow">Admin Login</span>
         <h1>DJ Admin</h1>
         <p className="auth-card__copy">Sign in with an admin user from your application.</p>
-        <form className="form" onSubmit={submit}>
+        <form autoComplete="on" className="form" onSubmit={submit}>
           <label className="field">
             <span>Email</span>
             <input
+              autoComplete="username"
               className="input"
+              name="username"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -49,7 +54,9 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
           <label className="field">
             <span>Password</span>
             <input
+              autoComplete="current-password"
               className="input"
+              name="password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}

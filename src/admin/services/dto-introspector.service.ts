@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { Injectable } from '@nestjs/common';
 import { getMetadataStorage } from 'class-validator';
 import { ADMIN_DTO_FIELD_METADATA } from '../decorators/admin-field.decorator.js';
-import type { AdminFieldSchema } from '../types/admin.types.js';
+import type { AdminFieldMode, AdminFieldSchema } from '../types/admin.types.js';
 
 type ValidationMetadata = {
   propertyName: string;
@@ -16,6 +16,7 @@ export class DtoIntrospectorService {
     dtoClass: Function | undefined,
     readonlyFields: string[],
     modelClass?: Function,
+    mode?: AdminFieldMode,
   ): AdminFieldSchema[] {
     const fields = new Map<string, AdminFieldSchema>();
 
@@ -45,12 +46,19 @@ export class DtoIntrospectorService {
         const extra =
           Reflect.getMetadata(ADMIN_DTO_FIELD_METADATA, dtoClass.prototype, propertyName) ?? {};
 
+        const modes = Array.isArray(extra.modes) && extra.modes.length > 0 ? extra.modes : undefined;
+        if (mode && modes && !modes.includes(mode)) {
+          continue;
+        }
+
         fields.set(propertyName, {
           name: propertyName,
           label: extra.label ?? startCase(propertyName),
-          input: this.resolveInput(validators, type, extra.relation?.kind),
+          input: extra.input ?? this.resolveInput(propertyName, validators, type, extra.relation?.kind),
           required: !validators.some((validator) => validator.type === 'conditionalValidation'),
           readOnly: readonlyFields.includes(propertyName),
+          modes,
+          helpText: extra.helpText,
           enumValues: this.resolveEnumValues(validators),
           relation: extra.relation,
         });
@@ -71,9 +79,11 @@ export class DtoIntrospectorService {
       fields.set(propertyName, {
         name: propertyName,
         label: startCase(propertyName),
-        input: this.resolveInput([], type),
+        input: this.resolveInput(propertyName, [], type),
         required: false,
         readOnly: true,
+        modes: undefined,
+        helpText: undefined,
       });
     }
 
@@ -81,6 +91,7 @@ export class DtoIntrospectorService {
   }
 
   private resolveInput(
+    propertyName: string,
     validators: ValidationMetadata[],
     runtimeType: Function | undefined,
     relationKind?: 'many-to-one' | 'many-to-many',
@@ -102,11 +113,11 @@ export class DtoIntrospectorService {
     }
 
     if (validators.some((validator) => validator.type === 'isDate')) {
-      return 'date';
+      return /at$/i.test(propertyName) ? 'datetime-local' : 'date';
     }
 
     if (runtimeType === Date) {
-      return 'date';
+      return /at$/i.test(propertyName) ? 'datetime-local' : 'date';
     }
 
     if (validators.some((validator) => validator.type === 'isEnum')) {

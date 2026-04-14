@@ -7,6 +7,7 @@ import {
   lookupResource,
   runResourceAction,
 } from '../services/resources.service.js';
+import { showToast } from '../services/toast.service.js';
 import type { ResourceMetaResponse } from '../types.js';
 
 const PAGE_SIZE = 20;
@@ -23,7 +24,7 @@ export function ListPage({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedAction, setSelectedAction] = useState('');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('');
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<string | null>(null);
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
@@ -33,15 +34,16 @@ export function ListPage({
 
   useEffect(() => {
     void load();
-  }, [resourceName, search, filter, page, sort, order]);
+  }, [resourceName, search, JSON.stringify(filters), page, sort, order]);
 
   useEffect(() => {
     setPage(1);
-  }, [resourceName, search, filter, sort, order]);
+  }, [resourceName, search, JSON.stringify(filters), sort, order]);
 
   useEffect(() => {
     setSort(null);
     setOrder('asc');
+    setFilters({});
   }, [resourceName]);
 
   async function load() {
@@ -59,8 +61,7 @@ export function ListPage({
         search,
         sort: activeSort,
         order: activeOrder,
-        filterField: metaJson.resource.filters[0],
-        filterValue: filter,
+        filters,
       });
       setItems(listJson.items);
       setRelationLabels(await loadRelationLabels(metaJson, listJson.items));
@@ -69,13 +70,19 @@ export function ListPage({
       setTotal(listJson.total);
       setError(null);
     } catch (reason) {
-      setError((reason as Error).message);
+      const message = (reason as Error).message;
+      setError(message);
+      showToast({ message, variant: 'error' });
     }
   }
 
   async function runAction(id: string, actionSlug: string) {
-    await runResourceAction(resourceName, id, actionSlug);
-    await load();
+    try {
+      await runResourceAction(resourceName, id, actionSlug);
+      await load();
+    } catch (reason) {
+      showToast({ message: (reason as Error).message, variant: 'error' });
+    }
   }
 
   function runBulkAction() {
@@ -138,16 +145,26 @@ export function ListPage({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        {meta.filterOptions[0] ? (
-          <select className="input" value={filter} onChange={(event) => setFilter(event.target.value)}>
-            <option value="">All {meta.filterOptions[0].field}</option>
-            {meta.filterOptions[0].values.map((value) => (
+        {meta.filterOptions.map((filterOption) => (
+          <select
+            key={filterOption.field}
+            className="input"
+            value={filters[filterOption.field] ?? ''}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                [filterOption.field]: event.target.value,
+              }))
+            }
+          >
+            <option value="">All {filterOption.field}</option>
+            {filterOption.values.map((value) => (
               <option key={String(value)} value={String(value)}>
                 {String(value)}
               </option>
             ))}
           </select>
-        ) : null}
+        ))}
       </div>
 
       <table className="table">
@@ -246,16 +263,20 @@ export function ListPage({
                 );
               })}
               <td className="table__actions">
-                {meta.resource.actions.map((action) => (
-                  <button
-                    key={action.slug}
-                    className="button"
-                    type="button"
-                    onClick={() => void runAction(String(item.id), action.slug)}
-                  >
-                    {action.name}
-                  </button>
-                ))}
+                {meta.resource.actions.length > 0 ? (
+                  <div className="table__actions-list">
+                    {meta.resource.actions.map((action) => (
+                      <button
+                        key={action.slug}
+                        className="button"
+                        type="button"
+                        onClick={() => void runAction(String(item.id), action.slug)}
+                      >
+                        {action.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </td>
             </tr>
           ))}

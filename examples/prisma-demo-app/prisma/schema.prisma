@@ -29,6 +29,8 @@ enum ProductCategory {
 model User {
   id           Int      @id @default(autoincrement())
   email        String   @unique
+  phone        String   @default("")
+  profileUrl   String   @default("")
   role         Role
   passwordHash String
   active       Boolean  @default(true)
@@ -40,10 +42,14 @@ model User {
 model Order {
   id           Int           @id @default(autoincrement())
   number       String        @unique
+  orderDate    DateTime
+  deliveryTime String?
+  fulfillmentAt DateTime?
   user         User          @relation(fields: [userId], references: [id])
   userId       Int
   status       OrderStatus
   total        Decimal       @db.Decimal(10, 2)
+  internalNote String        @default("")
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   orderDetails OrderDetail[]

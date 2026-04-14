@@ -38,11 +38,32 @@ export interface AdminDeleteSummaryItem {
   label: string;
 }
 
+export interface AdminDeleteRelatedSummary {
+  field: string;
+  label: string;
+  count: number;
+  items: AdminDeleteSummaryItem[];
+}
+
+export interface AdminDeleteImpactGroup {
+  resourceName: string;
+  label: string;
+  count: number;
+  items: AdminDeleteSummaryItem[];
+  via?: string;
+}
+
 export interface AdminDeleteSummary {
   resourceName: string;
   label: string;
   count: number;
   items: AdminDeleteSummaryItem[];
+  related: AdminDeleteRelatedSummary[];
+  impact: {
+    delete: AdminDeleteImpactGroup[];
+    disconnect: AdminDeleteImpactGroup[];
+    blocked: AdminDeleteImpactGroup[];
+  };
 }
 
 export type AdminEntity = object;
@@ -92,11 +113,36 @@ export interface AdminFieldRelationOption {
 export interface AdminDtoFieldConfig {
   label?: string;
   helpText?: string;
+  input?: 'text' | 'email' | 'tel' | 'url' | 'password' | 'number' | 'checkbox' | 'date' | 'time' | 'datetime-local' | 'textarea' | 'select' | 'multiselect';
+  modes?: AdminFieldMode[];
   relation?: {
     kind: 'many-to-one' | 'many-to-many';
     option: AdminFieldRelationOption;
   };
 }
+
+export type AdminFieldMode = 'create' | 'update';
+
+export interface AdminPasswordOptions {
+  hash: (password: string) => string | Promise<string>;
+  fieldName?: string;
+  confirmFieldName?: string;
+  targetFieldName?: string;
+  helpText?: string;
+}
+
+export interface AdminWriteTransformContext<TModel extends AdminEntity = AdminEntity> {
+  operation: 'create' | 'update';
+  resourceName: string;
+  resource: AdminAdapterResource<TModel>;
+  user: AdminRequestUser;
+  id?: string;
+}
+
+export type AdminWriteTransform<TModel extends AdminEntity = AdminEntity> = (
+  payload: Record<string, unknown>,
+  context: AdminWriteTransformContext<TModel>,
+) => Record<string, unknown> | Promise<Record<string, unknown>>;
 
 export interface AdminActionContext<TModel extends AdminEntity = AdminEntity> {
   adapter: AdminAdapter;
@@ -133,8 +179,11 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   readonly?: string[];
   permissions?: AdminPermissions;
   actions?: AdminAction<TModel>[];
+  password?: AdminPasswordOptions;
   createDto?: Type<unknown>;
   updateDto?: Type<unknown>;
+  transformCreate?: AdminWriteTransform<TModel>;
+  transformUpdate?: AdminWriteTransform<TModel>;
 }
 
 export interface AdminModuleOptions {
@@ -162,11 +211,18 @@ export interface AdminAuthOptions {
 export interface AdminFieldSchema {
   name: string;
   label: string;
-  input: 'text' | 'email' | 'number' | 'checkbox' | 'date' | 'select' | 'multiselect';
+  input: 'text' | 'email' | 'tel' | 'url' | 'password' | 'number' | 'checkbox' | 'date' | 'time' | 'datetime-local' | 'textarea' | 'select' | 'multiselect';
   required: boolean;
   readOnly: boolean;
+  modes?: AdminFieldMode[];
+  helpText?: string;
   enumValues?: string[];
   relation?: AdminDtoFieldConfig['relation'];
+}
+
+export interface AdminPasswordSchema {
+  enabled: boolean;
+  helpText?: string;
 }
 
 export interface AdminResourceSchema {
@@ -184,6 +240,9 @@ export interface AdminResourceSchema {
   actions: Array<{ name: string; slug: string }>;
   permissions?: AdminPermissions;
   fields: AdminFieldSchema[];
+  createFields: AdminFieldSchema[];
+  updateFields: AdminFieldSchema[];
+  password?: AdminPasswordSchema;
 }
 
 export interface AdminSortConfig {

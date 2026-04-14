@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import { ADMIN_RESOURCE_METADATA } from './admin.constants.js';
 import { DtoIntrospectorService } from './services/dto-introspector.service.js';
-import type { AdminResourceOptions, AdminResourceSchema } from './types/admin.types.js';
+import type { AdminFieldSchema, AdminResourceOptions, AdminResourceSchema } from './types/admin.types.js';
 import { actionSlug, buildResourceName } from './utils/resource-name.util.js';
 
 interface RegisteredResource {
@@ -38,6 +38,18 @@ export class AdminRegistry {
       }
 
       const resourceName = options.resourceName ?? buildResourceName(options.model.name);
+      const createFields = this.dtoIntrospector.buildFields(
+        options.createDto,
+        options.readonly ?? [],
+        options.model,
+        'create',
+      ).filter((field) => !field.readOnly);
+      const updateFields = this.dtoIntrospector.buildFields(
+        options.updateDto,
+        options.readonly ?? [],
+        options.model,
+        'update',
+      );
       const listDisplayLinks =
         options.listDisplayLinks === null
           ? []
@@ -63,11 +75,17 @@ export class AdminRegistry {
           name: action.name,
           slug: action.slug ?? actionSlug(action.name),
         })),
-        fields: this.dtoIntrospector.buildFields(
-          options.createDto ?? options.updateDto,
-          options.readonly ?? [],
-          options.model,
-        ),
+        fields: mergeFields(createFields, updateFields),
+        createFields,
+        updateFields,
+        password: options.password
+          ? {
+              enabled: true,
+              helpText:
+                options.password.helpText ??
+                'Raw passwords are not stored, so there is no way to see this user’s password.',
+            }
+          : undefined,
       };
 
       this.resources.set(resourceName, {
@@ -92,4 +110,27 @@ export class AdminRegistry {
 
     return resource;
   }
+}
+
+function mergeFields(primary: AdminFieldSchema[], secondary: AdminFieldSchema[]): AdminFieldSchema[] {
+  const merged = new Map(primary.map((field) => [field.name, field]));
+
+  for (const field of secondary) {
+    const existing = merged.get(field.name);
+    if (!existing) {
+      merged.set(field.name, field);
+      continue;
+    }
+
+    merged.set(field.name, {
+      ...existing,
+      ...field,
+      modes: (() => {
+        const modes = [...new Set([...(existing.modes ?? []), ...(field.modes ?? [])])];
+        return modes.length > 0 ? modes : undefined;
+      })(),
+    });
+  }
+
+  return [...merged.values()];
 }

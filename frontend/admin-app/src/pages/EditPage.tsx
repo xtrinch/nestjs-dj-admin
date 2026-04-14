@@ -6,11 +6,14 @@ import {
   getResourceEntity,
   getResourceMeta,
   lookupResource,
+  runResourceAction,
   updateResourceEntity,
 } from '../services/resources.service.js';
+import { queueToast, showToast } from '../services/toast.service.js';
 import type { AdminDisplayConfig, AdminLookupItem, ResourceField, ResourceSchema } from '../types.js';
 
 const RELATION_LOOKUP_PAGE_SIZE = 20;
+type SaveIntent = 'list' | 'continue' | 'add-another';
 
 export function EditPage({
   resource,
@@ -21,10 +24,12 @@ export function EditPage({
   id?: string;
   onTitleChange?: (label: string) => void;
 }) {
-  const [fields, setFields] = useState<ResourceField[]>(resource.fields);
+  const [fields, setFields] = useState<ResourceField[]>(id ? resource.updateFields : resource.createFields);
   const [display, setDisplay] = useState<AdminDisplayConfig | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [runningActionSlug, setRunningActionSlug] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -32,8 +37,9 @@ export function EditPage({
 
   async function load() {
     const metaJson = await getResourceMeta(resource.resourceName);
-    setFields(metaJson.resource.fields);
+    setFields(id ? metaJson.resource.updateFields : metaJson.resource.createFields);
     setDisplay(metaJson.display ?? null);
+    setActionError(null);
 
     if (id) {
       const entityJson = await getResourceEntity(resource.resourceName, id);
@@ -45,16 +51,69 @@ export function EditPage({
     }
   }
 
+  async function runAction(action: { name: string; slug: string }) {
+    if (!id) {
+      return;
+    }
+
+    setRunningActionSlug(action.slug);
+    setActionError(null);
+
+    try {
+      await runResourceAction(resource.resourceName, id, action.slug);
+      queueToast({ message: `${resource.label} ${action.name.toLowerCase()}.` });
+      await load();
+    } catch (reason) {
+      const message = (reason as Error).message;
+      setActionError(message);
+      showToast({ message, variant: 'error' });
+    } finally {
+      setRunningActionSlug(null);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
+    const intent = getSaveIntent(submitter);
     const payload = normalizeValues(fields, values);
     try {
+      let result: Record<string, unknown>;
+      let successMessage: string;
       if (id) {
-        await updateResourceEntity(resource.resourceName, id, payload);
+        result = await updateResourceEntity(resource.resourceName, id, payload);
+        successMessage = `${resource.label} saved.`;
       } else {
-        await createResourceEntity(resource.resourceName, payload);
+        result = await createResourceEntity(resource.resourceName, payload);
+        successMessage = `${resource.label} created.`;
       }
 
+      const nextId = String(result.id ?? id ?? '');
+
+      if (intent === 'continue' && nextId) {
+        showToast({ message: successMessage });
+        setErrors({});
+
+        if (id && nextId === id) {
+          await load();
+          return;
+        }
+
+        window.location.hash = `#/${resource.resourceName}/edit/${nextId}`;
+        return;
+      }
+
+      if (intent === 'add-another') {
+        showToast({ message: successMessage });
+        setErrors({});
+        setValues({});
+        setActionError(null);
+        onTitleChange?.('New');
+        window.location.hash = `#/${resource.resourceName}/new`;
+        return;
+      }
+
+      queueToast({ message: successMessage });
       window.location.hash = `#/${resource.resourceName}`;
     } catch (reason) {
       const json = reason instanceof AdminApiError ? reason : new AdminApiError('Invalid value', 400);
@@ -62,6 +121,10 @@ export function EditPage({
         (json.errors ?? []).map((error) => [error.field, Object.values(error.constraints ?? {})[0] ?? 'Invalid value']),
       );
       setErrors(nextErrors);
+      if (Object.keys(nextErrors).length === 0) {
+        setActionError(json.message);
+        showToast({ message: json.message, variant: 'error' });
+      }
     }
   }
 
@@ -73,6 +136,19 @@ export function EditPage({
           <h2>{resource.label}</h2>
         </div>
         <div className="panel__actions">
+          {id
+            ? resource.actions.map((action) => (
+                <button
+                  key={action.slug}
+                  className="button"
+                  disabled={runningActionSlug !== null}
+                  type="button"
+                  onClick={() => void runAction(action)}
+                >
+                  {runningActionSlug === action.slug ? `${action.name}…` : action.name}
+                </button>
+              ))
+            : null}
           {id ? (
             <a className="button button--danger" href={`#/${resource.resourceName}/delete/${id}`}>
               Delete
@@ -84,20 +160,56 @@ export function EditPage({
         </div>
       </header>
 
+      {actionError ? <p className="field__error">{actionError}</p> : null}
+
       <form className="form" onSubmit={submit}>
+        {id && resource.password?.enabled ? (
+          <div className="field">
+            <span>Password</span>
+            <input className="input" disabled readOnly type="text" value="Not settable from this form" />
+            {resource.password.helpText ? <small className="field__hint">{resource.password.helpText}</small> : null}
+            <div className="field__actions">
+              <a className="button" href={`#/${resource.resourceName}/edit/${id}/password`}>
+                Change password
+              </a>
+            </div>
+          </div>
+        ) : null}
         {fields.map((field) => (
           <label className="field" key={field.name}>
             <span>{field.label}</span>
             <FieldInput field={field} values={values} setValues={setValues} display={display} />
+            {field.helpText ? <small className="field__hint">{field.helpText}</small> : null}
             {errors[field.name] ? <small className="field__error">{errors[field.name]}</small> : null}
           </label>
         ))}
-        <button className="button button--primary" type="submit">
-          Save
-        </button>
+        <div className="form__actions">
+          <button className="button button--primary" name="intent" type="submit" value="list">
+            Save
+          </button>
+          <button className="button" name="intent" type="submit" value="continue">
+            Save and continue editing
+          </button>
+          <button className="button" name="intent" type="submit" value="add-another">
+            Save and add another
+          </button>
+        </div>
       </form>
     </section>
   );
+}
+
+function getSaveIntent(submitter: EventTarget | null): SaveIntent {
+  if (!(submitter instanceof HTMLButtonElement)) {
+    return 'list';
+  }
+
+  const value = submitter.value;
+  if (value === 'continue' || value === 'add-another') {
+    return value;
+  }
+
+  return 'list';
 }
 
 function resolveEntityLabel(entity: Record<string, unknown>, fallback: string): string {
@@ -150,6 +262,18 @@ function normalizeValue(field: ResourceField, value: unknown): unknown {
 
   if (field.input === 'number') {
     return typeof value === 'number' ? value : Number(value);
+  }
+
+  if (field.input === 'date') {
+    return typeof value === 'string' ? value : String(value);
+  }
+
+  if (field.input === 'time') {
+    return typeof value === 'string' ? value : String(value);
+  }
+
+  if (field.input === 'datetime-local') {
+    return typeof value === 'string' ? value : value instanceof Date ? value.toISOString() : String(value);
   }
 
   return value;
@@ -226,11 +350,35 @@ function FieldInput({
     );
   }
 
+  if (field.input === 'textarea') {
+    return (
+      <textarea
+        className="input textarea"
+        rows={5}
+        value={String(values[field.name] ?? '')}
+        onChange={(event) =>
+          setValues((current) => ({
+            ...current,
+            [field.name]: event.target.value,
+          }))
+        }
+      />
+    );
+  }
+
   return (
     <input
       className="input"
       type={field.input}
-      value={String(values[field.name] ?? '')}
+      value={
+        field.input === 'date'
+          ? normalizeDateInputValue(values[field.name])
+          : field.input === 'time'
+            ? normalizeTimeInputValue(values[field.name])
+          : field.input === 'datetime-local'
+            ? normalizeDateTimeInputValue(values[field.name])
+            : String(values[field.name] ?? '')
+      }
       onChange={(event) =>
         setValues((current) => ({
           ...current,
@@ -514,12 +662,58 @@ function getRelationValue(field: ResourceField, rawValue: unknown): string | nul
   return String(rawValue);
 }
 
-function mergeLookupOptions(current: AdminLookupItem[], incoming: AdminLookupItem[]): AdminLookupItem[] {
-  const merged = new Map(current.map((item) => [item.value, item]));
-
-  for (const item of incoming) {
-    merged.set(item.value, item);
+function normalizeDateInputValue(value: unknown): string {
+  if (typeof value !== 'string') {
+    return value instanceof Date ? value.toISOString().slice(0, 10) : '';
   }
 
-  return [...merged.values()];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    return value.slice(0, 10);
+  }
+
+  return value;
+}
+
+function normalizeDateTimeInputValue(value: unknown): string {
+  if (value instanceof Date) {
+    return toDateTimeLocal(value.toISOString());
+  }
+
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+    return value;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+    return value.slice(0, 16);
+  }
+
+  return value;
+}
+
+function toDateTimeLocal(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value) ? value.slice(0, 16) : value;
+}
+
+function normalizeTimeInputValue(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  if (/^\d{2}:\d{2}$/.test(value)) {
+    return value;
+  }
+
+  if (/^\d{2}:\d{2}:\d{2}/.test(value)) {
+    return value.slice(0, 5);
+  }
+
+  return value;
 }

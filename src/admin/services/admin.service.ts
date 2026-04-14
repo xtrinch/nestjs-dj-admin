@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   OnModuleInit,
@@ -12,11 +13,15 @@ import { AdminRegistry } from '../admin.registry.js';
 import type {
   AdminAdapter,
   AdminAdapterResource,
+  AdminDeleteImpactGroup,
+  AdminPasswordOptions,
   AdminDeleteSummary,
+  AdminDeleteSummaryItem,
   AdminLookupResult,
   AdminListQuery,
   AdminRequestUser,
   AdminResourceSchema,
+  AdminWriteTransform,
 } from '../types/admin.types.js';
 import { AdminPermissionService } from './admin-permission.service.js';
 
@@ -60,7 +65,7 @@ export class AdminService implements OnModuleInit {
       ? query.sort
       : resource.schema.defaultSort?.field;
 
-    return this.adapter.findMany(this.toAdapterResource(resource), {
+    const result = await this.adapter.findMany(this.toAdapterResource(resource), {
       ...query,
       sort: resolvedSort,
       order:
@@ -68,6 +73,11 @@ export class AdminService implements OnModuleInit {
           ? query.order
           : resource.schema.defaultSort?.order ?? query.order,
     });
+
+    return {
+      ...result,
+      items: result.items.map((item) => this.serializeEntity(resource.schema, item as Record<string, unknown>)),
+    };
   }
 
   async detail(resourceName: string, id: string, user: AdminRequestUser) {
@@ -79,14 +89,28 @@ export class AdminService implements OnModuleInit {
       throw new NotFoundException(`${resource.schema.label} "${id}" not found`);
     }
 
-    return entity;
+    return this.serializeEntity(resource.schema, entity as Record<string, unknown>);
   }
 
   async create(resourceName: string, payload: Record<string, unknown>, user: AdminRequestUser) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
-    const data = await this.validateDto(resource.options.createDto, payload);
-    return this.adapter.create(this.toAdapterResource(resource), data);
+    const data = await this.prepareMutationPayload(
+      resource.options.createDto,
+      resource.options.transformCreate,
+      payload,
+      {
+        operation: 'create',
+        resourceName,
+        resource: this.toAdapterResource(resource),
+        user,
+      },
+    );
+    const created = await this.executeMutation(
+      resource.schema,
+      () => this.adapter.create(this.toAdapterResource(resource), data),
+    );
+    return this.serializeEntity(resource.schema, created as Record<string, unknown>);
   }
 
   async update(
@@ -97,8 +121,45 @@ export class AdminService implements OnModuleInit {
   ) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
-    const data = await this.validateDto(resource.options.updateDto, payload);
-    return this.adapter.update(this.toAdapterResource(resource), id, data);
+    const data = await this.prepareMutationPayload(
+      resource.options.updateDto,
+      resource.options.transformUpdate,
+      payload,
+      {
+        operation: 'update',
+        resourceName,
+        resource: this.toAdapterResource(resource),
+        user,
+        id,
+      },
+    );
+    const updated = await this.executeMutation(
+      resource.schema,
+      () => this.adapter.update(this.toAdapterResource(resource), id, data),
+    );
+    return this.serializeEntity(resource.schema, updated as Record<string, unknown>);
+  }
+
+  async changePassword(
+    resourceName: string,
+    id: string,
+    payload: Record<string, unknown>,
+    user: AdminRequestUser,
+  ) {
+    const resource = this.registry.get(resourceName);
+    this.permissionService.assertCanWrite(user, resource.schema);
+
+    if (!resource.options.password) {
+      throw new NotFoundException(`Password change is not configured for ${resourceName}`);
+    }
+
+    await this.detail(resourceName, id, user);
+    const data = await this.applyPasswordTransform({}, resource.options.password, payload, true);
+    const updated = await this.executeMutation(
+      resource.schema,
+      () => this.adapter.update(this.toAdapterResource(resource), id, data),
+    );
+    return this.serializeEntity(resource.schema, updated as Record<string, unknown>);
   }
 
   async remove(resourceName: string, id: string, user: AdminRequestUser) {
@@ -112,7 +173,7 @@ export class AdminService implements OnModuleInit {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
 
-    const items = await Promise.all(
+    const records = await Promise.all(
       ids.map(async (id) => {
         const entity = await this.adapter.findOne(this.toAdapterResource(resource), id);
 
@@ -121,17 +182,24 @@ export class AdminService implements OnModuleInit {
         }
 
         return {
+          entity: entity as Record<string, unknown>,
           id: String((entity as Record<string, unknown>).id ?? id),
           label: this.resolveEntityLabel(resource.schema, entity as Record<string, unknown>, id),
         };
       }),
     );
 
+    const items = records.map(({ id, label }) => ({ id, label }));
+    const related = await this.buildDeleteRelatedSummary(resource.schema, records.map((record) => record.entity));
+    const impact = await this.buildDeleteImpact(resource.schema.resourceName, resource.schema.label, items);
+
     return {
       resourceName,
       label: resource.schema.label,
       count: items.length,
       items,
+      related,
+      impact,
     };
   }
 
@@ -171,7 +239,10 @@ export class AdminService implements OnModuleInit {
 
     return {
       success: true,
-      entity: result ?? (await this.detail(resourceName, id, user)),
+      entity:
+        result && typeof result === 'object'
+          ? this.serializeEntity(resource.schema, result as Record<string, unknown>)
+          : await this.detail(resourceName, id, user),
     };
   }
 
@@ -278,6 +349,73 @@ export class AdminService implements OnModuleInit {
     return dtoInstance as Record<string, unknown>;
   }
 
+  private async prepareMutationPayload(
+    dtoClass: Function | undefined,
+    transform: AdminWriteTransform | undefined,
+    payload: Record<string, unknown>,
+    context: {
+      operation: 'create' | 'update';
+      resourceName: string;
+      resource: AdminAdapterResource;
+      user: AdminRequestUser;
+      id?: string;
+    },
+  ): Promise<Record<string, unknown>> {
+    const data = await this.validateDto(dtoClass, payload);
+    if (!transform) {
+      return data;
+    }
+
+    return transform(data, context);
+  }
+
+  private async executeMutation<T>(
+    schema: AdminResourceSchema,
+    action: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await action();
+    } catch (error) {
+      throw normalizeWriteException(schema, error);
+    }
+  }
+
+  private async applyPasswordTransform(
+    data: Record<string, unknown>,
+    passwordOptions: AdminPasswordOptions | undefined,
+    rawPayload: Record<string, unknown>,
+    requirePassword: boolean,
+  ): Promise<Record<string, unknown>> {
+    if (!passwordOptions) {
+      return data;
+    }
+
+    const fieldName = passwordOptions.fieldName ?? 'password';
+    const confirmFieldName = passwordOptions.confirmFieldName ?? 'passwordConfirm';
+    const targetFieldName = passwordOptions.targetFieldName ?? 'passwordHash';
+    const password = asString(rawPayload[fieldName]);
+    const confirmation = asString(rawPayload[confirmFieldName]);
+    const next = { ...data };
+
+    delete next[fieldName];
+    delete next[confirmFieldName];
+
+    if (!password?.trim()) {
+      if (requirePassword) {
+        throw validationException(fieldName, 'Password is required');
+      }
+
+      return next;
+    }
+
+    if (password !== confirmation) {
+      throw validationException(confirmFieldName, 'Passwords do not match');
+    }
+
+    next[targetFieldName] = await passwordOptions.hash(password);
+    return next;
+  }
+
   private toAdapterResource(resource: {
     schema: AdminResourceSchema;
     options: { model: AdminAdapterResource['model'] };
@@ -290,6 +428,22 @@ export class AdminService implements OnModuleInit {
       filters: resource.schema.filters,
       fields: resource.schema.fields,
     };
+  }
+
+  private serializeEntity(
+    schema: AdminResourceSchema,
+    entity: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const allowedFields = new Set<string>([
+      'id',
+      ...schema.fields.map((field) => field.name),
+      ...schema.list,
+      ...(schema.objectLabel ? [schema.objectLabel] : []),
+    ]);
+
+    return Object.fromEntries(
+      Object.entries(entity).filter(([key]) => allowedFields.has(key)),
+    );
   }
 
   private resolveLookupSearchFields(schema: AdminResourceSchema): string[] {
@@ -316,6 +470,180 @@ export class AdminService implements OnModuleInit {
     return schema.fields
       .filter((field) => field.name !== 'id' && ['text', 'email', 'select'].includes(field.input))
       .map((field) => field.name);
+  }
+
+  private async buildDeleteRelatedSummary(
+    schema: AdminResourceSchema,
+    entities: Array<Record<string, unknown>>,
+  ) {
+    const relationFields = schema.fields.filter((field) => field.relation?.kind === 'many-to-many');
+    const related: AdminDeleteSummary['related'] = [];
+
+    for (const field of relationFields) {
+      const collectedIds = new Set<string>();
+
+      for (const entity of entities) {
+        const rawValue = entity[field.name];
+        if (!Array.isArray(rawValue)) {
+          continue;
+        }
+
+        for (const item of rawValue) {
+          const relationId = this.resolveRelationValue(field.relation?.option.valueField, item);
+          if (relationId) {
+            collectedIds.add(relationId);
+          }
+        }
+      }
+
+      if (collectedIds.size === 0) {
+        continue;
+      }
+
+      const items = await Promise.all(
+        [...collectedIds].map(async (id) => this.lookupDeleteSummaryItem(field.relation!.option.resource, id)),
+      );
+
+      related.push({
+        field: field.name,
+        label: field.label,
+        count: items.length,
+        items: items.filter((item): item is AdminDeleteSummaryItem => item !== null),
+      });
+    }
+
+    return related;
+  }
+
+  private async buildDeleteImpact(
+    rootResourceName: string,
+    rootLabel: string,
+    roots: AdminDeleteSummaryItem[],
+  ): Promise<AdminDeleteSummary['impact']> {
+    const impact: AdminDeleteSummary['impact'] = {
+      delete: [
+        {
+          resourceName: rootResourceName,
+          label: rootLabel,
+          count: roots.length,
+          items: roots,
+        },
+      ],
+      disconnect: [],
+      blocked: [],
+    };
+
+    const rootIds = roots.map((item) => item.id);
+    const groups = new Map<string, AdminDeleteImpactGroup>();
+
+    for (const resource of this.registry.getAll()) {
+      for (const field of resource.fields) {
+        const relation = field.relation;
+        if (!relation || relation.option.resource !== rootResourceName) {
+          continue;
+        }
+
+        const linkedItems = await this.collectLinkedRecords(resource.resourceName, field.name, rootIds);
+        if (linkedItems.length === 0) {
+          continue;
+        }
+
+        const effect = relation.kind === 'many-to-many' ? 'disconnect' : 'blocked';
+        const key = `${effect}:${resource.resourceName}:${field.name}`;
+        const existing = groups.get(key);
+
+        if (existing) {
+          const merged = mergeSummaryItems(existing.items, linkedItems);
+          existing.items = merged;
+          existing.count = merged.length;
+          continue;
+        }
+
+        groups.set(key, {
+          resourceName: resource.resourceName,
+          label: resource.label,
+          count: linkedItems.length,
+          items: linkedItems,
+          via: field.label,
+        });
+      }
+    }
+
+    for (const [key, group] of groups.entries()) {
+      if (key.startsWith('disconnect:')) {
+        impact.disconnect.push(group);
+      } else if (key.startsWith('blocked:')) {
+        impact.blocked.push(group);
+      }
+    }
+
+    return impact;
+  }
+
+  private async collectLinkedRecords(
+    resourceName: string,
+    fieldName: string,
+    ids: string[],
+  ): Promise<AdminDeleteSummaryItem[]> {
+    const resource = this.registry.get(resourceName);
+    const results = await Promise.all(
+      ids.map((id) =>
+        this.adapter.findMany(this.toAdapterResource(resource), {
+          page: 1,
+          pageSize: 100,
+          filters: {
+            [fieldName]: id,
+          },
+        }),
+      ),
+    );
+
+    return mergeSummaryItems(
+      [],
+      results.flatMap((result) =>
+        result.items.map((entity) => {
+          const record = entity as Record<string, unknown>;
+
+          return {
+            id: String(record.id ?? ''),
+            label: this.resolveEntityLabel(resource.schema, record, String(record.id ?? '')),
+          };
+        }),
+      ),
+    );
+  }
+
+  private async lookupDeleteSummaryItem(
+    resourceName: string,
+    id: string,
+  ): Promise<AdminDeleteSummaryItem | null> {
+    const resource = this.registry.get(resourceName);
+    const entity = await this.adapter.findOne(this.toAdapterResource(resource), id);
+    if (!entity) {
+      return null;
+    }
+
+    return {
+      id: String((entity as Record<string, unknown>).id ?? id),
+      label: this.resolveEntityLabel(resource.schema, entity as Record<string, unknown>, id),
+    };
+  }
+
+  private resolveRelationValue(valueField = 'id', rawValue: unknown): string | null {
+    if (rawValue === null || rawValue === undefined || rawValue === '') {
+      return null;
+    }
+
+    if (typeof rawValue === 'object') {
+      const candidate = (rawValue as Record<string, unknown>)[valueField];
+      if (candidate === null || candidate === undefined || candidate === '') {
+        return null;
+      }
+
+      return String(candidate);
+    }
+
+    return String(rawValue);
   }
 
   private resolveEntityLabel(
@@ -350,4 +678,129 @@ export class AdminService implements OnModuleInit {
 
     return fallback;
   }
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function validationException(field: string, message: string): BadRequestException {
+  return new BadRequestException({
+    message: 'Validation failed',
+    errors: [
+      {
+        field,
+        constraints: {
+          custom: message,
+        },
+      },
+    ],
+  });
+}
+
+function normalizeWriteException(
+  schema: AdminResourceSchema,
+  error: unknown,
+): Error {
+  if (error instanceof BadRequestException || error instanceof NotFoundException) {
+    return error;
+  }
+
+  const uniqueViolation = extractUniqueViolationFields(error, schema);
+  if (uniqueViolation) {
+    if (uniqueViolation.fields.length > 0) {
+      return new BadRequestException({
+        message: 'Validation failed',
+        errors: uniqueViolation.fields.map((field) => ({
+          field,
+          constraints: {
+            unique: `${schema.fields.find((candidate) => candidate.name === field)?.label ?? startCase(field)} must be unique`,
+          },
+        })),
+      });
+    }
+
+    return new ConflictException({
+      message: `${schema.label} already exists with that value.`,
+    });
+  }
+
+  return error instanceof Error ? error : new Error('Unknown error');
+}
+
+function extractUniqueViolationFields(
+  error: unknown,
+  schema: AdminResourceSchema,
+): { fields: string[] } | null {
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+
+  const candidate = error as {
+    code?: string;
+    message?: string;
+    detail?: string;
+    meta?: { target?: unknown };
+  };
+
+  if (candidate.code === 'P2002') {
+    const target = candidate.meta?.target;
+    const fields = Array.isArray(target)
+      ? target.filter((value): value is string => typeof value === 'string')
+      : [];
+
+    return { fields: filterKnownFields(fields, schema) };
+  }
+
+  const text = `${candidate.detail ?? ''} ${candidate.message ?? ''}`.trim();
+  if (!text) {
+    return null;
+  }
+
+  if (candidate.code === '23505') {
+    const match = text.match(/Key \(([^)]+)\)=/i);
+    const fields = match?.[1]
+      ?.split(',')
+      .map((field) => field.trim())
+      .filter(Boolean) ?? [];
+    return { fields: filterKnownFields(fields, schema) };
+  }
+
+  if (candidate.code === 'SQLITE_CONSTRAINT' && /UNIQUE constraint failed:/i.test(text)) {
+    const match = text.match(/UNIQUE constraint failed:\s*(.+)$/i);
+    const fields = match?.[1]
+      ?.split(',')
+      .map((value) => value.trim().split('.').at(-1) ?? '')
+      .filter(Boolean) ?? [];
+    return { fields: filterKnownFields(fields, schema) };
+  }
+
+  if (candidate.code === 'ER_DUP_ENTRY' || /duplicate entry/i.test(text)) {
+    return { fields: [] };
+  }
+
+  return null;
+}
+
+function filterKnownFields(fields: string[], schema: AdminResourceSchema): string[] {
+  const knownFields = new Set(schema.fields.map((field) => field.name));
+  return [...new Set(fields.filter((field) => knownFields.has(field)))];
+}
+
+function startCase(value: string): string {
+  const spaced = value.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  return `${spaced.charAt(0).toUpperCase()}${spaced.slice(1)}`;
+}
+
+function mergeSummaryItems(
+  current: AdminDeleteSummaryItem[],
+  incoming: AdminDeleteSummaryItem[],
+): AdminDeleteSummaryItem[] {
+  const merged = new Map(current.map((item) => [item.id, item]));
+
+  for (const item of incoming) {
+    merged.set(item.id, item);
+  }
+
+  return [...merged.values()];
 }

@@ -1,5 +1,6 @@
+import { AdminField } from '#src/admin/decorators/admin-field.decorator.js';
 import type { AdminResourceOptions } from '#src/admin/types/admin.types.js';
-import { IsBoolean, IsEmail, IsEnum, IsOptional } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export enum Role {
   ADMIN = 'admin',
@@ -10,6 +11,42 @@ export enum Role {
 export class CreateUserDto {
   @IsEmail()
   email!: string;
+
+  @AdminField({
+    label: 'Password',
+    input: 'password',
+    helpText: 'Set an initial password for this user.',
+    modes: ['create'],
+  })
+  @IsString()
+  @IsNotEmpty()
+  password!: string;
+
+  @AdminField({
+    label: 'Password confirmation',
+    input: 'password',
+    helpText: 'Enter the same password again for verification.',
+    modes: ['create'],
+  })
+  @IsString()
+  @IsNotEmpty()
+  passwordConfirm!: string;
+
+  @AdminField({
+    label: 'Phone',
+    input: 'tel',
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @AdminField({
+    label: 'Profile URL',
+    input: 'url',
+  })
+  @IsUrl()
+  @IsOptional()
+  profileUrl?: string;
 
   @IsEnum(Role)
   role!: Role;
@@ -24,6 +61,22 @@ export class UpdateUserDto {
   @IsOptional()
   email?: string;
 
+  @AdminField({
+    label: 'Phone',
+    input: 'tel',
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @AdminField({
+    label: 'Profile URL',
+    input: 'url',
+  })
+  @IsUrl()
+  @IsOptional()
+  profileUrl?: string;
+
   @IsEnum(Role)
   @IsOptional()
   role?: Role;
@@ -36,13 +89,13 @@ export class UpdateUserDto {
 export const userAdminOptions = {
   category: 'Accounts',
   objectLabel: 'email',
-  list: ['id', 'email', 'role', 'active', 'createdAt', 'updatedAt'],
+  list: ['id', 'email', 'phone', 'profileUrl', 'role', 'active', 'createdAt', 'updatedAt'],
   defaultSort: {
     field: 'updatedAt',
     order: 'desc',
   },
   sortable: ['updatedAt', 'email'],
-  search: ['email'],
+  search: ['email', 'phone', 'profileUrl'],
   filters: ['role', 'active'],
   readonly: ['createdAt', 'updatedAt'],
   permissions: {

@@ -117,6 +117,56 @@ npm run dev:prisma-example
 npm run build:examples
 ```
 
+## Testing
+
+Adapter contract coverage is available across all three adapters:
+
+- in-memory
+- TypeORM
+- Prisma
+
+Covered adapter behavior:
+
+- `findMany`
+- `findOne`
+- `create`
+- `update`
+- `delete`
+- `distinct`
+- pagination
+- sorting
+- filtering
+- search
+
+Run the contract suite:
+
+```bash
+npm run test:adapters
+```
+
+Backend end-to-end coverage exercises the admin HTTP flow for:
+
+- login/logout
+- protected `/admin` API access
+- resource metadata endpoints
+- CRUD routes
+- custom action routes
+- permission denial paths
+- validation error shape
+
+Run the backend E2E suite:
+
+```bash
+npm run test:e2e
+```
+
+Run linting and type checks:
+
+```bash
+npm run lint
+npm run check
+```
+
 Set up the Prisma example against the same local Postgres container:
 
 ```bash

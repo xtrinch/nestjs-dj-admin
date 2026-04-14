@@ -25,8 +25,7 @@ export async function listResource(
     search?: string;
     sort?: string;
     order?: 'asc' | 'desc';
-    filterField?: string;
-    filterValue?: string;
+    filters?: Record<string, string>;
   },
 ): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
   const params = new URLSearchParams({
@@ -46,8 +45,10 @@ export async function listResource(
     params.set('order', query.order);
   }
 
-  if (query.filterField && query.filterValue) {
-    params.set(`filter.${query.filterField}`, query.filterValue);
+  for (const [field, value] of Object.entries(query.filters ?? {})) {
+    if (value) {
+      params.set(`filter.${field}`, value);
+    }
   }
 
   const response = await adminFetch(`/${resourceName}?${params.toString()}`);
@@ -84,6 +85,22 @@ export async function updateResourceEntity(
 ): Promise<Record<string, unknown>> {
   const response = await adminFetch(`/${resourceName}/${id}`, {
     method: 'PATCH',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return readJson<Record<string, unknown>>(response);
+}
+
+export async function changeResourcePassword(
+  resourceName: string,
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const response = await adminFetch(`/${resourceName}/${id}/password`, {
+    method: 'POST',
     headers: {
       'content-type': 'application/json',
     },

@@ -1,7 +1,7 @@
 import { AdminField } from '#src/admin/decorators/admin-field.decorator.js';
 import type { AdminResourceOptions } from '#src/admin/types/admin.types.js';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsEnum, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -12,6 +12,31 @@ export enum OrderStatus {
 export class CreateOrderDto {
   @IsString()
   number!: string;
+
+  @Type(() => Date)
+  @IsDate()
+  orderDate!: Date;
+
+  @Type(() => Date)
+  @IsDate()
+  @IsOptional()
+  fulfillmentAt?: Date;
+
+  @AdminField({
+    label: 'Delivery time',
+    input: 'time',
+  })
+  @IsString()
+  @IsOptional()
+  deliveryTime?: string;
+
+  @AdminField({
+    label: 'Internal note',
+    input: 'textarea',
+  })
+  @IsString()
+  @IsOptional()
+  internalNote?: string;
 
   @AdminField({
     label: 'User',
@@ -33,6 +58,32 @@ export class UpdateOrderDto {
   @IsString()
   @IsOptional()
   number?: string;
+
+  @Type(() => Date)
+  @IsDate()
+  @IsOptional()
+  orderDate?: Date;
+
+  @Type(() => Date)
+  @IsDate()
+  @IsOptional()
+  fulfillmentAt?: Date;
+
+  @AdminField({
+    label: 'Delivery time',
+    input: 'time',
+  })
+  @IsString()
+  @IsOptional()
+  deliveryTime?: string;
+
+  @AdminField({
+    label: 'Internal note',
+    input: 'textarea',
+  })
+  @IsString()
+  @IsOptional()
+  internalNote?: string;
 
   @AdminField({
     label: 'User',
@@ -56,14 +107,14 @@ export class UpdateOrderDto {
 export const orderAdminOptions = {
   category: 'Sales',
   objectLabel: 'number',
-  list: ['id', 'number', 'userId', 'status', 'total', 'createdAt', 'updatedAt'],
+  list: ['id', 'number', 'orderDate', 'deliveryTime', 'fulfillmentAt', 'userId', 'status', 'total', 'internalNote', 'createdAt', 'updatedAt'],
   defaultSort: {
-    field: 'updatedAt',
+    field: 'orderDate',
     order: 'desc',
   },
-  sortable: ['updatedAt', 'number'],
+  sortable: ['orderDate', 'updatedAt', 'number'],
   search: ['number'],
-  filters: ['status'],
+  filters: ['status', 'userId'],
   readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],

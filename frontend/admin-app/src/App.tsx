@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { ListPage } from './pages/ListPage.js';
 import { EditPage } from './pages/EditPage.js';
+import { PasswordPage } from './pages/PasswordPage.js';
 import { DeleteConfirmPage } from './pages/DeleteConfirmPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
+import { consumeToast, onToast } from './services/toast.service.js';
+import type { AdminToast } from './services/toast.service.js';
 import type { AdminMetaResponse, AdminUser, ResourceSchema } from './types.js';
 
 export function App() {
@@ -17,6 +20,7 @@ export function App() {
   );
   const [hash, setHash] = useState(() => window.location.hash);
   const [pageLabel, setPageLabel] = useState<string | null>(null);
+  const [toast, setToast] = useState<AdminToast | null>(null);
 
   useEffect(() => {
     void loadAdmin();
@@ -25,13 +29,43 @@ export function App() {
   useEffect(() => {
     const onHashChange = () => {
       setHash(window.location.hash);
+      const pendingToast = consumeToast();
+      if (pendingToast) {
+        setToast(pendingToast);
+      }
     };
 
     window.addEventListener('hashchange', onHashChange);
+    const disposeToast = onToast((nextToast) => {
+      setToast(nextToast);
+    });
+
     return () => {
       window.removeEventListener('hashchange', onHashChange);
+      disposeToast();
     };
   }, []);
+
+  useEffect(() => {
+    const pendingToast = consumeToast();
+    if (pendingToast) {
+      setToast(pendingToast);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(null);
+    }, 3200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [toast]);
 
   const route = meta?.resources.length ? parseRoute(hash, meta.resources) : null;
   const categories = meta ? groupResources(meta.resources) : [];
@@ -44,6 +78,8 @@ export function App() {
 
     if (route.mode === 'edit') {
       setPageLabel(route.id ? route.id : 'New');
+    } else if (route.mode === 'password') {
+      setPageLabel('Password');
     } else if (route.mode === 'delete') {
       setPageLabel('Delete');
     } else {
@@ -105,6 +141,13 @@ export function App() {
 
   return (
     <div className="shell">
+      {toast ? (
+        <div className="toast-layer" aria-live="polite">
+          <div className={`toast toast--${toast.variant ?? 'success'}`} role="status">
+            {toast.message}
+          </div>
+        </div>
+      ) : null}
       <aside className="sidebar">
         <div className="brand">
           <span className="brand__eyebrow">Nest-native</span>
@@ -157,6 +200,13 @@ export function App() {
               ids={activeRoute.deleteIds}
               onTitleChange={setPageLabel}
             />
+          ) : activeRoute.mode === 'password' ? (
+            <PasswordPage
+              key={`password:${activeRoute.resourceName}:${activeRoute.id}`}
+              resource={activeRoute.resource}
+              id={activeRoute.id}
+              onTitleChange={setPageLabel}
+            />
           ) : (
             <EditPage
               key={`edit:${activeRoute.resourceName}:${activeRoute.id ?? 'new'}`}
@@ -185,7 +235,7 @@ function groupResources(resources: ResourceSchema[]) {
 }
 
 function parseRoute(hash: string, resources: ResourceSchema[]) {
-  const [resourceName, mode, id] = hash.replace(/^#\//, '').split('/');
+  const [resourceName, mode, id, extra] = hash.replace(/^#\//, '').split('/');
   const fallback = resources[0];
   const resource = resources.find((item) => item.resourceName === resourceName) ?? fallback;
 
@@ -196,6 +246,16 @@ function parseRoute(hash: string, resources: ResourceSchema[]) {
       mode: 'delete' as const,
       id: undefined,
       deleteIds: id.split(','),
+    };
+  }
+
+  if (mode === 'edit' && id && extra === 'password') {
+    return {
+      resource,
+      resourceName: resource.resourceName,
+      mode: 'password' as const,
+      id,
+      deleteIds: [] as string[],
     };
   }
 

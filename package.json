@@ -42,7 +42,11 @@
     "prisma:generate:example": "prisma generate --config examples/prisma-demo-app/prisma.config.ts",
     "prisma:push:example": "prisma db push --config examples/prisma-demo-app/prisma.config.ts",
     "prisma:setup:example": "npm run prisma:generate:example && npm run prisma:push:example",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"examples/**/*.ts\" \"frontend/admin-app/src/**/*.{ts,tsx}\" \"tests/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" \"examples/**/*.ts\" \"frontend/admin-app/src/**/*.{ts,tsx}\" \"tests/**/*.ts\" --fix",
+    "test:adapters": "node --import tsx --test tests/adapter-contract.test.ts",
+    "test:e2e": "node --import tsx --test tests/admin-e2e.test.ts"
   },
   "dependencies": {
     "express": "5.1.0"
@@ -67,6 +71,7 @@
     }
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nestjs/common": "11.1.6",
     "@nestjs/core": "11.1.6",
     "@nestjs/platform-express": "11.1.6",
@@ -80,6 +85,8 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.14.2",
     "concurrently": "9.2.1",
+    "eslint": "^10.2.0",
+    "globals": "^17.5.0",
     "lucide-react": "^1.8.0",
     "mysql2": "3.15.2",
     "nodemon": "^3.1.14",
@@ -93,6 +100,7 @@
     "tsx": "4.20.6",
     "typeorm": "0.3.25",
     "typescript": "5.9.3",
+    "typescript-eslint": "^8.58.2",
     "vite": "7.1.10"
   }
 }

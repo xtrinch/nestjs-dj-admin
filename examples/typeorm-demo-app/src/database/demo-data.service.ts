@@ -14,9 +14,9 @@ export class DemoDataService implements OnApplicationBootstrap {
   async onApplicationBootstrap(): Promise<void> {
     const userRepository = this.dataSource.getRepository(User);
     const defaultUsers = [
-      { email: 'ada@example.com', role: Role.ADMIN, passwordHash: hashPassword('admin123'), active: true },
-      { email: 'grace@example.com', role: Role.EDITOR, passwordHash: hashPassword('editor123'), active: true },
-      { email: 'linus@example.com', role: Role.VIEWER, passwordHash: hashPassword('viewer123'), active: false },
+      { email: 'ada@example.com', phone: '+1 206 555 0101', profileUrl: 'https://example.com/users/ada', role: Role.ADMIN, passwordHash: hashPassword('admin123'), active: true },
+      { email: 'grace@example.com', phone: '+1 206 555 0102', profileUrl: 'https://example.com/users/grace', role: Role.EDITOR, passwordHash: hashPassword('editor123'), active: true },
+      { email: 'linus@example.com', phone: '+1 206 555 0103', profileUrl: 'https://example.com/users/linus', role: Role.VIEWER, passwordHash: hashPassword('viewer123'), active: false },
     ];
 
     const savedUsers: User[] = [];
@@ -24,8 +24,10 @@ export class DemoDataService implements OnApplicationBootstrap {
       let user = await userRepository.findOne({ where: { email: defaults.email } });
       if (!user) {
         user = await userRepository.save(userRepository.create(defaults));
-      } else if (!user.passwordHash) {
+      } else if (!user.passwordHash || !user.phone || !user.profileUrl) {
         user.passwordHash = defaults.passwordHash;
+        user.phone = defaults.phone;
+        user.profileUrl = defaults.profileUrl;
         user = await userRepository.save(user);
       }
       savedUsers.push(user);
@@ -43,9 +45,13 @@ export class DemoDataService implements OnApplicationBootstrap {
         const index = existingOrders + i;
         return orderRepository.create({
           number: `ORD-${String(1001 + index)}`,
+          orderDate: buildOrderDate(index),
+          deliveryTime: buildDeliveryTime(index),
+          fulfillmentAt: buildFulfillmentAt(index),
           userId: savedUsers[index % savedUsers.length].id,
           status: statuses[index % statuses.length],
           total: Number((79 + index * 17.35).toFixed(2)),
+          internalNote: buildInternalNote(index),
         });
       });
       const newOrders = await orderRepository.save(ordersToSeed);
@@ -110,6 +116,40 @@ export class DemoDataService implements OnApplicationBootstrap {
       await orderDetailRepository.save(orderDetailsToSeed);
     }
   }
+}
+
+function buildOrderDate(index: number): string {
+  const date = new Date(Date.UTC(2026, 3, 1 + (index % 28)));
+  return date.toISOString().slice(0, 10);
+}
+
+function buildFulfillmentAt(index: number): Date | null {
+  if (index % 4 === 0) {
+    return null;
+  }
+
+  return new Date(Date.UTC(2026, 3, 1 + (index % 28), 9 + (index % 8), 30));
+}
+
+function buildDeliveryTime(index: number): string | null {
+  if (index % 5 === 0) {
+    return null;
+  }
+
+  const hour = 8 + (index % 9);
+  const minute = index % 2 === 0 ? '00' : '30';
+  return `${String(hour).padStart(2, '0')}:${minute}`;
+}
+
+function buildInternalNote(index: number): string {
+  const notes = [
+    'Call before delivery.',
+    'Gift order. Do not include invoice in the parcel.',
+    'Customer requested split fulfillment if stock is low.',
+    '',
+  ];
+
+  return notes[index % notes.length];
 }
 
 function buildDemoProductDefs(): Array<{
