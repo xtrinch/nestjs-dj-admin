@@ -2,6 +2,7 @@ import { adminFetch, readJson } from '../api.js';
 import type {
   AdminDeleteSummary,
   AdminDisplayConfig,
+  AdminLookupResponse,
   AdminMetaResponse,
   ResourceMetaResponse,
 } from '../types.js';
@@ -133,6 +134,32 @@ export async function runResourceAction(
   });
 
   await readJson<{ success: boolean }>(response);
+}
+
+export async function lookupResource(
+  resourceName: string,
+  query: {
+    q?: string;
+    ids?: string[];
+    page?: number;
+    pageSize?: number;
+  },
+): Promise<AdminLookupResponse> {
+  const params = new URLSearchParams();
+
+  if (query.q) {
+    params.set('q', query.q);
+  }
+
+  if (query.ids && query.ids.length > 0) {
+    params.set('ids', query.ids.join(','));
+  }
+
+  params.set('page', String(query.page ?? 1));
+  params.set('pageSize', String(query.pageSize ?? 20));
+
+  const response = await adminFetch(`/_lookup/${resourceName}?${params.toString()}`);
+  return readJson<AdminLookupResponse>(response);
 }
 
 export function resolveDisplayConfig(

@@ -75,7 +75,29 @@ export class AdminController {
     return {
       resource: schema,
       filterOptions: filters,
+      display: resolveDisplay(this.adminOptions),
     };
+  }
+
+  @Get('_lookup/:resource')
+  lookup(
+    @Param('resource') resource: string,
+    @Query('q') q: string | undefined,
+    @Query('ids') idsParam: string | string[] | undefined,
+    @Query('page') pageParam: string | undefined,
+    @Query('pageSize') pageSizeParam: string | undefined,
+    @Req() request: Request,
+  ) {
+    return this.adminService.lookup(
+      resource,
+      {
+        q,
+        ids: parseIds(idsParam),
+        page: Number(pageParam ?? 1),
+        pageSize: Number(pageSizeParam ?? 20),
+      },
+      this.adminAuthService.requireUser(request),
+    );
   }
 
   @Get(':resource')

@@ -23,6 +23,16 @@ export interface AdminListResult<T = Record<string, unknown>> {
   total: number;
 }
 
+export interface AdminLookupItem {
+  value: string;
+  label: string;
+}
+
+export interface AdminLookupResult {
+  items: AdminLookupItem[];
+  total: number;
+}
+
 export interface AdminDeleteSummaryItem {
   id: string;
   label: string;
@@ -137,10 +147,12 @@ export interface AdminModuleOptions {
 export interface AdminAuthCredentials {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface AdminAuthOptions {
   cookieName?: string;
+  rememberMeMaxAgeMs?: number;
   authenticate: (
     credentials: AdminAuthCredentials,
     request: Request,

@@ -55,12 +55,6 @@ This is needed to make the core library behavior defensible.
 
 The baseline experience should be coherent and predictable.
 
-Must-have areas:
-
-- relation selector UX
-- relation labels in changelist and edit flows
-- stable field labels and readonly handling
-
 ### 4. Example apps must be reproducible from a clean setup
 
 All three examples should be explicitly verified:

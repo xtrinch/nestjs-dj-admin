@@ -1,16 +1,16 @@
-import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useState } from 'react';
+import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useRef, useState } from 'react';
 import { AdminApiError } from '../api.js';
 import { formatAdminValue } from '../formatters.js';
 import {
   createResourceEntity,
   getResourceEntity,
   getResourceMeta,
-  listResource,
+  lookupResource,
   updateResourceEntity,
 } from '../services/resources.service.js';
-import type { AdminDisplayConfig, ResourceField, ResourceSchema } from '../types.js';
+import type { AdminDisplayConfig, AdminLookupItem, ResourceField, ResourceSchema } from '../types.js';
 
-type RelationOption = { label: string; value: string };
+const RELATION_LOOKUP_PAGE_SIZE = 20;
 
 export function EditPage({
   resource,
@@ -25,7 +25,6 @@ export function EditPage({
   const [display, setDisplay] = useState<AdminDisplayConfig | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [relationOptions, setRelationOptions] = useState<Record<string, RelationOption[]>>({});
 
   useEffect(() => {
     void load();
@@ -35,22 +34,6 @@ export function EditPage({
     const metaJson = await getResourceMeta(resource.resourceName);
     setFields(metaJson.resource.fields);
     setDisplay(metaJson.display ?? null);
-
-    const relationFields = metaJson.resource.fields.filter((f) => f.relation);
-    if (relationFields.length > 0) {
-      const entries = await Promise.all(
-        relationFields.map(async (field) => {
-          const { resource: relResource, labelField, valueField = 'id' } = field.relation!.option;
-          const data = await listResource(relResource, { page: 1, pageSize: 200 });
-          const options = data.items.map((item) => ({
-            label: String(item[labelField] ?? ''),
-            value: String(item[valueField] ?? ''),
-          }));
-          return [field.name, options] as const;
-        }),
-      );
-      setRelationOptions(Object.fromEntries(entries));
-    }
 
     if (id) {
       const entityJson = await getResourceEntity(resource.resourceName, id);
@@ -105,7 +88,7 @@ export function EditPage({
         {fields.map((field) => (
           <label className="field" key={field.name}>
             <span>{field.label}</span>
-            <FieldInput field={field} values={values} setValues={setValues} display={display} relationOptions={relationOptions} />
+            <FieldInput field={field} values={values} setValues={setValues} display={display} />
             {errors[field.name] ? <small className="field__error">{errors[field.name]}</small> : null}
           </label>
         ))}
@@ -139,17 +122,22 @@ function normalizeValues(
   values: Record<string, unknown>,
 ): Record<string, unknown> {
   return Object.fromEntries(
-    fields.map((field) => [field.name, normalizeValue(field, values[field.name])]),
+    fields
+      .filter((field) => !field.readOnly)
+      .map((field) => [field.name, normalizeValue(field, values[field.name])]),
   );
 }
 
 function normalizeValue(field: ResourceField, value: unknown): unknown {
   if (field.input === 'multiselect') {
     const arr = Array.isArray(value) ? value : [];
-    const valueField = field.relation?.option.valueField ?? 'id';
-    return arr.map((item) =>
-      item !== null && typeof item === 'object' ? String((item as Record<string, unknown>)[valueField] ?? '') : String(item),
-    );
+    return arr
+      .map((item) => getRelationValue(field, item))
+      .filter((item): item is string => item !== null);
+  }
+
+  if (field.relation) {
+    return getRelationValue(field, value) ?? undefined;
   }
 
   if (value === '' || value === null || value === undefined) {
@@ -172,35 +160,31 @@ function FieldInput({
   values,
   setValues,
   display,
-  relationOptions,
 }: {
   field: ResourceField;
   values: Record<string, unknown>;
   setValues: Dispatch<SetStateAction<Record<string, unknown>>>;
   display: AdminDisplayConfig | null;
-  relationOptions: Record<string, RelationOption[]>;
 }) {
-  if (field.input === 'select' && field.relation) {
-    const options = relationOptions[field.name] ?? [];
+  if (field.readOnly) {
     return (
-      <select
+      <input
         className="input"
-        disabled={field.readOnly}
-        value={String(values[field.name] ?? '')}
-        onChange={(event) =>
-          setValues((current) => ({
-            ...current,
-            [field.name]: event.target.value,
-          }))
-        }
-      >
-        <option value="">---------</option>
-        {options.map(({ label, value }) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
+        disabled
+        readOnly
+        type="text"
+        value={formatAdminValue(values[field.name], field.name, display ?? undefined)}
+      />
+    );
+  }
+
+  if (field.relation) {
+    return (
+      <RelationFieldInput
+        field={field}
+        values={values}
+        setValues={setValues}
+      />
     );
   }
 
@@ -208,7 +192,6 @@ function FieldInput({
     return (
       <select
         className="input"
-        disabled={field.readOnly}
         value={String(values[field.name] ?? '')}
         onChange={(event) =>
           setValues((current) => ({
@@ -227,43 +210,11 @@ function FieldInput({
     );
   }
 
-  if (field.input === 'multiselect') {
-    const options = relationOptions[field.name] ?? [];
-    const valueField = field.relation?.option.valueField ?? 'id';
-    const rawValue = values[field.name];
-    const currentValues = Array.isArray(rawValue)
-      ? rawValue.map((item) =>
-          item !== null && typeof item === 'object'
-            ? String((item as Record<string, unknown>)[valueField] ?? '')
-            : String(item),
-        )
-      : [];
-    return (
-      <select
-        className="input"
-        multiple
-        disabled={field.readOnly}
-        value={currentValues}
-        onChange={(event) => {
-          const selected = Array.from(event.target.selectedOptions).map((o) => o.value);
-          setValues((current) => ({ ...current, [field.name]: selected }));
-        }}
-      >
-        {options.map(({ label, value }) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
   if (field.input === 'checkbox') {
     return (
       <input
         className="checkbox"
         checked={Boolean(values[field.name])}
-        disabled={field.readOnly}
         type="checkbox"
         onChange={(event) =>
           setValues((current) => ({
@@ -278,13 +229,8 @@ function FieldInput({
   return (
     <input
       className="input"
-      disabled={field.readOnly}
       type={field.input}
-      value={
-        field.readOnly && display
-          ? formatAdminValue(values[field.name], field.name, display)
-          : String(values[field.name] ?? '')
-      }
+      value={String(values[field.name] ?? '')}
       onChange={(event) =>
         setValues((current) => ({
           ...current,
@@ -293,4 +239,287 @@ function FieldInput({
       }
     />
   );
+}
+
+function RelationFieldInput({
+  field,
+  values,
+  setValues,
+}: {
+  field: ResourceField;
+  values: Record<string, unknown>;
+  setValues: Dispatch<SetStateAction<Record<string, unknown>>>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [options, setOptions] = useState<AdminLookupItem[]>([]);
+  const [selectedCache, setSelectedCache] = useState<Record<string, AdminLookupItem>>({});
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedValues = getSelectedRelationValues(field, values[field.name]);
+  const selectedOptions = selectedValues
+    .map((value) => selectedCache[value] ?? options.find((option) => option.value === value) ?? { value, label: value });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void search();
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [field.name, field.relation?.option.resource, query, open]);
+
+  useEffect(() => {
+    if (selectedValues.length === 0) {
+      return;
+    }
+
+    const missing = selectedValues.filter(
+      (value) => !selectedCache[value],
+    );
+
+    if (missing.length === 0) {
+      return;
+    }
+
+    void hydrateSelected(missing);
+  }, [field.name, field.relation?.option.resource, selectedValues.join(','), options]);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+    };
+  }, [open]);
+
+  async function search() {
+    if (!field.relation) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await lookupResource(field.relation.option.resource, {
+        page: 1,
+        pageSize: RELATION_LOOKUP_PAGE_SIZE,
+        q: query.trim() || undefined,
+      });
+      setOptions(response.items);
+      setLoaded(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function hydrateSelected(ids: string[]) {
+    if (!field.relation) {
+      return;
+    }
+
+    const response = await lookupResource(field.relation.option.resource, {
+      ids,
+      page: 1,
+      pageSize: ids.length,
+    });
+    setSelectedCache((current) => ({
+      ...current,
+      ...Object.fromEntries(response.items.map((item) => [item.value, item])),
+    }));
+  }
+
+  if (field.input === 'multiselect') {
+    return (
+      <div className="relation-picker" ref={rootRef}>
+        {selectedOptions.length > 0 ? (
+          <div className="relation-picker__selected">
+            {selectedOptions.map((option) => (
+              <button
+                key={option.value}
+                className="relation-pill"
+                type="button"
+                onClick={() =>
+                  setValues((current) => ({
+                    ...current,
+                    [field.name]: selectedValues.filter((value) => value !== option.value),
+                  }))
+                }
+              >
+                {option.label} ×
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <button
+          className="input relation-picker__trigger"
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+        >
+          <span>{selectedOptions.length > 0 ? `${selectedOptions.length} selected` : `Select ${field.label.toLowerCase()}`}</span>
+          <span>{open ? '▲' : '▼'}</span>
+        </button>
+        {open ? (
+          <div className="relation-picker__dropdown">
+            <input
+              autoFocus
+              className="input"
+              placeholder={`Search ${field.label.toLowerCase()}`}
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <div className={`relation-picker__results${loading ? ' relation-picker__results--loading' : ''}`}>
+              {options.map((option) => (
+                <label className="relation-option" key={option.value}>
+                  <input
+                    checked={selectedValues.includes(option.value)}
+                    className="checkbox"
+                    type="checkbox"
+                    onChange={(event) =>
+                      setValues((current) => ({
+                        ...current,
+                        [field.name]: event.target.checked
+                          ? [...selectedValues, option.value]
+                          : selectedValues.filter((value) => value !== option.value),
+                      }))
+                    }
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+              {!loading && loaded && options.length === 0 ? (
+                <div className="relation-picker__empty">No matches found.</div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relation-picker" ref={rootRef}>
+      <button
+        className="input relation-picker__trigger"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{selectedOptions[0]?.label ?? `Select ${field.label.toLowerCase()}`}</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </button>
+      {open ? (
+        <div className="relation-picker__dropdown">
+          <input
+            autoFocus
+            className="input"
+            placeholder={`Search ${field.label.toLowerCase()}`}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <div className={`relation-picker__results${loading ? ' relation-picker__results--loading' : ''}`}>
+            <button
+              className="relation-option relation-option--button"
+              type="button"
+              onClick={() => {
+                setValues((current) => ({
+                  ...current,
+                  [field.name]: '',
+                }));
+                setOpen(false);
+              }}
+            >
+              ---------
+            </button>
+            {options.map((option) => (
+              <button
+                key={option.value}
+                className="relation-option relation-option--button"
+                type="button"
+                onClick={() => {
+                  setValues((current) => ({
+                    ...current,
+                    [field.name]: option.value,
+                  }));
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+            {!loading && loaded && options.length === 0 ? (
+              <div className="relation-picker__empty">No matches found.</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function getSelectedRelationValues(field: ResourceField, rawValue: unknown): string[] {
+  if (field.input === 'multiselect') {
+    return Array.isArray(rawValue)
+      ? rawValue
+          .map((value) => getRelationValue(field, value))
+          .filter((value): value is string => value !== null)
+      : [];
+  }
+
+  const selectedValue = getRelationValue(field, rawValue);
+  if (selectedValue === null) {
+    return [];
+  }
+
+  return [selectedValue];
+}
+
+function getRelationValue(field: ResourceField, rawValue: unknown): string | null {
+  if (rawValue === null || rawValue === undefined || rawValue === '') {
+    return null;
+  }
+
+  if (typeof rawValue === 'object') {
+    const valueField = field.relation?.option.valueField ?? 'id';
+    const candidate = (rawValue as Record<string, unknown>)[valueField];
+    if (candidate === null || candidate === undefined || candidate === '') {
+      return null;
+    }
+
+    return String(candidate);
+  }
+
+  return String(rawValue);
+}
+
+function mergeLookupOptions(current: AdminLookupItem[], incoming: AdminLookupItem[]): AdminLookupItem[] {
+  const merged = new Map(current.map((item) => [item.value, item]));
+
+  for (const item of incoming) {
+    merged.set(item.value, item);
+  }
+
+  return [...merged.values()];
 }

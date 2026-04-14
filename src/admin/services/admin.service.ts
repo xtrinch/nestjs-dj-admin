@@ -13,6 +13,7 @@ import type {
   AdminAdapter,
   AdminAdapterResource,
   AdminDeleteSummary,
+  AdminLookupResult,
   AdminListQuery,
   AdminRequestUser,
   AdminResourceSchema,
@@ -189,6 +190,68 @@ export class AdminService implements OnModuleInit {
     return options;
   }
 
+  async lookup(
+    resourceName: string,
+    query: {
+      q?: string;
+      ids?: string[];
+      page: number;
+      pageSize: number;
+    },
+    user: AdminRequestUser,
+  ): Promise<AdminLookupResult> {
+    const resource = this.registry.get(resourceName);
+    this.permissionService.assertCanRead(user, resource.schema);
+
+    if (query.ids && query.ids.length > 0 && !query.q) {
+      const entities = await Promise.all(
+        query.ids.map((id) => this.adapter.findOne(this.toAdapterResource(resource), id)),
+      );
+      const items = entities
+        .map((entity, index) => {
+          if (!entity) {
+            return null;
+          }
+
+          return {
+            value: String((entity as Record<string, unknown>).id ?? query.ids?.[index] ?? ''),
+            label: this.resolveEntityLabel(
+              resource.schema,
+              entity as Record<string, unknown>,
+              query.ids?.[index] ?? '',
+            ),
+          };
+        })
+        .filter((item): item is { value: string; label: string } => item !== null);
+
+      return {
+        items,
+        total: items.length,
+      };
+    }
+
+    const result = await this.adapter.findMany(
+      this.toAdapterResource(resource, this.resolveLookupSearchFields(resource.schema)),
+      {
+        page: query.page,
+        pageSize: query.pageSize,
+        search: query.q,
+        order: 'asc',
+      },
+    );
+
+    return {
+      total: result.total,
+      items: result.items.map((entity) => {
+        const record = entity as Record<string, unknown>;
+        return {
+          value: String(record.id ?? ''),
+          label: this.resolveEntityLabel(resource.schema, record, String(record.id ?? '')),
+        };
+      }),
+    };
+  }
+
   private async validateDto(
     dtoClass: Function | undefined,
     payload: Record<string, unknown>,
@@ -218,15 +281,41 @@ export class AdminService implements OnModuleInit {
   private toAdapterResource(resource: {
     schema: AdminResourceSchema;
     options: { model: AdminAdapterResource['model'] };
-  }): AdminAdapterResource {
+  }, searchFields?: string[]): AdminAdapterResource {
     return {
       resourceName: resource.schema.resourceName,
       label: resource.schema.label,
       model: resource.options.model,
-      search: resource.schema.search,
+      search: searchFields ?? resource.schema.search,
       filters: resource.schema.filters,
       fields: resource.schema.fields,
     };
+  }
+
+  private resolveLookupSearchFields(schema: AdminResourceSchema): string[] {
+    const searchableFieldNames = new Set(
+      schema.fields
+        .filter((field) => ['text', 'email', 'select'].includes(field.input))
+        .map((field) => field.name),
+    );
+
+    const candidates = [
+      ...(schema.objectLabel ? [schema.objectLabel] : []),
+      ...schema.search,
+      ...schema.listDisplayLinks,
+    ];
+
+    const resolved = [...new Set(
+      candidates.filter((field) => field && field !== 'id' && searchableFieldNames.has(field)),
+    )];
+
+    if (resolved.length > 0) {
+      return resolved;
+    }
+
+    return schema.fields
+      .filter((field) => field.name !== 'id' && ['text', 'email', 'select'].includes(field.input))
+      .map((field) => field.name);
   }
 
   private resolveEntityLabel(

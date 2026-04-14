@@ -33,7 +33,7 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
       builder.andWhere(
         new Brackets((searchQuery) => {
           for (const field of resource.search) {
-            searchQuery.orWhere(`${alias}.${field} ${operator} :search`, {
+            searchQuery.orWhere(`${this.buildSearchExpression(repository, alias, field)} ${operator} :search`, {
               search: `%${query.search}%`,
             });
           }
@@ -154,6 +154,21 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     return repository.metadata.relations
       .filter((relation) => relation.isManyToMany)
       .map((relation) => relation.propertyName);
+  }
+
+  private buildSearchExpression(
+    repository: Repository<ObjectLiteral>,
+    alias: string,
+    field: string,
+  ): string {
+    const column = repository.metadata.findColumnWithPropertyName(field);
+    const columnPath = column ? `${alias}.${column.propertyPath}` : `${alias}.${field}`;
+
+    if (this.dataSource.options.type === 'postgres') {
+      return `CAST(${columnPath} AS TEXT)`;
+    }
+
+    return columnPath;
   }
 
   private normalizeMutationData<TModel extends AdminEntity>(

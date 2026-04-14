@@ -38,6 +38,7 @@ export class AdminAuthService {
     this.sessions.set(sessionId, user);
     response.cookie(this.cookieName, sessionId, {
       httpOnly: true,
+      maxAge: credentials.rememberMe ? this.rememberMeMaxAgeMs : undefined,
       sameSite: 'lax',
       secure: false,
       path: '/',
@@ -90,6 +91,10 @@ export class AdminAuthService {
 
   private get cookieName(): string {
     return this.options.auth?.cookieName ?? 'admin_session';
+  }
+
+  private get rememberMeMaxAgeMs(): number {
+    return this.options.auth?.rememberMeMaxAgeMs ?? 1000 * 60 * 60 * 24 * 30;
   }
 
   private readSessionId(request: Request): string | null {

@@ -15,46 +15,69 @@ export class DtoIntrospectorService {
   buildFields(
     dtoClass: Function | undefined,
     readonlyFields: string[],
+    modelClass?: Function,
   ): AdminFieldSchema[] {
-    if (!dtoClass) {
-      return [];
-    }
+    const fields = new Map<string, AdminFieldSchema>();
 
-    const storage = getMetadataStorage() as {
-      getTargetValidationMetadatas: (
-        target: Function,
-        targetSchema: string,
-        always: boolean,
-        strictGroups: boolean,
-      ) => ValidationMetadata[];
-    };
-
-    const metadata = storage.getTargetValidationMetadatas(dtoClass, '', false, false);
-    const byProperty = new Map<string, ValidationMetadata[]>();
-
-    for (const item of metadata) {
-      const group = byProperty.get(item.propertyName) ?? [];
-      group.push(item);
-      byProperty.set(item.propertyName, group);
-    }
-
-    return [...byProperty.entries()].map(([propertyName, validators]) => {
-      const type = Reflect.getMetadata('design:type', dtoClass.prototype, propertyName) as
-        | Function
-        | undefined;
-      const extra =
-        Reflect.getMetadata(ADMIN_DTO_FIELD_METADATA, dtoClass.prototype, propertyName) ?? {};
-
-      return {
-        name: propertyName,
-        label: extra.label ?? startCase(propertyName),
-        input: this.resolveInput(validators, type, extra.relation?.kind),
-        required: !validators.some((validator) => validator.type === 'conditionalValidation'),
-        readOnly: readonlyFields.includes(propertyName),
-        enumValues: this.resolveEnumValues(validators),
-        relation: extra.relation,
+    if (dtoClass) {
+      const storage = getMetadataStorage() as {
+        getTargetValidationMetadatas: (
+          target: Function,
+          targetSchema: string,
+          always: boolean,
+          strictGroups: boolean,
+        ) => ValidationMetadata[];
       };
-    });
+
+      const metadata = storage.getTargetValidationMetadatas(dtoClass, '', false, false);
+      const byProperty = new Map<string, ValidationMetadata[]>();
+
+      for (const item of metadata) {
+        const group = byProperty.get(item.propertyName) ?? [];
+        group.push(item);
+        byProperty.set(item.propertyName, group);
+      }
+
+      for (const [propertyName, validators] of byProperty.entries()) {
+        const type = Reflect.getMetadata('design:type', dtoClass.prototype, propertyName) as
+          | Function
+          | undefined;
+        const extra =
+          Reflect.getMetadata(ADMIN_DTO_FIELD_METADATA, dtoClass.prototype, propertyName) ?? {};
+
+        fields.set(propertyName, {
+          name: propertyName,
+          label: extra.label ?? startCase(propertyName),
+          input: this.resolveInput(validators, type, extra.relation?.kind),
+          required: !validators.some((validator) => validator.type === 'conditionalValidation'),
+          readOnly: readonlyFields.includes(propertyName),
+          enumValues: this.resolveEnumValues(validators),
+          relation: extra.relation,
+        });
+      }
+    }
+
+    for (const propertyName of readonlyFields) {
+      if (fields.has(propertyName)) {
+        continue;
+      }
+
+      const type = modelClass
+        ? (Reflect.getMetadata('design:type', modelClass.prototype, propertyName) as
+            | Function
+            | undefined)
+        : undefined;
+
+      fields.set(propertyName, {
+        name: propertyName,
+        label: startCase(propertyName),
+        input: this.resolveInput([], type),
+        required: false,
+        readOnly: true,
+      });
+    }
+
+    return [...fields.values()];
   }
 
   private resolveInput(
@@ -79,6 +102,10 @@ export class DtoIntrospectorService {
     }
 
     if (validators.some((validator) => validator.type === 'isDate')) {
+      return 'date';
+    }
+
+    if (runtimeType === Date) {
       return 'date';
     }
 

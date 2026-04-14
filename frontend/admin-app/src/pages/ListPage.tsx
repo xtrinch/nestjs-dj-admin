@@ -4,12 +4,12 @@ import { formatAdminValue } from '../formatters.js';
 import {
   getResourceMeta,
   listResource,
+  lookupResource,
   runResourceAction,
 } from '../services/resources.service.js';
 import type { ResourceMetaResponse } from '../types.js';
 
 const PAGE_SIZE = 20;
-const RELATION_LOOKUP_PAGE_SIZE = 200;
 
 export function ListPage({
   resourceName,
@@ -52,7 +52,6 @@ export function ListPage({
         ? order
         : metaJson.resource.defaultSort?.order ?? order;
       setMeta(metaJson);
-      setRelationLabels(await loadRelationLabels(metaJson));
       onTitleChange?.(null);
       const listJson = await listResource(resourceName, {
         page,
@@ -64,6 +63,7 @@ export function ListPage({
         filterValue: filter,
       });
       setItems(listJson.items);
+      setRelationLabels(await loadRelationLabels(metaJson, listJson.items));
       setSelectedIds([]);
       setSelectedAction('');
       setTotal(listJson.total);
@@ -289,7 +289,10 @@ export function ListPage({
   );
 }
 
-async function loadRelationLabels(meta: ResourceMetaResponse): Promise<Record<string, Record<string, string>>> {
+async function loadRelationLabels(
+  meta: ResourceMetaResponse,
+  items: Array<Record<string, unknown>>,
+): Promise<Record<string, Record<string, string>>> {
   const relationFields = meta.resource.fields.filter(
     (field) => field.relation && meta.resource.list.includes(field.name),
   );
@@ -300,15 +303,20 @@ async function loadRelationLabels(meta: ResourceMetaResponse): Promise<Record<st
 
   const entries = await Promise.all(
     relationFields.map(async (field) => {
-      const { resource, labelField, valueField = 'id' } = field.relation!.option;
-      const data = await listResource(resource, {
-        page: 1,
-        pageSize: RELATION_LOOKUP_PAGE_SIZE,
-      });
+      const ids = [...new Set(
+        items
+          .map((item) => item[field.name])
+          .filter((value) => value !== null && value !== undefined && value !== '')
+          .map((value) => String(value)),
+      )];
 
-      const labels = Object.fromEntries(
-        data.items.map((item) => [String(item[valueField] ?? ''), String(item[labelField] ?? '')]),
-      );
+      if (ids.length === 0) {
+        return [field.name, {}] as const;
+      }
+
+      const data = await lookupResource(field.relation!.option.resource, { ids, pageSize: ids.length });
+
+      const labels = Object.fromEntries(data.items.map((item) => [item.value, item.label]));
 
       return [field.name, labels] as const;
     }),

@@ -1,9 +1,12 @@
 import { type FormEvent, useState } from 'react';
-import { loginAdmin } from '../services/auth.service.js';
+import { loginAdminWithOptions } from '../services/auth.service.js';
+
+const REMEMBERED_EMAIL_KEY = 'dj-admin.remembered-email';
 
 export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<void> }) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => window.localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => Boolean(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -13,7 +16,12 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
     setError(null);
 
     try {
-      await loginAdmin(email, password);
+      await loginAdminWithOptions(email, password, rememberMe);
+      if (rememberMe && email.trim()) {
+        window.localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
+      } else {
+        window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+      }
       await onAuthenticated();
     } catch (reason) {
       setError((reason as Error).message);
@@ -46,6 +54,23 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+          </label>
+          <label className="field">
+            <span>
+              <input
+                checked={rememberMe}
+                className="checkbox"
+                type="checkbox"
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setRememberMe(checked);
+                  if (!checked) {
+                    window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+                  }
+                }}
+              />{' '}
+              Remember me
+            </span>
           </label>
           {error ? <small className="field__error">{error}</small> : null}
           <button className="button button--primary" disabled={submitting} type="submit">

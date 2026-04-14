@@ -66,6 +66,7 @@ export class AdminRegistry {
         fields: this.dtoIntrospector.buildFields(
           options.createDto ?? options.updateDto,
           options.readonly ?? [],
+          options.model,
         ),
       };
 

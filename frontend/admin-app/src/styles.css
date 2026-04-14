@@ -358,6 +358,12 @@ a {
   color: #b42318;
 }
 
+.field__hint {
+  color: #b8aa95;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .input,
 .button,
 .checkbox {
@@ -401,6 +407,90 @@ a {
 .button--danger {
   background: rgba(127, 29, 29, 0.36);
   color: #fecaca;
+}
+
+.relation-picker {
+  display: grid;
+  gap: 0.45rem;
+  position: relative;
+}
+
+.relation-picker__selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.relation-pill {
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.08);
+  color: #fde68a;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.relation-picker__results {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 0.25rem 0;
+}
+
+.relation-picker__results--loading {
+  opacity: 0.7;
+}
+
+.relation-picker__dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid rgba(214, 211, 209, 0.16);
+  border-radius: 0.65rem;
+  background: rgba(22, 22, 22, 0.96);
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.36);
+}
+
+.relation-picker__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+}
+
+.relation-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.relation-option--button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #fff7ed;
+  padding: 0.45rem 0.25rem;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.relation-option--button:hover {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.relation-picker__empty {
+  color: #a8a29e;
+  font-size: 0.88rem;
 }
 
 .delete-confirm__question {

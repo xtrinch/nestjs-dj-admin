@@ -39,6 +39,16 @@ export interface AdminDeleteSummary {
   items: AdminDeleteSummaryItem[];
 }
 
+export interface AdminLookupItem {
+  value: string;
+  label: string;
+}
+
+export interface AdminLookupResponse {
+  items: AdminLookupItem[];
+  total: number;
+}
+
 export interface ResourceSchema {
   resourceName: string;
   label: string;

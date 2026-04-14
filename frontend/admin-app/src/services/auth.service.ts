@@ -12,12 +12,20 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
 }
 
 export async function loginAdmin(email: string, password: string): Promise<AdminUser> {
+  return loginAdminWithOptions(email, password, false);
+}
+
+export async function loginAdminWithOptions(
+  email: string,
+  password: string,
+  rememberMe: boolean,
+): Promise<AdminUser> {
   const response = await adminFetch('/_auth/login', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, rememberMe }),
   });
 
   const payload = await readJson<{ user: AdminUser }>(response);
