@@ -88,6 +88,7 @@ export interface ResourceSchema {
   filters: string[];
   readonly: string[];
   actions: Array<{ name: string; slug: string }>;
+  bulkActions: Array<{ name: string; slug: string }>;
   fields: ResourceField[];
   createFields: ResourceField[];
   updateFields: ResourceField[];

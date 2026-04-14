@@ -153,6 +153,22 @@ export async function runResourceAction(
   await readJson<{ success: boolean }>(response);
 }
 
+export async function runBulkResourceAction(
+  resourceName: string,
+  actionSlug: string,
+  ids: string[],
+): Promise<{ success: boolean; count: number }> {
+  const response = await adminFetch(`/${resourceName}/_bulk-actions/${actionSlug}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ ids }),
+  });
+
+  return readJson<{ success: boolean; count: number }>(response);
+}
+
 export async function lookupResource(
   resourceName: string,
   query: {

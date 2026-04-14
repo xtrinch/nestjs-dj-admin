@@ -11,10 +11,11 @@ export function PasswordPage({
 }: {
   resource: ResourceSchema;
   id: string;
-  onTitleChange?: (label: string) => void;
+  onTitleChange?: (label: string | null) => void;
 }) {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [entityLabel, setEntityLabel] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -23,7 +24,9 @@ export function PasswordPage({
 
   async function load() {
     const entityJson = await getResourceEntity(resource.resourceName, id);
-    onTitleChange?.(resolveEntityLabel(entityJson, id));
+    const label = resolveEntityLabel(entityJson, id);
+    setEntityLabel(label);
+    onTitleChange?.(label);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -72,8 +75,8 @@ export function PasswordPage({
     <section className="panel">
       <header className="panel__header">
         <div>
-          <span className="panel__eyebrow">Change password</span>
-          <h2>{resource.label}</h2>
+          <span className="panel__eyebrow">Change {resource.label} password</span>
+          <h2>{entityLabel ?? resource.label}</h2>
         </div>
         <div className="panel__actions">
           <a className="button" href={`#/${resource.resourceName}/edit/${id}`}>

@@ -23,14 +23,19 @@ export function DeleteConfirmPage({
   const idsKey = ids.join(',');
 
   useEffect(() => {
-    onTitleChange?.('Delete');
     void load();
   }, [resourceName, idsKey]);
 
   async function load() {
     try {
-      setSummary(await getDeleteSummary(resourceName, ids));
+      const nextSummary = await getDeleteSummary(resourceName, ids);
+      setSummary(nextSummary);
       setLoading(false);
+      onTitleChange?.(
+        nextSummary.count === 1
+          ? nextSummary.items[0]?.label ?? nextSummary.label
+          : `${nextSummary.count} ${pluralizeLabel(nextSummary.label)}`,
+      );
     } catch (reason) {
       const message = (reason as Error).message;
       setError(message);
@@ -45,7 +50,7 @@ export function DeleteConfirmPage({
       queueToast({
         message:
           ids.length === 1
-            ? `${summary?.label ?? 'Record'} deleted.`
+            ? `${summary?.items[0]?.label ?? summary?.label ?? 'Record'} deleted.`
             : `${ids.length} ${pluralizeLabel(summary?.label ?? 'record').toLowerCase()} deleted.`,
       });
       window.location.hash = `#/${resourceName}`;
@@ -70,11 +75,11 @@ export function DeleteConfirmPage({
   const pluralLabel = pluralizeLabel(label);
   const hasBlockingImpact = impact.blocked.length > 0;
   const singleId = ids.length === 1 ? ids[0] : null;
-  const title = count === 1 ? `Delete ${label}` : `Delete multiple ${pluralLabel}`;
+  const title = count === 1 ? `Delete ${items[0]?.label ?? label}` : `Delete ${count} ${pluralLabel}`;
   const question =
     count === 1
       ? `Review the deletion impact for the selected ${label} before continuing.`
-      : `Review the deletion impact for the selected ${pluralLabel} before continuing.`;
+      : `Review the deletion impact for the selected ${pluralLabel.toLowerCase()} before continuing.`;
 
   return (
     <section className="panel">
@@ -141,12 +146,12 @@ export function DeleteConfirmPage({
       <div className="delete-confirm__actions">
         {hasBlockingImpact ? (
           singleId ? (
-            <a className="button button--danger" href={`#/${resourceName}/edit/${singleId}`}>
-              Resolve linked records first
+            <a className="button" href={`#/${resourceName}/edit/${singleId}`}>
+              Back to record
             </a>
           ) : (
-            <a className="button button--danger" href={`#/${resourceName}`}>
-              Resolve linked records first
+            <a className="button" href={`#/${resourceName}`}>
+              Back to list
             </a>
           )
         ) : (
@@ -156,11 +161,15 @@ export function DeleteConfirmPage({
             type="button"
             onClick={() => void confirmDelete()}
           >
-            {deleting ? 'Deleting…' : "Yes, I'm sure"}
+            {deleting
+              ? 'Deleting…'
+              : count === 1
+                ? `Delete ${items[0]?.label ?? label}`
+                : `Delete ${count} ${pluralLabel.toLowerCase()}`}
           </button>
         )}
         <a className="button" href={`#/${resourceName}`}>
-          No, take me back
+          Cancel
         </a>
       </div>
     </section>

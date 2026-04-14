@@ -19,7 +19,7 @@ export function App() {
     'loading',
   );
   const [hash, setHash] = useState(() => window.location.hash);
-  const [pageLabel, setPageLabel] = useState<string | null>(null);
+  const [pageSubjectLabel, setPageSubjectLabel] = useState<string | null>(null);
   const [toast, setToast] = useState<AdminToast | null>(null);
 
   useEffect(() => {
@@ -72,20 +72,39 @@ export function App() {
 
   useEffect(() => {
     if (!route) {
-      setPageLabel(null);
+      setPageSubjectLabel(null);
+      return;
+    }
+
+    if (route.mode === 'list') {
+      setPageSubjectLabel(null);
       return;
     }
 
     if (route.mode === 'edit') {
-      setPageLabel(route.id ? route.id : 'New');
-    } else if (route.mode === 'password') {
-      setPageLabel('Password');
-    } else if (route.mode === 'delete') {
-      setPageLabel('Delete');
-    } else {
-      setPageLabel(null);
+      setPageSubjectLabel(route.id ?? null);
+      return;
     }
+
+    if (route.mode === 'password') {
+      setPageSubjectLabel(route.id);
+      return;
+    }
+
+    setPageSubjectLabel(route.deleteIds.length === 1 ? route.deleteIds[0] : `${route.deleteIds.length} items`);
   }, [route]);
+
+  useEffect(() => {
+    if (!route) {
+      document.title = 'DJ Admin';
+      return;
+    }
+
+    const routeLabel = getRoutePageLabel(route, pageSubjectLabel);
+    document.title = routeLabel
+      ? `${routeLabel} | ${route.resource.label} | DJ Admin`
+      : `${route.resource.label} | DJ Admin`;
+  }, [route, pageSubjectLabel]);
 
   async function loadAdmin() {
     try {
@@ -185,34 +204,34 @@ export function App() {
             category={activeRoute.resource.category}
             resourceName={activeRoute.resourceName}
             resourceLabel={activeRoute.resource.label}
-            pageLabel={pageLabel}
+            pageLabel={getRoutePageLabel(activeRoute, pageSubjectLabel)}
           />
           {activeRoute.mode === 'list' ? (
             <ListPage
               key={`list:${activeRoute.resourceName}`}
               resourceName={activeRoute.resourceName}
-              onTitleChange={setPageLabel}
+              onTitleChange={setPageSubjectLabel}
             />
           ) : activeRoute.mode === 'delete' ? (
             <DeleteConfirmPage
               key={`delete:${activeRoute.resourceName}:${activeRoute.deleteIds.join(',')}`}
               resourceName={activeRoute.resourceName}
               ids={activeRoute.deleteIds}
-              onTitleChange={setPageLabel}
+              onTitleChange={setPageSubjectLabel}
             />
           ) : activeRoute.mode === 'password' ? (
             <PasswordPage
               key={`password:${activeRoute.resourceName}:${activeRoute.id}`}
               resource={activeRoute.resource}
               id={activeRoute.id}
-              onTitleChange={setPageLabel}
+              onTitleChange={setPageSubjectLabel}
             />
           ) : (
             <EditPage
               key={`edit:${activeRoute.resourceName}:${activeRoute.id ?? 'new'}`}
               resource={activeRoute.resource}
               id={activeRoute.id}
-              onTitleChange={setPageLabel}
+              onTitleChange={setPageSubjectLabel}
             />
           )}
         </div>
@@ -232,6 +251,25 @@ function groupResources(resources: ResourceSchema[]) {
   }
 
   return [...groups.entries()];
+}
+
+function getRoutePageLabel(
+  route: ReturnType<typeof parseRoute>,
+  subjectLabel: string | null,
+): string | null {
+  if (route.mode === 'list') {
+    return null;
+  }
+
+  if (route.mode === 'edit') {
+    return route.id ? `Edit ${subjectLabel ?? route.resource.label}` : `Add ${route.resource.label}`;
+  }
+
+  if (route.mode === 'password') {
+    return `Change password for ${subjectLabel ?? route.resource.label}`;
+  }
+
+  return `Delete ${subjectLabel ?? route.resource.label}`;
 }
 
 function parseRoute(hash: string, resources: ResourceSchema[]) {

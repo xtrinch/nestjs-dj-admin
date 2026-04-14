@@ -217,6 +217,32 @@ export class AdminService implements OnModuleInit {
     };
   }
 
+  async runBulkAction(resourceName: string, ids: string[], actionSlug: string, user: AdminRequestUser) {
+    const resource = this.registry.get(resourceName);
+    this.permissionService.assertCanWrite(user, resource.schema);
+    const action = (resource.options.bulkActions ?? []).find(
+      (item) => (item.slug ?? item.name.trim().toLowerCase().replace(/\s+/g, '-')) === actionSlug,
+    );
+
+    if (!action) {
+      throw new NotFoundException(`Unknown bulk action "${actionSlug}" for ${resourceName}`);
+    }
+
+    const adapterResource = this.toAdapterResource(resource);
+    await action.handler(ids, {
+      adapter: this.adapter,
+      resourceName,
+      resource: adapterResource,
+      user,
+      ids,
+    });
+
+    return {
+      success: true,
+      count: ids.length,
+    };
+  }
+
   async runAction(resourceName: string, id: string, actionSlug: string, user: AdminRequestUser) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);

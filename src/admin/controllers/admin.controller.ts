@@ -139,6 +139,21 @@ export class AdminController {
     );
   }
 
+  @Post(':resource/_bulk-actions/:action')
+  runBulkAction(
+    @Param('resource') resource: string,
+    @Param('action') action: string,
+    @Body('ids') ids: string[],
+    @Req() request: Request,
+  ) {
+    return this.adminService.runBulkAction(
+      resource,
+      parseIds(ids),
+      action,
+      this.adminAuthService.requireUser(request),
+    );
+  }
+
   @Get(':resource/:id')
   detail(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
     return this.adminService.detail(resource, id, this.adminAuthService.requireUser(request));

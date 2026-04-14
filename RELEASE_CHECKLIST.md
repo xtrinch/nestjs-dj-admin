@@ -20,10 +20,6 @@ The baseline experience should be coherent and predictable.
 
 Concrete remaining work:
 
-- tighten breadcrumbs, page titles, and object labeling across edit, delete, and password flows
-- make destructive actions feel more consistent and predictable across list, edit, and delete-confirm flows
-- clean up relation label behavior so list, edit, delete summary, and selectors all present objects consistently
-- polish readonly field and help-text presentation so forms feel deliberate rather than generator-like
 
 ### 4. Example apps must be reproducible from a clean setup
 

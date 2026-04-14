@@ -121,4 +121,25 @@ export const userAdminOptions = {
       },
     },
   ],
+  bulkActions: [
+    {
+      name: 'Deactivate selected',
+      handler: async (ids, context) => {
+        await Promise.all(
+          ids.map(async (id) => {
+            const current = await context.adapter.findOne(context.resource, id);
+            if (!current) {
+              return;
+            }
+
+            const record = current as { role?: Role };
+            await context.adapter.update(context.resource, id, {
+              active: false,
+              role: record.role ?? Role.VIEWER,
+            });
+          }),
+        );
+      },
+    },
+  ],
 } satisfies Omit<AdminResourceOptions, 'model'>;

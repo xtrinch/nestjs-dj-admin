@@ -22,11 +22,12 @@ export function EditPage({
 }: {
   resource: ResourceSchema;
   id?: string;
-  onTitleChange?: (label: string) => void;
+  onTitleChange?: (label: string | null) => void;
 }) {
   const [fields, setFields] = useState<ResourceField[]>(id ? resource.updateFields : resource.createFields);
   const [display, setDisplay] = useState<AdminDisplayConfig | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
+  const [entityLabel, setEntityLabel] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [actionError, setActionError] = useState<string | null>(null);
   const [runningActionSlug, setRunningActionSlug] = useState<string | null>(null);
@@ -44,10 +45,13 @@ export function EditPage({
     if (id) {
       const entityJson = await getResourceEntity(resource.resourceName, id);
       setValues(entityJson);
-      onTitleChange?.(resolveEntityLabel(entityJson, id));
+      const label = resolveEntityLabel(entityJson, id);
+      setEntityLabel(label);
+      onTitleChange?.(label);
     } else {
       setValues({});
-      onTitleChange?.('New');
+      setEntityLabel(null);
+      onTitleChange?.(null);
     }
   }
 
@@ -107,8 +111,9 @@ export function EditPage({
         showToast({ message: successMessage });
         setErrors({});
         setValues({});
+        setEntityLabel(null);
         setActionError(null);
-        onTitleChange?.('New');
+        onTitleChange?.(null);
         window.location.hash = `#/${resource.resourceName}/new`;
         return;
       }
@@ -132,8 +137,8 @@ export function EditPage({
     <section className="panel">
       <header className="panel__header">
         <div>
-          <span className="panel__eyebrow">{id ? 'Edit' : 'Create'}</span>
-          <h2>{resource.label}</h2>
+          <span className="panel__eyebrow">{id ? `Edit ${resource.label}` : `Add ${resource.label}`}</span>
+          <h2>{id ? (entityLabel ?? resource.label) : `Add ${resource.label}`}</h2>
         </div>
         <div className="panel__actions">
           {id
@@ -151,7 +156,7 @@ export function EditPage({
             : null}
           {id ? (
             <a className="button button--danger" href={`#/${resource.resourceName}/delete/${id}`}>
-              Delete
+              Delete this {resource.label}
             </a>
           ) : null}
           <a className="button" href={`#/${resource.resourceName}`}>
@@ -165,8 +170,10 @@ export function EditPage({
       <form className="form" onSubmit={submit}>
         {id && resource.password?.enabled ? (
           <div className="field">
-            <span>Password</span>
-            <input className="input" disabled readOnly type="text" value="Not settable from this form" />
+            <span className="field__label">Password</span>
+            <div className="readonly-field">
+              <span className="readonly-field__value">Not settable from this form</span>
+            </div>
             {resource.password.helpText ? <small className="field__hint">{resource.password.helpText}</small> : null}
             <div className="field__actions">
               <a className="button" href={`#/${resource.resourceName}/edit/${id}/password`}>
@@ -177,7 +184,7 @@ export function EditPage({
         ) : null}
         {fields.map((field) => (
           <label className="field" key={field.name}>
-            <span>{field.label}</span>
+            <span className="field__label">{field.label}</span>
             <FieldInput field={field} values={values} setValues={setValues} display={display} />
             {field.helpText ? <small className="field__hint">{field.helpText}</small> : null}
             {errors[field.name] ? <small className="field__error">{errors[field.name]}</small> : null}
@@ -292,13 +299,11 @@ function FieldInput({
 }) {
   if (field.readOnly) {
     return (
-      <input
-        className="input"
-        disabled
-        readOnly
-        type="text"
-        value={formatAdminValue(values[field.name], field.name, display ?? undefined)}
-      />
+      <div className="readonly-field">
+        <span className="readonly-field__value">
+          {formatReadonlyValue(values[field.name], field.name, display ?? undefined)}
+        </span>
+      </div>
     );
   }
 
@@ -387,6 +392,15 @@ function FieldInput({
       }
     />
   );
+}
+
+function formatReadonlyValue(
+  value: unknown,
+  fieldName: string,
+  display: AdminDisplayConfig | undefined,
+): string {
+  const formatted = formatAdminValue(value, fieldName, display);
+  return formatted === '' ? 'Not set' : formatted;
 }
 
 function RelationFieldInput({

@@ -23,6 +23,8 @@ export type {
   AdminAuthOptions,
   AdminAdapterResource,
   AdminActionContext,
+  AdminBulkAction,
+  AdminBulkActionContext,
   AdminAdapter,
   AdminDtoFieldConfig,
   AdminFieldRelationOption,

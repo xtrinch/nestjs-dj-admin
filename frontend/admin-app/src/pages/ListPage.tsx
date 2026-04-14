@@ -5,9 +5,10 @@ import {
   getResourceMeta,
   listResource,
   lookupResource,
+  runBulkResourceAction,
   runResourceAction,
 } from '../services/resources.service.js';
-import { showToast } from '../services/toast.service.js';
+import { queueToast, showToast } from '../services/toast.service.js';
 import type { ResourceMetaResponse } from '../types.js';
 
 const PAGE_SIZE = 20;
@@ -22,7 +23,7 @@ export function ListPage({
   const [meta, setMeta] = useState<ResourceMetaResponse | null>(null);
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedAction, setSelectedAction] = useState('');
+  const [selectedBulkAction, setSelectedBulkAction] = useState('');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
@@ -31,6 +32,7 @@ export function ListPage({
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [relationLabels, setRelationLabels] = useState<Record<string, Record<string, string>>>({});
+  const [filterValueLabels, setFilterValueLabels] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
     void load();
@@ -64,9 +66,11 @@ export function ListPage({
         filters,
       });
       setItems(listJson.items);
-      setRelationLabels(await loadRelationLabels(metaJson, listJson.items));
+      const relationLabelSets = await loadRelationLabels(metaJson, listJson.items);
+      setRelationLabels(relationLabelSets);
+      setFilterValueLabels(await loadRelationFilterLabels(metaJson));
       setSelectedIds([]);
-      setSelectedAction('');
+      setSelectedBulkAction('');
       setTotal(listJson.total);
       setError(null);
     } catch (reason) {
@@ -85,12 +89,33 @@ export function ListPage({
     }
   }
 
-  function runBulkAction() {
-    if (selectedAction !== 'delete_selected' || selectedIds.length === 0) {
+  async function runBulkAction() {
+    if (selectedIds.length === 0) {
       return;
     }
 
-    window.location.hash = `#/${resourceName}/delete/${selectedIds.join(',')}`;
+    if (selectedBulkAction === 'delete_selected') {
+      window.location.hash = `#/${resourceName}/delete/${selectedIds.join(',')}`;
+      return;
+    }
+
+    const action = meta?.resource.bulkActions.find((candidate) => candidate.slug === selectedBulkAction);
+    if (!action) {
+      return;
+    }
+
+    try {
+      await runBulkResourceAction(resourceName, action.slug, selectedIds);
+      queueToast({
+        message:
+          selectedIds.length === 1
+            ? `${action.name} applied to 1 ${meta?.resource.label.toLowerCase()}.`
+            : `${action.name} applied to ${selectedIds.length} ${meta?.resource.label.toLowerCase()}s.`,
+      });
+      await load();
+    } catch (reason) {
+      showToast({ message: (reason as Error).message, variant: 'error' });
+    }
   }
 
   if (error) {
@@ -125,17 +150,22 @@ export function ListPage({
       <div className="toolbar">
         <select
           className="input toolbar__action-select"
-          value={selectedAction}
-          onChange={(event) => setSelectedAction(event.target.value)}
+          value={selectedBulkAction}
+          onChange={(event) => setSelectedBulkAction(event.target.value)}
         >
-          <option value="">Select action</option>
+          <option value="">Bulk actions</option>
           <option value="delete_selected">Delete selected</option>
+          {meta.resource.bulkActions.map((action) => (
+            <option key={action.slug} value={action.slug}>
+              {action.name}
+            </option>
+          ))}
         </select>
         <button
-          className="button"
-          disabled={!selectedAction || selectedIds.length === 0}
+          className={selectedBulkAction === 'delete_selected' ? 'button button--danger' : 'button'}
+          disabled={selectedIds.length === 0 || !selectedBulkAction}
           type="button"
-          onClick={runBulkAction}
+          onClick={() => void runBulkAction()}
         >
           Go
         </button>
@@ -160,7 +190,10 @@ export function ListPage({
             <option value="">All {filterOption.field}</option>
             {filterOption.values.map((value) => (
               <option key={String(value)} value={String(value)}>
-                {String(value)}
+                {resolveRelationLabel(
+                  filterValueLabels[filterOption.field],
+                  value,
+                )}
               </option>
             ))}
           </select>
@@ -245,7 +278,7 @@ export function ListPage({
                   typeof item[field] === 'boolean' ? (
                     <BooleanIcon value={item[field] as boolean} />
                   ) : relationField?.relation ? (
-                    resolveRelationLabel(relationLabels[field], item[field])
+                    resolveRelationLabel(relationLabels[field], item[field], relationField.relation.option.valueField)
                   ) : (
                     formatAdminValue(item[field], field, meta.display)
                   );
@@ -263,20 +296,21 @@ export function ListPage({
                 );
               })}
               <td className="table__actions">
-                {meta.resource.actions.length > 0 ? (
-                  <div className="table__actions-list">
-                    {meta.resource.actions.map((action) => (
-                      <button
-                        key={action.slug}
-                        className="button"
-                        type="button"
-                        onClick={() => void runAction(String(item.id), action.slug)}
-                      >
-                        {action.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+                <div className="table__actions-list">
+                  <a className="button button--danger" href={`#/${resourceName}/delete/${String(item.id)}`}>
+                    Delete
+                  </a>
+                  {meta.resource.actions.map((action) => (
+                    <button
+                      key={action.slug}
+                      className="button"
+                      type="button"
+                      onClick={() => void runAction(String(item.id), action.slug)}
+                    >
+                      {action.name}
+                    </button>
+                  ))}
+                </div>
               </td>
             </tr>
           ))}
@@ -325,10 +359,7 @@ async function loadRelationLabels(
   const entries = await Promise.all(
     relationFields.map(async (field) => {
       const ids = [...new Set(
-        items
-          .map((item) => item[field.name])
-          .filter((value) => value !== null && value !== undefined && value !== '')
-          .map((value) => String(value)),
+        items.flatMap((item) => extractRelationIds(item[field.name], field.relation!.option.valueField)),
       )];
 
       if (ids.length === 0) {
@@ -346,14 +377,78 @@ async function loadRelationLabels(
   return Object.fromEntries(entries);
 }
 
+async function loadRelationFilterLabels(
+  meta: ResourceMetaResponse,
+): Promise<Record<string, Record<string, string>>> {
+  const relationFilterFields = meta.filterOptions
+    .map((filterOption) => ({
+      filterOption,
+      field: meta.resource.fields.find((candidate) => candidate.name === filterOption.field),
+    }))
+    .filter(
+      (entry): entry is {
+        filterOption: ResourceMetaResponse['filterOptions'][number];
+        field: ResourceMetaResponse['resource']['fields'][number];
+      } => Boolean(entry.field?.relation),
+    );
+
+  const entries = await Promise.all(
+    relationFilterFields.map(async ({ filterOption, field }) => {
+      const ids = [...new Set(filterOption.values.map((value) => String(value)).filter(Boolean))];
+      if (ids.length === 0) {
+        return [filterOption.field, {}] as const;
+      }
+
+      const data = await lookupResource(field.relation!.option.resource, {
+        ids,
+        pageSize: ids.length,
+      });
+
+      return [filterOption.field, Object.fromEntries(data.items.map((item) => [item.value, item.label]))] as const;
+    }),
+  );
+
+  return Object.fromEntries(entries);
+}
+
 function resolveRelationLabel(
   labels: Record<string, string> | undefined,
   value: unknown,
+  valueField = 'id',
 ): string {
   if (value === null || value === undefined) {
     return '';
   }
 
+  if (Array.isArray(value)) {
+    const values = extractRelationIds(value, valueField);
+    return values.map((entry) => labels?.[entry] ?? entry).join(', ');
+  }
+
+  if (typeof value === 'object') {
+    const key = extractRelationIds(value, valueField)[0];
+    return key ? (labels?.[key] ?? key) : '';
+  }
+
   const key = String(value);
   return labels?.[key] ?? key;
+}
+
+function extractRelationIds(value: unknown, valueField = 'id'): string[] {
+  if (value === null || value === undefined || value === '') {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => extractRelationIds(item, valueField));
+  }
+
+  if (typeof value === 'object') {
+    const candidate = (value as Record<string, unknown>)[valueField];
+    return candidate === null || candidate === undefined || candidate === ''
+      ? []
+      : [String(candidate)];
+  }
+
+  return [String(value)];
 }

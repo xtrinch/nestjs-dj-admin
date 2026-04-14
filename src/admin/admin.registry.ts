@@ -75,6 +75,10 @@ export class AdminRegistry {
           name: action.name,
           slug: action.slug ?? actionSlug(action.name),
         })),
+        bulkActions: (options.bulkActions ?? []).map((action) => ({
+          name: action.name,
+          slug: action.slug ?? actionSlug(action.name),
+        })),
         fields: mergeFields(createFields, updateFields),
         createFields,
         updateFields,

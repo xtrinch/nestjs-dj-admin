@@ -386,25 +386,54 @@ a {
 
 .field {
   display: grid;
-  gap: 0.3rem;
-  font-weight: 600;
+  gap: 0.35rem;
   font-size: 0.92rem;
+}
+
+.field__label {
+  color: #f5e7d2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .field__error {
   color: #b42318;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .field__hint {
-  color: #b8aa95;
-  font-size: 0.8rem;
+  color: #c7b49a;
+  font-size: 0.78rem;
   font-weight: 500;
+  line-height: 1.5;
+  max-width: 34rem;
 }
 
 .field__actions {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.25rem;
+}
+
+.readonly-field {
+  width: 100%;
+  min-height: 2.2rem;
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(214, 211, 209, 0.12);
+  border-radius: 0.55rem;
+  background: linear-gradient(180deg, rgba(31, 30, 28, 0.98) 0%, rgba(24, 24, 23, 0.96) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.readonly-field__value {
+  color: #e7d7bf;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .input,
@@ -424,7 +453,10 @@ a {
   color: #fff7ed;
   padding: 0.55rem 0.7rem;
   min-height: 2.2rem;
+  font-family: inherit;
   font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.4;
 }
 
 .textarea {
@@ -443,6 +475,31 @@ a {
   filter: invert(84%) sepia(31%) saturate(962%) hue-rotate(333deg) brightness(101%) contrast(98%);
   cursor: pointer;
   opacity: 0.9;
+}
+
+.input[type="date"]::-webkit-datetime-edit,
+.input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.input[type="date"]::-webkit-datetime-edit-text,
+.input[type="date"]::-webkit-datetime-edit-month-field,
+.input[type="date"]::-webkit-datetime-edit-day-field,
+.input[type="date"]::-webkit-datetime-edit-year-field,
+.input[type="time"]::-webkit-datetime-edit,
+.input[type="time"]::-webkit-datetime-edit-fields-wrapper,
+.input[type="time"]::-webkit-datetime-edit-text,
+.input[type="time"]::-webkit-datetime-edit-hour-field,
+.input[type="time"]::-webkit-datetime-edit-minute-field,
+.input[type="datetime-local"]::-webkit-datetime-edit,
+.input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper,
+.input[type="datetime-local"]::-webkit-datetime-edit-text,
+.input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+.input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+.input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+.input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+.input[type="datetime-local"]::-webkit-datetime-edit-minute-field {
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
 }
 
 .button {

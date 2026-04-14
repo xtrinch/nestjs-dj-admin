@@ -160,6 +160,23 @@ export interface AdminAction<TModel extends AdminEntity = AdminEntity> {
   ) => Promise<TModel | void>;
 }
 
+export interface AdminBulkActionContext<TModel extends AdminEntity = AdminEntity> {
+  adapter: AdminAdapter;
+  resourceName: string;
+  resource: AdminAdapterResource<TModel>;
+  user: AdminRequestUser;
+  ids: string[];
+}
+
+export interface AdminBulkAction<TModel extends AdminEntity = AdminEntity> {
+  name: string;
+  slug?: string;
+  handler: (
+    ids: string[],
+    context: AdminBulkActionContext<TModel>,
+  ) => Promise<void>;
+}
+
 export interface AdminPermissions {
   read?: PermissionRole[];
   write?: PermissionRole[];
@@ -179,6 +196,7 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   readonly?: string[];
   permissions?: AdminPermissions;
   actions?: AdminAction<TModel>[];
+  bulkActions?: AdminBulkAction<TModel>[];
   password?: AdminPasswordOptions;
   createDto?: Type<unknown>;
   updateDto?: Type<unknown>;
@@ -238,6 +256,7 @@ export interface AdminResourceSchema {
   filters: string[];
   readonly: string[];
   actions: Array<{ name: string; slug: string }>;
+  bulkActions: Array<{ name: string; slug: string }>;
   permissions?: AdminPermissions;
   fields: AdminFieldSchema[];
   createFields: AdminFieldSchema[];
