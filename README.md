@@ -58,35 +58,47 @@ The example resources live in each app under `examples/*/src/modules`.
 The default dev app uses TypeORM with PostgreSQL seed data.
 The current example domain starts with `User`, `Order`, `Product`, and `OrderDetail`.
 
-## Commands
+## Example apps
 
-Build the library and bundled admin UI:
+All three example apps serve the admin backend on `http://127.0.0.1:3000/admin`.
 
-```bash
-npm install
-npm run build
-```
-
-Run the default TypeORM example during development:
-
-```bash
-npm run dev
-```
-
-Demo admin login:
+Shared seeded admin login:
 
 ```text
 email: ada@example.com
 password: admin123
 ```
 
-Start the TypeORM demo database first:
+Shared seeded baseline:
+
+- 3 users
+- 20+ orders
+- categories
+- products
+- order details
+
+The `ada@example.com` account is the seeded admin user. The other seeded users are present as demo data, but they are not valid admin logins.
+
+### TypeORM example
+
+Primary demo app. Uses PostgreSQL plus TypeORM `synchronize: true` and seeds baseline data on startup.
+
+Clean setup:
 
 ```bash
+npm install
 docker compose up -d postgres
+npm run dev:typeorm-example
 ```
 
-Default demo database settings:
+Built run:
+
+```bash
+npm run build:typeorm-example
+npm run start:typeorm-example
+```
+
+Default database settings:
 
 ```bash
 DB_TYPE=postgres
@@ -97,24 +109,70 @@ DB_PASSWORD=postgres
 DB_NAME=nestjs_dj_admin_demo
 ```
 
-Destroy the postgres container:
+### Prisma example
+
+First-class runnable demo, not a secondary adapter stub. Uses the same PostgreSQL container as the TypeORM demo, but a separate PostgreSQL database so it can coexist cleanly with the TypeORM example.
+
+Clean setup:
+
+```bash
+npm install
+docker compose up -d postgres
+npm run prisma:setup:example
+npm run dev:prisma-example
+```
+
+Built run:
+
+```bash
+npm run prisma:setup:example
+npm run build:prisma-example
+npm run start:prisma-example
+```
+
+Default Prisma database URL:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nestjs_dj_admin_prisma?schema=public
+```
+
+### In-memory example
+
+Fastest demo app. Uses the bundled in-memory adapter and starts with seeded baseline data, no external database required.
+
+Clean setup:
+
+```bash
+npm install
+npm run dev:inmemory-example
+```
+
+Built run:
+
+```bash
+npm run build:inmemory-example
+npm run start:inmemory-example
+```
+
+### Shared example commands
+
+Build all examples:
+
+```bash
+npm run build:examples
+```
+
+Default full-stack development flow:
+
+```bash
+docker compose up -d postgres
+npm run dev
+```
+
+Stop and remove the demo Postgres volume:
+
 ```bash
 docker compose down -v
-```
-
-Build and run the TypeORM example explicitly:
-
-```bash
-npm run build:example
-npm run start:example
-```
-
-Other example commands:
-
-```bash
-npm run dev:inmemory-example
-npm run dev:prisma-example
-npm run build:examples
 ```
 
 ## Testing
@@ -167,19 +225,11 @@ npm run lint
 npm run check
 ```
 
-Set up the Prisma example against the same local Postgres container:
-
-```bash
-docker compose up -d postgres
-npm run prisma:setup:example
-npm run dev:prisma-example
-```
-
 Example status:
 
 - `typeorm-demo-app`: primary runnable example
-- `in-memory-demo-app`: runnable adapter example with static auth data
-- `prisma-demo-app`: runnable adapter example after `npm run prisma:setup:example`
+- `in-memory-demo-app`: runnable adapter example with seeded in-memory data
+- `prisma-demo-app`: runnable PostgreSQL example after `npm run prisma:setup:example`
 
 ## Current status
 

@@ -1,10 +1,11 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { once } from 'node:events';
+import type { Readable } from 'node:stream';
 
 describe('Admin backend e2e', () => {
-  let server: ChildProcessWithoutNullStreams;
+  let server: ChildProcessByStdio<null, Readable, Readable>;
   const port = 3101;
   const baseUrl = `http://127.0.0.1:${port}`;
   const adminBaseUrl = `${baseUrl}/admin`;
@@ -89,6 +90,11 @@ describe('Admin backend e2e', () => {
     assert.equal(resourceMeta.body.resource.resourceName, 'users');
     assert.ok(resourceMeta.body.resource.createFields.some((field: { name: string }) => field.name === 'password'));
     assert.ok(resourceMeta.body.resource.updateFields.every((field: { name: string }) => field.name !== 'password'));
+    assert.ok(
+      resourceMeta.body.resource.bulkActions.some(
+        (action: { slug: string }) => action.slug === 'deactivate-selected',
+      ),
+    );
   });
 
   it('enforces permissions for authenticated non-admin users', async () => {
@@ -168,6 +174,28 @@ describe('Admin backend e2e', () => {
     const detail = await request(adminBaseUrl, '/users/2', { cookie });
     assert.equal(detail.response.status, 200);
     assert.equal(detail.body.active, false);
+  });
+
+  it('supports bulk action routes', async () => {
+    const { cookie } = await loginAs(adminBaseUrl, 'ada@example.com', 'admin123');
+
+    const action = await request(adminBaseUrl, '/users/_bulk-actions/deactivate-selected', {
+      method: 'POST',
+      cookie,
+      body: {
+        ids: ['1', '2'],
+      },
+    });
+    assert.equal(action.response.status, 201);
+    assert.equal(action.body.success, true);
+    assert.equal(action.body.count, 2);
+
+    const first = await request(adminBaseUrl, '/users/1', { cookie });
+    const second = await request(adminBaseUrl, '/users/2', { cookie });
+    assert.equal(first.response.status, 200);
+    assert.equal(second.response.status, 200);
+    assert.equal(first.body.active, false);
+    assert.equal(second.body.active, false);
   });
 
   it('returns validation errors in the expected shape', async () => {

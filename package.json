@@ -41,7 +41,7 @@
     "build:examples": "npm run prisma:generate:example && npm run clean && npm run build:lib && tsc -p examples/typeorm-demo-app/tsconfig.json && tsc -p examples/in-memory-demo-app/tsconfig.json && tsc -p examples/prisma-demo-app/tsconfig.json",
     "prisma:generate:example": "prisma generate --config examples/prisma-demo-app/prisma.config.ts",
     "prisma:push:example": "prisma db push --config examples/prisma-demo-app/prisma.config.ts",
-    "prisma:setup:example": "npm run prisma:generate:example && npm run prisma:push:example",
+    "prisma:setup:example": "node scripts/setup-prisma-example.mjs && npm run prisma:generate:example && npm run prisma:push:example",
     "check": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"examples/**/*.ts\" \"frontend/admin-app/src/**/*.{ts,tsx}\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"examples/**/*.ts\" \"frontend/admin-app/src/**/*.{ts,tsx}\" \"tests/**/*.ts\" --fix",

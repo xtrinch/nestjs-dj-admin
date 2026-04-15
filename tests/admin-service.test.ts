@@ -40,6 +40,7 @@ describe('AdminService write error mapping', () => {
       filters: [],
       readonly: [],
       actions: [],
+      bulkActions: [],
       fields: [
         {
           name: 'email',

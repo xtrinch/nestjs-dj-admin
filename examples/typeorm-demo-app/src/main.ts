@@ -19,7 +19,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  await app.listen(3000, '127.0.0.1');
+  await app.listen(Number(process.env['PORT'] ?? 3000), '127.0.0.1');
 }
 
 bootstrap().catch((error) => {

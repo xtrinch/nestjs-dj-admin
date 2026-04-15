@@ -14,30 +14,6 @@ Recommended versioning stance:
 
 ## Must-have for `0.1.0`
 
-### 3. Finish the Django-admin baseline
-
-The baseline experience should be coherent and predictable.
-
-Concrete remaining work:
-
-
-### 4. Example apps must be reproducible from a clean setup
-
-All three examples should be explicitly verified:
-
-- TypeORM example
-- Prisma example
-- in-memory example
-
-Each should have:
-
-- clear run steps
-- working auth
-- seeded baseline data
-- current docs
-
-The TypeORM example can remain the default primary demo, but the Prisma example should no longer feel secondary or fragile.
-
 ### 5. Release-quality documentation
 
 The README should be expanded or supplemented with docs for:
@@ -64,20 +40,6 @@ Before `0.1.0`, add:
 - supported version matrix
 - known limitations section
 - versioning expectations
-
-### 7. Primitive field coverage
-
-The current form layer now covers:
-
-- text
-- email
-- password
-- number
-- checkbox / boolean
-- date
-- datetime
-- enum select
-- relation select / multiselect
 
 ## Strongly recommended before `0.1.0`
 
@@ -129,7 +91,5 @@ It is not yet a defended `0.1.0` stable release.
 
 ## Suggested order of work
 
-1. Finish the Django-admin baseline
-2. Verify all example apps from a clean setup
-3. Expand docs into release-quality guidance
-4. Final release metadata and changelog
+1. Expand docs into release-quality guidance
+2. Final release metadata and changelog
