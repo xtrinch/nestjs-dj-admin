@@ -6,6 +6,7 @@ Runs the admin backend at `http://127.0.0.1:3000/admin` using:
 
 - TypeORM
 - PostgreSQL
+- startup migrations
 - startup seed data
 
 ## Clean setup
@@ -13,12 +14,14 @@ Runs the admin backend at `http://127.0.0.1:3000/admin` using:
 ```bash
 npm install
 docker compose up -d postgres
+npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
 
 ## Built run
 
 ```bash
+npm run typeorm:setup:example
 npm run build:typeorm-example
 npm run start:typeorm-example
 ```
@@ -33,5 +36,7 @@ password: admin123
 ## Notes
 
 - Uses the shared demo database `nestjs_dj_admin_demo` on `127.0.0.1:5432`
+- Creates the demo database if needed and applies TypeORM migrations on startup
 - Seeds baseline users, orders, categories, products, and order details on startup
 - This is the default primary demo used by `npm run dev`
+- `typeorm:setup:example` prepares the Postgres database, while the app itself runs pending migrations before serving requests

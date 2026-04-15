@@ -1,9 +1,11 @@
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ensureDemoDatabase } from './database/ensure-demo-database.js';
 import { AppModule } from './app.module.js';
 
 async function bootstrap(): Promise<void> {
+  await ensureDemoDatabase();
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({

@@ -39,6 +39,7 @@
     "build:prisma-example": "npm run prisma:generate:example && npm run clean && npm run build:lib && tsc -p examples/prisma-demo-app/tsconfig.json",
     "build:example": "npm run build:typeorm-example",
     "build:examples": "npm run prisma:generate:example && npm run clean && npm run build:lib && tsc -p examples/typeorm-demo-app/tsconfig.json && tsc -p examples/in-memory-demo-app/tsconfig.json && tsc -p examples/prisma-demo-app/tsconfig.json",
+    "typeorm:setup:example": "node scripts/setup-typeorm-example.mjs",
     "prisma:generate:example": "prisma generate --config examples/prisma-demo-app/prisma.config.ts",
     "prisma:push:example": "prisma db push --config examples/prisma-demo-app/prisma.config.ts",
     "prisma:setup:example": "node scripts/setup-prisma-example.mjs && npm run prisma:generate:example && npm run prisma:push:example",

@@ -14,23 +14,6 @@ Recommended versioning stance:
 
 ## Must-have for `0.1.0`
 
-### 5. Release-quality documentation
-
-The README should be expanded or supplemented with docs for:
-
-- quickstart
-- auth integration
-- resource registration
-- DTO-driven forms
-- custom actions
-- relation fields
-- TypeORM setup
-- Prisma setup
-- limitations / non-goals
-- compatibility expectations
-
-Right now the docs are good enough for local development, but thin for external adoption.
-
 ### 6. Release metadata and policy
 
 Before `0.1.0`, add:
@@ -42,14 +25,6 @@ Before `0.1.0`, add:
 - versioning expectations
 
 ## Strongly recommended before `0.1.0`
-
-### TypeORM demo maturity
-
-The TypeORM demo still uses `synchronize: true`.
-
-That is acceptable during active development, but it is weak as a public reference app. A migration-based demo would be more credible.
-
-If this is not changed before `0.1.0`, it should at least be documented clearly as a demo-only shortcut.
 
 ### Auth hardening guidance
 
@@ -91,5 +66,4 @@ It is not yet a defended `0.1.0` stable release.
 
 ## Suggested order of work
 
-1. Expand docs into release-quality guidance
-2. Final release metadata and changelog
+1. Final release metadata and changelog

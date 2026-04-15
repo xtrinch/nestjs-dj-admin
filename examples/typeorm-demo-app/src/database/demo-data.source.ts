@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { Category } from '../modules/category/category.entity.js';
+import { InitialDemoSchema1710000000000 } from './migrations/1710000000000-initial-demo-schema.js';
 import { OrderDetail } from '../modules/order-detail/order-detail.entity.js';
 import { Order } from '../modules/order/order.entity.js';
 import { Product } from '../modules/product/product.entity.js';
@@ -13,5 +14,27 @@ export const demoDataSource = new DataSource({
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_NAME ?? 'nestjs_dj_admin_demo',
   entities: [User, Order, Category, Product, OrderDetail],
-  synchronize: true,
+  migrations: [InitialDemoSchema1710000000000],
+  synchronize: false,
 });
+
+let initializePromise: Promise<DataSource> | null = null;
+
+export async function initializeDemoDataSource(): Promise<DataSource> {
+  if (demoDataSource.isInitialized) {
+    return demoDataSource;
+  }
+
+  if (!initializePromise) {
+    initializePromise = (async () => {
+      await demoDataSource.initialize();
+      await demoDataSource.runMigrations();
+      return demoDataSource;
+    })().catch((error) => {
+      initializePromise = null;
+      throw error;
+    });
+  }
+
+  return initializePromise;
+}

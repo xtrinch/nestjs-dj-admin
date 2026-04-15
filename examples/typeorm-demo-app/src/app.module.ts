@@ -4,7 +4,7 @@ import { TypeOrmAdminAdapter } from '#src/admin/adapters/typeorm.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
 import { verifyPassword } from './auth/password.js';
 import { DataSource } from 'typeorm';
-import { demoDataSource } from './database/demo-data.source.js';
+import { initializeDemoDataSource } from './database/demo-data.source.js';
 import { DemoDataService } from './database/demo-data.service.js';
 import { CategoryModule } from './modules/category/category.module.js';
 import { OrderDetailModule } from './modules/order-detail/order-detail.module.js';
@@ -39,11 +39,9 @@ import { UserModule } from './modules/user/user.module.js';
       },
       auth: {
         authenticate: async ({ email, password }) => {
-          if (!demoDataSource.isInitialized) {
-            await demoDataSource.initialize();
-          }
+          const dataSource = await initializeDemoDataSource();
 
-          const user = await demoDataSource.getRepository(User).findOne({
+          const user = await dataSource.getRepository(User).findOne({
             where: { email },
           });
 
@@ -68,11 +66,7 @@ import { UserModule } from './modules/user/user.module.js';
     {
       provide: DataSource,
       useFactory: async () => {
-        if (!demoDataSource.isInitialized) {
-          await demoDataSource.initialize();
-        }
-
-        return demoDataSource;
+        return initializeDemoDataSource();
       },
     },
     {
