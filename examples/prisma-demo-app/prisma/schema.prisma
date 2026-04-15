@@ -62,6 +62,7 @@ model Product {
   unitPrice     Decimal         @db.Decimal(10, 2)
   unitsInStock  Int
   discontinued  Boolean         @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   orderDetails  OrderDetail[]

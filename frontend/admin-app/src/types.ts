@@ -53,6 +53,7 @@ export interface AdminDeleteSummary {
   resourceName: string;
   label: string;
   count: number;
+  mode?: 'delete' | 'soft-delete';
   items: AdminDeleteSummaryItem[];
   related: AdminDeleteRelatedSummary[];
   impact: {
@@ -92,6 +93,11 @@ export interface ResourceSchema {
   fields: ResourceField[];
   createFields: ResourceField[];
   updateFields: ResourceField[];
+  softDelete?: {
+    enabled: boolean;
+    fieldName: string;
+    filterField: '__softDeleteState';
+  };
   password?: {
     enabled: boolean;
     helpText?: string;

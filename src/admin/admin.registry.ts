@@ -79,6 +79,13 @@ export class AdminRegistry {
           name: action.name,
           slug: action.slug ?? actionSlug(action.name),
         })),
+        softDelete: options.softDelete
+          ? {
+              enabled: true,
+              fieldName: options.softDelete.fieldName ?? 'deletedAt',
+              filterField: '__softDeleteState',
+            }
+          : undefined,
         fields: mergeFields(createFields, updateFields),
         createFields,
         updateFields,

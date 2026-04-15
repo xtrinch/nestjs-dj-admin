@@ -61,12 +61,14 @@ export class AdminService implements OnModuleInit {
   async list(resourceName: string, query: AdminListQuery, user: AdminRequestUser) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanRead(user, resource.schema);
+    const normalizedFilters = this.normalizeSoftDeleteFilters(resource.schema, query.filters);
     const resolvedSort = query.sort && resource.schema.sortable.includes(query.sort)
       ? query.sort
       : resource.schema.defaultSort?.field;
 
     const result = await this.adapter.findMany(this.toAdapterResource(resource), {
       ...query,
+      filters: normalizedFilters,
       sort: resolvedSort,
       order:
         resolvedSort === query.sort
@@ -190,6 +192,21 @@ export class AdminService implements OnModuleInit {
     );
 
     const items = records.map(({ id, label }) => ({ id, label }));
+    if (resource.schema.softDelete?.enabled) {
+      return {
+        resourceName,
+        label: resource.schema.label,
+        count: items.length,
+        mode: 'soft-delete',
+        items,
+        related: [],
+        impact: {
+          delete: [],
+          disconnect: [],
+          blocked: [],
+        },
+      };
+    }
     const related = await this.buildDeleteRelatedSummary(resource.schema, records.map((record) => record.entity));
     const impact = await this.buildDeleteImpact(resource.schema.resourceName, resource.schema.label, items);
 
@@ -197,6 +214,7 @@ export class AdminService implements OnModuleInit {
       resourceName,
       label: resource.schema.label,
       count: items.length,
+      mode: 'delete',
       items,
       related,
       impact,
@@ -284,6 +302,13 @@ export class AdminService implements OnModuleInit {
       })),
     );
 
+    if (resource.schema.softDelete?.enabled) {
+      options.push({
+        field: resource.schema.softDelete.filterField,
+        values: ['active', 'deleted', 'all'],
+      });
+    }
+
     return options;
   }
 
@@ -333,6 +358,7 @@ export class AdminService implements OnModuleInit {
         page: query.page,
         pageSize: query.pageSize,
         search: query.q,
+        filters: this.normalizeSoftDeleteFilters(resource.schema, undefined),
         order: 'asc',
       },
     );
@@ -453,7 +479,24 @@ export class AdminService implements OnModuleInit {
       search: searchFields ?? resource.schema.search,
       filters: resource.schema.filters,
       fields: resource.schema.fields,
+      softDelete: resource.schema.softDelete,
     };
+  }
+
+  private normalizeSoftDeleteFilters(
+    schema: AdminResourceSchema,
+    filters: AdminListQuery['filters'],
+  ): AdminListQuery['filters'] {
+    if (!schema.softDelete?.enabled) {
+      return filters;
+    }
+
+    const next = { ...(filters ?? {}) };
+    if (!next[schema.softDelete.filterField]) {
+      next[schema.softDelete.filterField] = 'active';
+    }
+
+    return next;
   }
 
   private serializeEntity(

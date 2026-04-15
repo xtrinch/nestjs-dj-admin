@@ -94,6 +94,7 @@ export const IN_MEMORY_ADMIN_STORE: Store = {
       unitPrice: 18,
       unitsInStock: 39,
       discontinued: false,
+      deletedAt: null,
       categories: ['401'],
       createdAt: '2026-04-03T08:00:00.000Z',
       updatedAt: '2026-04-10T08:00:00.000Z',
@@ -105,6 +106,7 @@ export const IN_MEMORY_ADMIN_STORE: Store = {
       unitPrice: 19,
       unitsInStock: 17,
       discontinued: false,
+      deletedAt: null,
       categories: ['401'],
       createdAt: '2026-04-03T08:10:00.000Z',
       updatedAt: '2026-04-09T13:20:00.000Z',
@@ -116,6 +118,7 @@ export const IN_MEMORY_ADMIN_STORE: Store = {
       unitPrice: 10,
       unitsInStock: 13,
       discontinued: false,
+      deletedAt: null,
       categories: ['402'],
       createdAt: '2026-04-03T08:20:00.000Z',
       updatedAt: '2026-04-11T07:45:00.000Z',
@@ -127,9 +130,10 @@ export const IN_MEMORY_ADMIN_STORE: Store = {
       unitPrice: 31,
       unitsInStock: 20,
       discontinued: false,
+      deletedAt: '2026-04-12T10:15:00.000Z',
       categories: ['405'],
       createdAt: '2026-04-03T08:30:00.000Z',
-      updatedAt: '2026-04-08T17:10:00.000Z',
+      updatedAt: '2026-04-12T10:15:00.000Z',
     },
   ],
   categories: [
@@ -235,7 +239,9 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
   ): Promise<AdminListResult<TModel>> {
     const resourceName = resource.resourceName;
     const rows = [...(this.store[resourceName] ?? [])];
-    const filtered = rows.filter((row) => matchesSearch(row, query.search) && matchesFilters(row, query.filters));
+    const filtered = rows.filter((row) =>
+      matchesSearch(row, query.search) && matchesFilters(row, query.filters, resource.softDelete?.fieldName),
+    );
     const sorted = sortRows(filtered, query.sort, query.order ?? 'asc');
     const start = (query.page - 1) * query.pageSize;
     const items = sorted.slice(start, start + query.pageSize);
@@ -285,13 +291,30 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
   async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const resourceName = resource.resourceName;
     const rows = this.store[resourceName] ?? [];
+    if (resource.softDelete) {
+      const index = rows.findIndex((row) => String(row.id) === id);
+      if (index >= 0) {
+        rows[index] = {
+          ...rows[index],
+          [resource.softDelete.fieldName]: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return;
+    }
+
     this.store[resourceName] = rows.filter((row) => String(row.id) !== id);
   }
 
   async distinct<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, field: string) {
     const resourceName = resource.resourceName;
     const rows = this.store[resourceName] ?? [];
-    return [...new Set(rows.map((row) => row[field] as string | number).filter(Boolean))];
+    return [...new Set(
+      rows
+        .filter((row) => !resource.softDelete || row[resource.softDelete.fieldName] == null)
+        .map((row) => row[field] as string | number)
+        .filter(Boolean),
+    )];
   }
 }
 
@@ -307,12 +330,36 @@ function matchesSearch(row: Record<string, unknown>, search?: string): boolean {
 function matchesFilters(
   row: Record<string, unknown>,
   filters?: Record<string, string | string[]>,
+  softDeleteFieldName?: string,
 ): boolean {
+  if (softDeleteFieldName) {
+    const softDeleteState = filters?.['__softDeleteState'];
+    if (softDeleteState === 'deleted') {
+      if (row[softDeleteFieldName] == null) {
+        return false;
+      }
+    } else if (softDeleteState !== 'all' && row[softDeleteFieldName] != null) {
+      return false;
+    }
+  }
+
   if (!filters) {
     return true;
   }
 
   return Object.entries(filters).every(([field, value]) => {
+    if (softDeleteFieldName && field === '__softDeleteState') {
+      if (value === 'all') {
+        return true;
+      }
+
+      if (value === 'deleted') {
+        return row[softDeleteFieldName] != null;
+      }
+
+      return row[softDeleteFieldName] == null;
+    }
+
     if (Array.isArray(value)) {
       return value.includes(String(row[field] ?? ''));
     }

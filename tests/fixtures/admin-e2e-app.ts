@@ -3,6 +3,7 @@ import { BadRequestException, Controller, Injectable, Module, Post, ValidationPi
 import { NestFactory } from '@nestjs/core';
 import { hashPassword, verifyPassword } from '../../examples/in-memory-demo-app/src/auth/password.js';
 import { categoryAdminOptions } from '../../examples/shared/src/modules/category/shared.js';
+import { productAdminOptions } from '../../examples/shared/src/modules/product/shared.js';
 import { userAdminOptions } from '../../examples/shared/src/modules/user/shared.js';
 import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../../src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '../../src/admin/admin.module.js';
@@ -61,8 +62,36 @@ const SEEDED_CATEGORIES = [
   },
 ] as const;
 
+const SEEDED_PRODUCTS = [
+  {
+    id: '201',
+    sku: 'NW-001',
+    name: 'Chai',
+    unitPrice: 18,
+    unitsInStock: 39,
+    discontinued: false,
+    deletedAt: null,
+    categories: ['401'],
+    createdAt: '2026-04-03T08:00:00.000Z',
+    updatedAt: '2026-04-10T08:00:00.000Z',
+  },
+  {
+    id: '202',
+    sku: 'NW-010',
+    name: 'Ikura',
+    unitPrice: 31,
+    unitsInStock: 20,
+    discontinued: false,
+    deletedAt: '2026-04-12T10:15:00.000Z',
+    categories: ['402'],
+    createdAt: '2026-04-03T08:30:00.000Z',
+    updatedAt: '2026-04-12T10:15:00.000Z',
+  },
+] as const;
+
 class TestUserModel {}
 class TestCategoryModel {}
+class TestProductModel {}
 
 class TestUserAdmin {}
 Injectable()(TestUserAdmin);
@@ -112,6 +141,14 @@ AdminResource({
   ...categoryAdminOptions,
 })(TestCategoryAdmin);
 
+class TestProductAdmin {}
+Injectable()(TestProductAdmin);
+AdminResource({
+  model: TestProductModel,
+  resourceName: 'products',
+  ...productAdminOptions,
+})(TestProductAdmin);
+
 class TestController {
   reset() {
     resetStore();
@@ -151,7 +188,7 @@ Module({
     }),
   ],
   controllers: [TestController],
-  providers: [TestUserAdmin, TestCategoryAdmin],
+  providers: [TestUserAdmin, TestCategoryAdmin, TestProductAdmin],
 })(AdminE2EServerModule);
 
 async function bootstrap(): Promise<void> {
@@ -174,7 +211,7 @@ function resetStore() {
   IN_MEMORY_ADMIN_STORE.users = SEEDED_USERS.map((user) => ({ ...user }));
   IN_MEMORY_ADMIN_STORE.categories = SEEDED_CATEGORIES.map((category) => ({ ...category }));
   IN_MEMORY_ADMIN_STORE.orders = [];
-  IN_MEMORY_ADMIN_STORE.products = [];
+  IN_MEMORY_ADMIN_STORE.products = SEEDED_PRODUCTS.map((product) => ({ ...product }));
   IN_MEMORY_ADMIN_STORE['order-details'] = [];
 }
 

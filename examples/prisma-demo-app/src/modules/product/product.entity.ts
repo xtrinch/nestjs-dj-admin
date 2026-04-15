@@ -7,6 +7,7 @@ export class Product {
   unitPrice!: number;
   unitsInStock!: number;
   discontinued!: boolean;
+  deletedAt!: Date | null;
   categories!: Category[];
   createdAt!: Date;
   updatedAt!: Date;

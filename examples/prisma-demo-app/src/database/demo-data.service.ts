@@ -80,6 +80,7 @@ export class DemoDataService implements OnApplicationBootstrap {
             unitPrice: product.unitPrice,
             unitsInStock: product.unitsInStock,
             discontinued: product.discontinued,
+            deletedAt: product.sku === 'NW-012' ? new Date(Date.UTC(2026, 3, 12, 10, 15)) : null,
             categories: {
               connect: product.categoryNames
                 .map((name) => savedCategories.find((category) => category.name === name))
@@ -89,6 +90,18 @@ export class DemoDataService implements OnApplicationBootstrap {
           },
         });
       }
+    }
+
+    const softDeletedProduct = await this.prisma.product.findUnique({
+      where: { sku: 'NW-012' },
+    });
+    if (softDeletedProduct && !softDeletedProduct.deletedAt) {
+      await this.prisma.product.update({
+        where: { sku: 'NW-012' },
+        data: {
+          deletedAt: new Date(Date.UTC(2026, 3, 12, 10, 15)),
+        },
+      });
     }
 
     const savedOrders = await this.prisma.order.findMany({ orderBy: { id: 'asc' } });

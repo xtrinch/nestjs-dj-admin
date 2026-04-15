@@ -64,6 +64,16 @@ export class PrismaAdminAdapter implements AdminAdapter {
   }
 
   async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
+    if (resource.softDelete) {
+      await this.getDelegate(resource).update({
+        data: {
+          [resource.softDelete.fieldName]: new Date(),
+        },
+        where: { id: coerceId(id) },
+      });
+      return;
+    }
+
     await this.getDelegate(resource).delete({
       where: { id: coerceId(id) },
     });
@@ -73,6 +83,11 @@ export class PrismaAdminAdapter implements AdminAdapter {
     const rows = await this.getDelegate(resource).findMany({
       distinct: [field],
       select: { [field]: true },
+      where: resource.softDelete
+        ? {
+            [resource.softDelete.fieldName]: null,
+          }
+        : undefined,
     });
     return rows.map((row: Record<string, string | number>) => row[field]);
   }
@@ -100,6 +115,23 @@ export class PrismaAdminAdapter implements AdminAdapter {
 
 function buildPrismaWhere(resource: AdminAdapterResource, query: AdminListQuery) {
   const clauses: Record<string, unknown>[] = [];
+  const softDeleteFieldName = resource.softDelete?.fieldName;
+  const softDeleteFilterField = resource.softDelete?.filterField;
+  const softDeleteState = softDeleteFilterField ? query.filters?.[softDeleteFilterField] : undefined;
+
+  if (softDeleteFieldName) {
+    if (softDeleteState === 'deleted') {
+      clauses.push({
+        [softDeleteFieldName]: {
+          not: null,
+        },
+      });
+    } else if (softDeleteState !== 'all') {
+      clauses.push({
+        [softDeleteFieldName]: null,
+      });
+    }
+  }
 
   if (query.search && resource.search.length > 0) {
     clauses.push({
@@ -113,6 +145,10 @@ function buildPrismaWhere(resource: AdminAdapterResource, query: AdminListQuery)
   }
 
   for (const [field, value] of Object.entries(query.filters ?? {})) {
+    if (softDeleteFieldName && field === softDeleteFilterField) {
+      continue;
+    }
+
     clauses.push(
       Array.isArray(value)
         ? {

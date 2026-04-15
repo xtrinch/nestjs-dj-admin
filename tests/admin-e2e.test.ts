@@ -160,6 +160,44 @@ describe('Admin backend e2e', () => {
     assert.equal(afterDelete.response.status, 404);
   });
 
+  it('hides soft-deleted records by default and archives opted-in resources', async () => {
+    const { cookie } = await loginAs(adminBaseUrl, 'ada@example.com', 'admin123');
+
+    const meta = await request(adminBaseUrl, '/_meta/products', { cookie });
+    assert.equal(meta.response.status, 200);
+    assert.equal(meta.body.resource.softDelete.enabled, true);
+    assert.ok(meta.body.filterOptions.some((option: { field: string }) => option.field === '__softDeleteState'));
+
+    const defaultList = await request(adminBaseUrl, '/products?page=1&pageSize=10', { cookie });
+    assert.equal(defaultList.response.status, 200);
+    assert.equal(defaultList.body.total, 1);
+    assert.equal(defaultList.body.items[0].name, 'Chai');
+
+    const deletedList = await request(adminBaseUrl, '/products?page=1&pageSize=10&filter.__softDeleteState=deleted', {
+      cookie,
+    });
+    assert.equal(deletedList.response.status, 200);
+    assert.equal(deletedList.body.total, 1);
+    assert.equal(deletedList.body.items[0].name, 'Ikura');
+
+    const archived = await request(adminBaseUrl, '/products/201', {
+      method: 'DELETE',
+      cookie,
+    });
+    assert.equal(archived.response.status, 200);
+    assert.equal(archived.body.success, true);
+
+    const afterArchive = await request(adminBaseUrl, '/products?page=1&pageSize=10', { cookie });
+    assert.equal(afterArchive.response.status, 200);
+    assert.equal(afterArchive.body.total, 0);
+
+    const allProducts = await request(adminBaseUrl, '/products?page=1&pageSize=10&filter.__softDeleteState=all', {
+      cookie,
+    });
+    assert.equal(allProducts.response.status, 200);
+    assert.equal(allProducts.body.total, 2);
+  });
+
   it('supports custom action routes', async () => {
     const { cookie } = await loginAs(adminBaseUrl, 'ada@example.com', 'admin123');
 

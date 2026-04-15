@@ -156,7 +156,7 @@ export function EditPage({
             : null}
           {id ? (
             <a className="button button--danger" href={`#/${resource.resourceName}/delete/${id}`}>
-              Delete this {resource.label}
+              {resource.softDelete?.enabled ? `Archive this ${resource.label}` : `Delete this ${resource.label}`}
             </a>
           ) : null}
           <a className="button" href={`#/${resource.resourceName}`}>

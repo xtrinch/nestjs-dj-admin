@@ -18,8 +18,25 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     const repository = this.getRepository(resource);
     const alias = 'entity';
     const builder = repository.createQueryBuilder(alias);
+    const softDeleteFieldName = resource.softDelete?.fieldName;
+    const softDeleteFilterField = resource.softDelete?.filterField;
+
+    if (softDeleteFieldName) {
+      const softDeleteState = softDeleteFilterField
+        ? query.filters?.[softDeleteFilterField]
+        : undefined;
+      if (softDeleteState === 'deleted') {
+        builder.andWhere(`${alias}.${softDeleteFieldName} IS NOT NULL`);
+      } else if (softDeleteState !== 'all') {
+        builder.andWhere(`${alias}.${softDeleteFieldName} IS NULL`);
+      }
+    }
 
     for (const [field, value] of Object.entries(query.filters ?? {})) {
+      if (field === softDeleteFilterField) {
+        continue;
+      }
+
       if (Array.isArray(value)) {
         builder.andWhere(`${alias}.${field} IN (:...${field})`, { [field]: value });
       } else {
@@ -91,6 +108,14 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
 
   async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
     const repository = this.getRepository(resource);
+    if (resource.softDelete) {
+      await repository.update(
+        { id: this.coerceId(repository, id) } as never,
+        { [resource.softDelete.fieldName]: new Date() } as never,
+      );
+      return;
+    }
+
     const entity = await repository.findOne({
       relations: this.getDeleteRelationNames(repository),
       where: { id: this.coerceId(repository, id) } as never,
@@ -106,11 +131,16 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
   async distinct<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, field: string) {
     const repository = this.getRepository(resource);
     const alias = 'entity';
-    const rows = await repository
+    const builder = repository
       .createQueryBuilder(alias)
       .select(`${alias}.${field}`, field)
-      .distinct(true)
-      .getRawMany<Record<string, string | number>>();
+      .distinct(true);
+
+    if (resource.softDelete) {
+      builder.where(`${alias}.${resource.softDelete.fieldName} IS NULL`);
+    }
+
+    const rows = await builder.getRawMany<Record<string, string | number>>();
     return rows.map((row) => row[field]);
   }
 

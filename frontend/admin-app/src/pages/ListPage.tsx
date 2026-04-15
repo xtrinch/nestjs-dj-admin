@@ -51,6 +51,15 @@ export function ListPage({
   async function load() {
     try {
       const metaJson = await getResourceMeta(resourceName);
+      const effectiveFilters = { ...filters };
+      if (metaJson.resource.softDelete?.enabled && !effectiveFilters[metaJson.resource.softDelete.filterField]) {
+        effectiveFilters[metaJson.resource.softDelete.filterField] = 'active';
+        setFilters((current) =>
+          current[metaJson.resource.softDelete?.filterField ?? '']
+            ? current
+            : { ...current, [metaJson.resource.softDelete!.filterField]: 'active' },
+        );
+      }
       const activeSort = sort ?? metaJson.resource.defaultSort?.field;
       const activeOrder = sort
         ? order
@@ -63,7 +72,7 @@ export function ListPage({
         search,
         sort: activeSort,
         order: activeOrder,
-        filters,
+        filters: effectiveFilters,
       });
       setItems(listJson.items);
       const relationLabelSets = await loadRelationLabels(metaJson, listJson.items);
@@ -154,7 +163,9 @@ export function ListPage({
           onChange={(event) => setSelectedBulkAction(event.target.value)}
         >
           <option value="">Bulk actions</option>
-          <option value="delete_selected">Delete selected</option>
+          <option value="delete_selected">
+            {meta.resource.softDelete?.enabled ? 'Archive selected' : 'Delete selected'}
+          </option>
           {meta.resource.bulkActions.map((action) => (
             <option key={action.slug} value={action.slug}>
               {action.name}
@@ -187,13 +198,12 @@ export function ListPage({
               }))
             }
           >
-            <option value="">All {filterOption.field}</option>
+            {filterOption.field === '__softDeleteState' ? null : (
+              <option value="">All {resolveFilterLabel(filterOption.field)}</option>
+            )}
             {filterOption.values.map((value) => (
               <option key={String(value)} value={String(value)}>
-                {resolveRelationLabel(
-                  filterValueLabels[filterOption.field],
-                  value,
-                )}
+                {resolveFilterValueLabel(filterOption.field, filterValueLabels[filterOption.field], value)}
               </option>
             ))}
           </select>
@@ -298,7 +308,7 @@ export function ListPage({
               <td className="table__actions">
                 <div className="table__actions-list">
                   <a className="button button--danger" href={`#/${resourceName}/delete/${String(item.id)}`}>
-                    Delete
+                    {meta.resource.softDelete?.enabled ? 'Archive' : 'Delete'}
                   </a>
                   {meta.resource.actions.map((action) => (
                     <button
@@ -342,6 +352,36 @@ export function ListPage({
       </footer>
     </section>
   );
+}
+
+function resolveFilterLabel(field: string): string {
+  if (field === '__softDeleteState') {
+    return 'visibility';
+  }
+
+  return field;
+}
+
+function resolveFilterValueLabel(
+  field: string,
+  relationLabels: Record<string, string> | undefined,
+  value: string | number,
+): string {
+  if (field === '__softDeleteState') {
+    if (value === 'active') {
+      return 'Active';
+    }
+
+    if (value === 'deleted') {
+      return 'Deleted';
+    }
+
+    if (value === 'all') {
+      return 'All';
+    }
+  }
+
+  return resolveRelationLabel(relationLabels, value);
 }
 
 async function loadRelationLabels(

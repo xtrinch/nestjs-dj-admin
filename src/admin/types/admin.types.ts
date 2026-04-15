@@ -57,6 +57,7 @@ export interface AdminDeleteSummary {
   resourceName: string;
   label: string;
   count: number;
+  mode?: 'delete' | 'soft-delete';
   items: AdminDeleteSummaryItem[];
   related: AdminDeleteRelatedSummary[];
   impact: {
@@ -77,6 +78,7 @@ export interface AdminAdapterResource<TModel extends AdminEntity = AdminEntity> 
   search: string[];
   filters: string[];
   fields: AdminFieldSchema[];
+  softDelete?: AdminSoftDeleteSchema;
 }
 
 export interface AdminAdapter {
@@ -182,6 +184,10 @@ export interface AdminPermissions {
   write?: PermissionRole[];
 }
 
+export interface AdminSoftDeleteOptions {
+  fieldName?: string;
+}
+
 export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> {
   model: AdminEntityClass<TModel>;
   resourceName?: string;
@@ -197,6 +203,7 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   permissions?: AdminPermissions;
   actions?: AdminAction<TModel>[];
   bulkActions?: AdminBulkAction<TModel>[];
+  softDelete?: AdminSoftDeleteOptions;
   password?: AdminPasswordOptions;
   createDto?: Type<unknown>;
   updateDto?: Type<unknown>;
@@ -243,6 +250,12 @@ export interface AdminPasswordSchema {
   helpText?: string;
 }
 
+export interface AdminSoftDeleteSchema {
+  enabled: boolean;
+  fieldName: string;
+  filterField: '__softDeleteState';
+}
+
 export interface AdminResourceSchema {
   resourceName: string;
   label: string;
@@ -258,6 +271,7 @@ export interface AdminResourceSchema {
   actions: Array<{ name: string; slug: string }>;
   bulkActions: Array<{ name: string; slug: string }>;
   permissions?: AdminPermissions;
+  softDelete?: AdminSoftDeleteSchema;
   fields: AdminFieldSchema[];
   createFields: AdminFieldSchema[];
   updateFields: AdminFieldSchema[];

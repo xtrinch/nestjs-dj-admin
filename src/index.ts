@@ -37,6 +37,8 @@ export type {
   AdminRequestUser,
   AdminResourceOptions,
   AdminResourceSchema,
+  AdminSoftDeleteOptions,
+  AdminSoftDeleteSchema,
   AdminWriteTransform,
   AdminWriteTransformContext,
   PermissionRole,

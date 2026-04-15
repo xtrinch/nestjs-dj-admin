@@ -84,6 +84,7 @@ export class DemoDataService implements OnApplicationBootstrap {
       const productsToSeed = productDefs.slice(existingProducts, minimumProducts).map((p) =>
         productRepository.create({
           ...p,
+          deletedAt: p.sku === 'NW-012' ? new Date(Date.UTC(2026, 3, 12, 10, 15)) : null,
           categories: p.categoryNames
             .map((name) => savedCategories.find((category) => category.name === name))
             .filter(Boolean) as Category[],
@@ -91,6 +92,12 @@ export class DemoDataService implements OnApplicationBootstrap {
       );
       const newProducts = await productRepository.save(productsToSeed);
       savedProducts.push(...newProducts);
+    }
+
+    const softDeletedProduct = await productRepository.findOne({ where: { sku: 'NW-012' } });
+    if (softDeletedProduct && !softDeletedProduct.deletedAt) {
+      softDeletedProduct.deletedAt = new Date(Date.UTC(2026, 3, 12, 10, 15));
+      await productRepository.save(softDeletedProduct);
     }
 
     const orderDetailRepository = this.dataSource.getRepository(OrderDetail);

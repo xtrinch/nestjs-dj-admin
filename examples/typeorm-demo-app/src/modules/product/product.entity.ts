@@ -29,6 +29,9 @@ export class Product {
   @Column({ default: false })
   discontinued!: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt!: Date | null;
+
   @ManyToMany(() => Category, (category) => category.products)
   @JoinTable({
     name: 'product_categories',

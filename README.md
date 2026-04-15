@@ -124,6 +124,96 @@ The examples show the full pattern in:
 - [examples/prisma-demo-app/src/app.module.ts](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/src/app.module.ts)
 - [examples/in-memory-demo-app/src/app.module.ts](/Users/mojca/repos/nestjs-dj-admin/examples/in-memory-demo-app/src/app.module.ts)
 
+## Auth Hardening Guidance
+
+The current auth layer is intentionally minimal. It is enough to make the admin usable, but it is not a complete production auth system.
+
+What the library currently does:
+
+- accepts an `authenticate(credentials, request)` hook
+- issues an opaque session cookie after successful login
+- reads that cookie on later admin requests
+- clears the cookie on logout
+- supports `cookieName` and `rememberMeMaxAgeMs`
+
+What the library does not currently do for you:
+
+- persistent session storage
+- session rotation or revocation across processes
+- secure-cookie environment switching
+- CSRF protection
+- login rate limiting
+- lockout or abuse detection
+- MFA, SSO, or delegated identity flows
+
+### Sessions And Cookies
+
+Today, the built-in admin auth service stores sessions in an in-memory `Map` and writes a cookie with:
+
+- `httpOnly: true`
+- `sameSite: 'lax'`
+- `secure: false`
+- `path: '/'`
+
+That is acceptable for local development and the example apps, but it is not strong enough as-is for production deployment.
+
+Production guidance:
+
+- treat the built-in session behavior as a reference implementation, not a hardened final state
+- if you deploy the admin publicly or in a multi-instance environment, move session state to durable shared storage
+- use HTTPS and ensure cookies are marked `Secure` in real deployments
+- review whether `path: '/'` is appropriate for your app or whether your deployment should isolate the admin more tightly
+- decide whether admin sessions should be short-lived even when `rememberMe` is enabled
+
+### CSRF Stance
+
+The admin currently relies on cookie-backed auth plus `SameSite=Lax`, but it does not add explicit CSRF tokens or origin enforcement.
+
+That means:
+
+- the package does not claim to provide complete CSRF protection
+- host applications should decide their own CSRF posture based on deployment environment and threat model
+
+If you need stronger protection, add it at the host-app boundary. Typical options include:
+
+- CSRF tokens for state-changing admin requests
+- strict origin / referer validation
+- tighter cookie scoping and secure-cookie enforcement
+- isolating the admin on a dedicated subdomain or internal network boundary
+
+### Rate Limits And Lockouts
+
+The library does not currently throttle login attempts or lock accounts after repeated failures.
+
+If the admin is reachable outside a trusted internal environment, you should add:
+
+- rate limiting on the login endpoint
+- lockout or backoff rules for repeated failed logins
+- logging and alerting around auth failures
+- optional IP- or identity-based abuse controls at the reverse proxy or application boundary
+
+### Ownership Boundary
+
+Auth responsibility is intentionally split.
+
+The library owns:
+
+- the admin login/logout endpoints
+- calling your `authenticate` function
+- issuing and reading the admin session cookie
+- attaching the authenticated admin user to request handling
+
+The host application owns:
+
+- user storage and password verification
+- role modeling and admin eligibility rules
+- session durability and cross-instance behavior
+- cookie security posture in production
+- CSRF protection decisions
+- rate limits, lockouts, audit logging, and broader security controls
+
+In short: `nestjs-dj-admin` provides an admin auth integration point, not a full security framework.
+
 ## Resource Registration
 
 Resources are discovered from providers decorated with `@AdminResource(...)`.
@@ -134,6 +224,7 @@ The resource options define:
 - search fields
 - filters
 - readonly fields
+- optional soft delete behavior
 - permissions
 - object actions
 - bulk actions
@@ -330,6 +421,27 @@ The shared examples define both action styles in:
 
 - [examples/shared/src/modules/order/shared.ts](/Users/mojca/repos/nestjs-dj-admin/examples/shared/src/modules/order/shared.ts)
 - [examples/shared/src/modules/user/shared.ts](/Users/mojca/repos/nestjs-dj-admin/examples/shared/src/modules/user/shared.ts)
+
+## Soft Delete
+
+Soft delete is optional and resource-specific. It is not enabled globally.
+
+When a resource opts into:
+
+```ts
+softDelete: {
+  fieldName: 'deletedAt',
+}
+```
+
+the admin behaves like a typical Django-admin soft-delete customization:
+
+- normal list views show active rows by default
+- the changelist exposes a visibility filter for `active`, `deleted`, and `all`
+- delete actions archive the row by setting the soft-delete field instead of hard-removing it
+- direct detail/edit access still works for archived rows if you navigate to them explicitly
+
+The shared product demo uses this pattern.
 
 ## Relation Fields
 

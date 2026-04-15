@@ -5,6 +5,7 @@ export class Product {
   unitPrice!: number;
   unitsInStock!: number;
   discontinued!: boolean;
+  deletedAt!: Date | null;
   categories!: string[];
   createdAt!: string;
   updatedAt!: string;

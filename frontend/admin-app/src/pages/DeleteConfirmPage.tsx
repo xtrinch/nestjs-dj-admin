@@ -50,8 +50,8 @@ export function DeleteConfirmPage({
       queueToast({
         message:
           ids.length === 1
-            ? `${summary?.items[0]?.label ?? summary?.label ?? 'Record'} deleted.`
-            : `${ids.length} ${pluralizeLabel(summary?.label ?? 'record').toLowerCase()} deleted.`,
+            ? `${summary?.items[0]?.label ?? summary?.label ?? 'Record'} ${summary?.mode === 'soft-delete' ? 'archived' : 'deleted'}.`
+            : `${ids.length} ${pluralizeLabel(summary?.label ?? 'record').toLowerCase()} ${summary?.mode === 'soft-delete' ? 'archived' : 'deleted'}.`,
       });
       window.location.hash = `#/${resourceName}`;
     } catch (reason) {
@@ -73,19 +73,26 @@ export function DeleteConfirmPage({
   const { label, count, items, impact } = summary;
   const related = summary.related ?? [];
   const pluralLabel = pluralizeLabel(label);
+  const isSoftDelete = summary.mode === 'soft-delete';
   const hasBlockingImpact = impact.blocked.length > 0;
   const singleId = ids.length === 1 ? ids[0] : null;
-  const title = count === 1 ? `Delete ${items[0]?.label ?? label}` : `Delete ${count} ${pluralLabel}`;
+  const title = count === 1
+    ? `${isSoftDelete ? 'Archive' : 'Delete'} ${items[0]?.label ?? label}`
+    : `${isSoftDelete ? 'Archive' : 'Delete'} ${count} ${pluralLabel}`;
   const question =
-    count === 1
-      ? `Review the deletion impact for the selected ${label} before continuing.`
-      : `Review the deletion impact for the selected ${pluralLabel.toLowerCase()} before continuing.`;
+    isSoftDelete
+      ? count === 1
+        ? `The selected ${label.toLowerCase()} will be hidden from default admin views but not permanently removed.`
+        : `The selected ${pluralLabel.toLowerCase()} will be hidden from default admin views but not permanently removed.`
+      : count === 1
+        ? `Review the deletion impact for the selected ${label} before continuing.`
+        : `Review the deletion impact for the selected ${pluralLabel.toLowerCase()} before continuing.`;
 
   return (
     <section className="panel">
       <header className="panel__header">
         <div>
-          <span className="panel__eyebrow">Confirm deletion</span>
+          <span className="panel__eyebrow">{isSoftDelete ? 'Confirm archive' : 'Confirm deletion'}</span>
           <h2>{title}</h2>
         </div>
       </header>
@@ -110,26 +117,28 @@ export function DeleteConfirmPage({
         </ul>
       </div>
 
-      <ImpactBlock
-        title="Will delete"
-        groups={impact.delete}
-      />
+      {!isSoftDelete ? (
+        <ImpactBlock
+          title="Will delete"
+          groups={impact.delete}
+        />
+      ) : null}
 
-      {impact.disconnect.length > 0 ? (
+      {!isSoftDelete && impact.disconnect.length > 0 ? (
         <ImpactBlock
           title="Will disconnect"
           groups={impact.disconnect}
         />
       ) : null}
 
-      {impact.blocked.length > 0 ? (
+      {!isSoftDelete && impact.blocked.length > 0 ? (
         <ImpactBlock
           title="Would block deletion"
           groups={impact.blocked}
         />
       ) : null}
 
-      {related.length > 0 ? (
+      {!isSoftDelete && related.length > 0 ? (
         <div className="delete-confirm__block">
           <h3 className="delete-confirm__block-title">Related links</h3>
           <ul className="delete-confirm__list">
@@ -162,10 +171,10 @@ export function DeleteConfirmPage({
             onClick={() => void confirmDelete()}
           >
             {deleting
-              ? 'Deleting…'
+              ? isSoftDelete ? 'Archiving…' : 'Deleting…'
               : count === 1
-                ? `Delete ${items[0]?.label ?? label}`
-                : `Delete ${count} ${pluralLabel.toLowerCase()}`}
+                ? `${isSoftDelete ? 'Archive' : 'Delete'} ${items[0]?.label ?? label}`
+                : `${isSoftDelete ? 'Archive' : 'Delete'} ${count} ${pluralLabel.toLowerCase()}`}
           </button>
         )}
         <a className="button" href={`#/${resourceName}`}>

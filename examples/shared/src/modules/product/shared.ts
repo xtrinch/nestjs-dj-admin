@@ -64,6 +64,14 @@ export class UpdateProductDto {
   discontinued?: boolean;
 
   @AdminField({
+    label: 'Deleted At',
+    input: 'datetime-local',
+  })
+  @Type(() => Date)
+  @IsOptional()
+  deletedAt?: Date;
+
+  @AdminField({
     label: 'Categories',
     relation: {
       kind: 'many-to-many',
@@ -88,11 +96,12 @@ export const productAdminOptions = {
   sortable: ['updatedAt', 'name'],
   search: ['sku', 'name'],
   filters: ['discontinued'],
-  readonly: ['createdAt', 'updatedAt'],
+  readonly: ['createdAt', 'updatedAt', 'deletedAt'],
   permissions: {
     read: ['admin'],
     write: ['admin'],
   },
+  softDelete: {},
   createDto: CreateProductDto,
   updateDto: UpdateProductDto,
 } satisfies Omit<AdminResourceOptions, 'model'>;
