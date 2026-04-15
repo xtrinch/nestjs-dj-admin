@@ -10,6 +10,14 @@ It gives you:
 - bundled admin UI assets
 - TypeORM, Prisma, and in-memory adapter support
 
+## Screenshots
+
+<p>
+  <img src="./docs/screenshots/users-list.png" alt="Users changelist" width="32%" />
+  <img src="./docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="32%" />
+  <img src="./docs/screenshots/user-edit.png" alt="User change form" width="32%" />
+</p>
+
 The example apps deliberately use a small back-office dataset derived from Northwind rather than a todo-style domain. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific model classes and thin `*.admin.ts` wrappers.
 
 ## Quickstart
@@ -142,6 +150,29 @@ The current `0.1.0` defaults are:
   - `path: '/'`
 
 These defaults are intended to be conservative enough for local development and demos while still being explicit about what production deployments should usually override.
+
+Equivalent configuration:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    sessionTtlMs: 12 * 60 * 60 * 1000,
+    rememberMeMaxAgeMs: 30 * 24 * 60 * 60 * 1000,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: 'auto',
+      path: '/',
+    },
+    authenticate: async () => null,
+  },
+  auditLog: {
+    enabled: false,
+    maxEntries: 500,
+  },
+});
+```
 
 ## Branding
 
