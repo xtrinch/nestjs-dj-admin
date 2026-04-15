@@ -5,6 +5,7 @@ import { EditPage } from './pages/EditPage.js';
 import { PasswordPage } from './pages/PasswordPage.js';
 import { DeleteConfirmPage } from './pages/DeleteConfirmPage.js';
 import { AuditLogPage } from './pages/AuditLogPage.js';
+import { DashboardPage } from './pages/DashboardPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
@@ -13,6 +14,13 @@ import type { AdminToast } from './services/toast.service.js';
 import type { AdminMetaResponse, AdminUser, ResourceSchema } from './types.js';
 
 type AppRoute =
+  | {
+      kind: 'home';
+      category: 'Home';
+      resourceName: 'dashboard';
+      resourceLabel: 'Dashboard';
+      pageLabel: null;
+    }
   | {
       kind: 'audit';
       category: 'System';
@@ -194,7 +202,7 @@ export function App() {
           </div>
         </header>
         <div className="content__body">
-          {routeUi ? (
+          {routeUi && activeRoute.kind !== 'home' ? (
             <Breadcrumbs
               category={routeUi.category}
               resourceName={routeUi.resourceName}
@@ -203,6 +211,8 @@ export function App() {
             />
           ) : null}
           <RouteContent
+            auditLogEnabled={meta.auditLog?.enabled === true}
+            categories={categories}
             display={meta.display}
             route={activeRoute}
             onTitleChange={setPageSubjectLabel}
@@ -224,6 +234,12 @@ function SidebarNav({
 }) {
   return (
     <>
+      <section className="nav__group">
+        <span className="nav__group-label">Home</span>
+        <a className={activeRoute.kind === 'home' ? 'nav__link active' : 'nav__link'} href="#">
+          Dashboard
+        </a>
+      </section>
       {categories.map(([category, resources]) => (
         <section key={category} className="nav__group">
           <span className="nav__group-label">{category}</span>
@@ -251,14 +267,30 @@ function SidebarNav({
 }
 
 function RouteContent({
+  auditLogEnabled,
+  categories,
   display,
   route,
   onTitleChange,
 }: {
+  auditLogEnabled: boolean;
+  categories: Array<[string, ResourceSchema[]]>;
   display: AdminMetaResponse['display'];
   route: AppRoute;
   onTitleChange: (label: string | null) => void;
 }) {
+  if (route.kind === 'home') {
+    return (
+      <DashboardPage
+        key="dashboard"
+        auditLogEnabled={auditLogEnabled}
+        categories={categories}
+        display={display}
+        onTitleChange={onTitleChange}
+      />
+    );
+  }
+
   if (route.kind === 'audit') {
     return <AuditLogPage key="audit-log" display={display} onTitleChange={onTitleChange} />;
   }
@@ -320,15 +352,15 @@ function groupResources(resources: ResourceSchema[]) {
 
 function describeRoute(route: AppRoute, subjectLabel: string | null) {
   return {
-    category: route.kind === 'audit' ? route.category : route.resource.category,
+    category: route.kind === 'resource' ? route.resource.category : route.category,
     resourceName: route.resourceName,
-    resourceLabel: route.kind === 'audit' ? route.resourceLabel : route.resource.label,
+    resourceLabel: route.kind === 'resource' ? route.resource.label : route.resourceLabel,
     pageLabel: getRoutePageLabel(route, subjectLabel),
   };
 }
 
 function getInitialRouteSubjectLabel(route: AppRoute): string | null {
-  if (route.kind === 'audit' || route.mode === 'list') {
+  if (route.kind === 'home' || route.kind === 'audit' || route.mode === 'list') {
     return null;
   }
 
@@ -340,6 +372,10 @@ function getInitialRouteSubjectLabel(route: AppRoute): string | null {
 }
 
 function getRoutePageLabel(route: AppRoute, subjectLabel: string | null): string | null {
+  if (route.kind === 'home') {
+    return null;
+  }
+
   if (route.kind === 'audit') {
     return null;
   }
@@ -364,7 +400,19 @@ function isActiveResourceRoute(route: AppRoute, resourceName: string): boolean {
 }
 
 function parseRoute(hash: string, resources: ResourceSchema[]): AppRoute {
-  if (hash.replace(/^#\//, '') === 'audit-log') {
+  const normalized = hash.replace(/^#\/?/, '');
+
+  if (normalized === '' || normalized === 'home') {
+    return {
+      kind: 'home',
+      category: 'Home',
+      resourceName: 'dashboard',
+      resourceLabel: 'Dashboard',
+      pageLabel: null,
+    };
+  }
+
+  if (normalized === 'audit-log') {
     return {
       kind: 'audit',
       category: 'System',
@@ -374,7 +422,7 @@ function parseRoute(hash: string, resources: ResourceSchema[]): AppRoute {
     };
   }
 
-  const [resourceName, mode, id, extra] = hash.replace(/^#\//, '').split('/');
+  const [resourceName, mode, id, extra] = normalized.split('/');
   const fallback = resources[0];
   const resource = resources.find((item) => item.resourceName === resourceName) ?? fallback;
 

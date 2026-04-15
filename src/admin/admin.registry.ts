@@ -67,7 +67,9 @@ export class AdminRegistry {
         defaultSort: options.defaultSort,
         sortable: options.sortable ?? (options.defaultSort ? [options.defaultSort.field] : []),
         listDisplayLinks,
-        search: options.search ?? [],
+        search: (options.search ?? []).map((entry) =>
+          typeof entry === 'string' ? entry : (entry.label ?? entry.path)
+        ),
         filters: options.filters ?? [],
         readonly: options.readonly ?? [],
         permissions: options.permissions,

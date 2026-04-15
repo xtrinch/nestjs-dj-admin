@@ -65,7 +65,7 @@ export function EditPage({
 
     try {
       await runResourceAction(resource.resourceName, id, action.slug);
-      queueToast({ message: `${resource.label} ${action.name.toLowerCase()}.` });
+      showToast({ message: `${resource.label} ${action.name.toLowerCase()}.` });
       await load();
     } catch (reason) {
       const message = (reason as Error).message;
@@ -188,7 +188,7 @@ export function EditPage({
           </div>
         ) : null}
         {fields.map((field) => (
-          <label className="field" key={field.name}>
+          <label className={`field${field.input === 'checkbox' ? ' field--checkbox' : ''}`} key={field.name}>
             <span className="field__label">{field.label}</span>
             <FieldInput field={field} values={values} setValues={setValues} display={display} />
             {field.helpText ? <small className="field__hint">{field.helpText}</small> : null}

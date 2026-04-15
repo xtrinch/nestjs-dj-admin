@@ -13,20 +13,7 @@ Today, the honest stance is:
 
 These are the highest-value remaining tasks if the goal is a confident first public release rather than more feature work.
 
-### 1. Frontend smoke coverage
-
-Backend coverage is now strong. The remaining confidence gap is the admin UI behavior that is mostly protected by manual testing:
-
-- save intents on create/edit
-- password change flow
-- soft delete flow and visibility filter
-- sidebar filters and relation filter picker
-- audit log page
-- object actions and bulk actions from the UI
-
-This does not need a huge browser suite. A focused smoke layer would materially improve release confidence.
-
-### 2. Final release framing cleanup
+### 1. Final release framing cleanup
 
 The target is `0.1.0`.
 
@@ -35,7 +22,7 @@ Before cutting it:
 - keep README, changelog, and this checklist aligned on that stance
 - avoid vague “not ready” language once the actual blocker list is short
 
-### 3. Decide and document a few final defaults
+### 2. Decide and document a few final defaults
 
 The important knobs now exist. Before release, confirm that the defaults are intentional and documented:
 
@@ -57,9 +44,6 @@ This is mostly a product decision pass, not a large implementation task.
 
 These are valuable, but they should not block a disciplined `0.1.0`:
 
-- CSV export/import
-- dashboard
-- saved filters
 - richer theming
 - more advanced bulk workflows
 - relation-aware search beyond basic selectors
@@ -70,6 +54,7 @@ What is already in good shape:
 
 - shared adapter contract coverage across in-memory, TypeORM, and Prisma
 - backend end-to-end coverage for auth, metadata, CRUD, actions, password flow, and audit log API
+- frontend smoke coverage for save intents, password flow, soft delete, relation filters, audit log UI, and actions
 - Django-admin-style password handling
 - optional soft delete as a reusable library capability
 - dedicated object actions and bulk actions
@@ -87,6 +72,5 @@ What is no longer the main risk:
 
 What still most deserves attention:
 
-- frontend confidence
 - final release positioning
 - final defaults/documentation decisions

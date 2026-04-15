@@ -5,6 +5,7 @@ import type {
   AdminAdapterResource,
   AdminEntity,
   AdminListQuery,
+  AdminSearchField,
 } from '../types/admin.types.js';
 
 @Injectable()
@@ -135,12 +136,7 @@ function buildPrismaWhere(resource: AdminAdapterResource, query: AdminListQuery)
 
   if (query.search && resource.search.length > 0) {
     clauses.push({
-      OR: resource.search.map((field) => ({
-        [field]: {
-          contains: query.search,
-          mode: 'insensitive',
-        },
-      })),
+      OR: resource.search.map((field) => buildPrismaSearchClause(field, query.search!)),
     });
   }
 
@@ -169,6 +165,42 @@ function buildPrismaWhere(resource: AdminAdapterResource, query: AdminListQuery)
   }
 
   return { AND: clauses };
+}
+
+function buildPrismaSearchClause(field: AdminSearchField, search: string): Record<string, unknown> {
+  if (field.kind === 'field') {
+    return {
+      [field.path]: {
+        contains: search,
+        mode: 'insensitive',
+      },
+    };
+  }
+
+  if (field.relationKind === 'many-to-many') {
+    return {
+      [field.relationField]: {
+        some: {
+          [field.targetField]: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+      },
+    };
+  }
+
+  return {
+    [field.relationField]: {
+      in: [],
+    },
+    __relationSearch: {
+      relationResource: field.relationResource,
+      targetField: field.targetField,
+      valueField: field.valueField,
+      search,
+    },
+  };
 }
 
 function coerceId(id: string): string | number {

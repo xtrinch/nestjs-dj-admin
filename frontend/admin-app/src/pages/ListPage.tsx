@@ -7,7 +7,7 @@ import {
   lookupResource,
   runBulkResourceAction,
 } from '../services/resources.service.js';
-import { queueToast, showToast } from '../services/toast.service.js';
+import { showToast } from '../services/toast.service.js';
 import type { AdminLookupItem, ResourceField, ResourceMetaResponse } from '../types.js';
 
 const PAGE_SIZE = 20;
@@ -23,7 +23,10 @@ export function ListPage({
   const [meta, setMeta] = useState<ResourceMetaResponse | null>(null);
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [allMatchingSelected, setAllMatchingSelected] = useState(false);
+  const [selectingAllMatching, setSelectingAllMatching] = useState(false);
   const [selectedBulkAction, setSelectedBulkAction] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
@@ -34,17 +37,30 @@ export function ListPage({
   const [relationLabels, setRelationLabels] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+
+  useEffect(() => {
     void load();
   }, [resourceName, search, JSON.stringify(filters), page, sort, order]);
 
   useEffect(() => {
     setPage(1);
+    setSelectedIds([]);
+    setAllMatchingSelected(false);
+    setSelectedBulkAction('');
   }, [resourceName, search, JSON.stringify(filters), sort, order]);
 
   useEffect(() => {
     setSort(null);
     setOrder('asc');
     setFilters({});
+    setSearchInput('');
+    setSearch('');
   }, [resourceName]);
 
   async function load() {
@@ -76,8 +92,6 @@ export function ListPage({
       setItems(listJson.items);
       const relationLabelSets = await loadRelationLabels(metaJson, listJson.items);
       setRelationLabels(relationLabelSets);
-      setSelectedIds([]);
-      setSelectedBulkAction('');
       setTotal(listJson.total);
       setError(null);
     } catch (reason) {
@@ -104,7 +118,7 @@ export function ListPage({
 
     try {
       await runBulkResourceAction(resourceName, action.slug, selectedIds);
-      queueToast({
+      showToast({
         message:
           selectedIds.length === 1
             ? `${action.name} applied to 1 ${meta?.resource.label.toLowerCase()}.`
@@ -113,6 +127,37 @@ export function ListPage({
       await load();
     } catch (reason) {
       showToast({ message: (reason as Error).message, variant: 'error' });
+    }
+  }
+
+  async function selectAllMatching() {
+    if (!meta) {
+      return;
+    }
+
+    setSelectingAllMatching(true);
+
+    try {
+      const effectiveFilters = { ...filters };
+      if (meta.resource.softDelete?.enabled && !effectiveFilters[meta.resource.softDelete.filterField]) {
+        effectiveFilters[meta.resource.softDelete.filterField] = 'active';
+      }
+
+      const response = await listResource(resourceName, {
+        page: 1,
+        pageSize: total,
+        search,
+        sort: activeSort ?? undefined,
+        order: activeOrder,
+        filters: effectiveFilters,
+      });
+
+      setSelectedIds(response.items.map((item) => String(item.id)));
+      setAllMatchingSelected(true);
+    } catch (reason) {
+      showToast({ message: (reason as Error).message, variant: 'error' });
+    } finally {
+      setSelectingAllMatching(false);
     }
   }
 
@@ -132,6 +177,10 @@ export function ListPage({
   const activeOrder = sort
     ? order
     : meta.resource.defaultSort?.order ?? order;
+  const pageSelectionCount = items.filter((item) => selectedIds.includes(String(item.id))).length;
+  const shouldOfferSelectAllMatching = !allMatchingSelected && total > items.length && allVisibleSelected;
+  const singularItemLabel = meta.resource.label.toLowerCase();
+  const pluralItemLabel = `${singularItemLabel}s`;
 
   return (
     <section className="panel">
@@ -179,10 +228,59 @@ export function ListPage({
             <input
               className="input toolbar__search"
               placeholder={`Search ${meta.resource.search.join(', ') || meta.resource.label}`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
             />
           </div>
+
+          {selectedIds.length > 0 ? (
+            <div className="selection-banner">
+              {allMatchingSelected ? (
+                <>
+                  <span>All {total} {pluralItemLabel} are selected.</span>
+                  <button
+                    className="selection-banner__link"
+                    type="button"
+                    onClick={() => {
+                      setSelectedIds([]);
+                      setAllMatchingSelected(false);
+                    }}
+                  >
+                    Clear selection
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {pageSelectionCount} {pageSelectionCount === 1 ? singularItemLabel : pluralItemLabel} on this page selected.
+                  </span>
+                  {shouldOfferSelectAllMatching ? (
+                    <button
+                      className="selection-banner__link"
+                      disabled={selectingAllMatching}
+                      type="button"
+                      onClick={() => void selectAllMatching()}
+                    >
+                      {selectingAllMatching
+                        ? `Selecting all ${total} ${pluralItemLabel}…`
+                        : `Select all ${total} ${pluralItemLabel}`}
+                    </button>
+                  ) : (
+                    <button
+                      className="selection-banner__link"
+                      type="button"
+                      onClick={() => {
+                        setSelectedIds([]);
+                        setAllMatchingSelected(false);
+                      }}
+                    >
+                      Clear selection
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          ) : null}
 
           <table className="table">
         <thead>
@@ -194,11 +292,13 @@ export function ListPage({
                 type="checkbox"
                 onChange={(event) => {
                   if (event.target.checked) {
+                    setAllMatchingSelected(false);
                     setSelectedIds(items.map((item) => String(item.id)));
                     return;
                   }
 
                   setSelectedIds([]);
+                  setAllMatchingSelected(false);
                 }}
               />
             </th>
@@ -252,6 +352,9 @@ export function ListPage({
                         ? [...current, itemId]
                         : current.filter((candidate) => candidate !== itemId),
                     );
+                    if (!event.target.checked) {
+                      setAllMatchingSelected(false);
+                    }
                   }}
                 />
               </td>

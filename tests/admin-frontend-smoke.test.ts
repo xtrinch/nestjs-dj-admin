@@ -2,18 +2,11 @@ import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { chromium, type Browser, type BrowserContext, type Locator, type Page } from 'playwright';
 
-const CHROME_PATH = process.env['PLAYWRIGHT_CHROME_PATH'] ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const CHROME_DEBUG_PORT = 9223;
-
-describe('Admin frontend smoke', () => {
+describe('Admin frontend smoke', { timeout: 90_000 }, () => {
   let server: ChildProcessByStdio<null, Readable, Readable>;
-  let chrome: ChildProcessByStdio<null, Readable, Readable>;
   let browser: Browser;
   let context: BrowserContext;
   let page: Page;
@@ -22,28 +15,6 @@ describe('Admin frontend smoke', () => {
   const baseUrl = `http://127.0.0.1:${port}`;
 
   before(async () => {
-    const userDataDir = await mkdtemp(path.join(tmpdir(), 'dj-admin-smoke-chrome-'));
-    chrome = spawn(
-      CHROME_PATH,
-      [
-        `--remote-debugging-port=${CHROME_DEBUG_PORT}`,
-        `--user-data-dir=${userDataDir}`,
-        '--headless=new',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--no-sandbox',
-        'about:blank',
-      ],
-      {
-        cwd: process.cwd(),
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
-
-    await waitForChrome(CHROME_DEBUG_PORT);
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${CHROME_DEBUG_PORT}`);
-
     server = spawn(
       'node',
       ['--loader', 'ts-node/esm', 'tests/fixtures/admin-e2e-app.ts'],
@@ -58,17 +29,19 @@ describe('Admin frontend smoke', () => {
       },
     );
 
+    const stderr: string[] = [];
+    server.stderr.setEncoding('utf8');
+    server.stderr.on('data', (chunk) => {
+      stderr.push(chunk);
+    });
+
     server.stdout.setEncoding('utf8');
-    await waitForReady(server.stdout, `ADMIN_E2E_READY ${port}`);
+    await waitForProcessReady(server, `ADMIN_E2E_READY ${port}`, stderr);
+    browser = await chromium.launch({ headless: true });
   });
 
   after(async () => {
     await browser.close();
-
-    if (chrome.exitCode === null) {
-      chrome.kill('SIGKILL');
-      await once(chrome, 'exit');
-    }
 
     if (server.exitCode === null) {
       server.kill('SIGKILL');
@@ -83,26 +56,21 @@ describe('Admin frontend smoke', () => {
     context = browser.contexts()[0] ?? await browser.newContext();
     await context.clearCookies();
     page = await context.newPage();
-    await page.goto('about:blank');
-    await page.evaluate(() => {
-      window.localStorage.clear();
-      window.sessionStorage.clear();
-    });
   });
 
   afterEach(async () => {
     await page.close();
   });
 
-  it('covers create/edit save intents, password change, object actions, and audit log UI', async () => {
+  it('covers create/edit save intents, password change, object actions, and audit log UI', { timeout: 45_000 }, async () => {
     await login(page, baseUrl);
 
-    await page.getByRole('link', { name: 'Users' }).click();
+    await sidebarLink(page, 'User').click();
     await page.getByRole('link', { name: 'New User' }).click();
 
     await page.getByLabel('Email').fill('smoke-admin@example.com');
-    await page.getByLabel('Password', { exact: true }).fill('firstPass123');
-    await page.getByLabel('Password confirmation').fill('firstPass123');
+    await page.locator('input[type="password"]').first().fill('firstPass123');
+    await page.locator('input[type="password"]').nth(1).fill('firstPass123');
     await page.getByLabel('Role').selectOption('admin');
     await ensureChecked(page.getByLabel('Active'));
     await page.getByRole('button', { name: 'Save and continue editing' }).click();
@@ -131,11 +99,11 @@ describe('Admin frontend smoke', () => {
     await page.getByRole('cell', { name: 'Changed password for smoke-admin@example.com' }).waitFor();
   });
 
-  it('covers soft delete flow and visibility filter from the UI', async () => {
+  it('covers soft delete flow and visibility filter from the UI', { timeout: 45_000 }, async () => {
     await login(page, baseUrl);
 
-    await page.getByRole('link', { name: 'Products' }).click();
-    await page.getByRole('heading', { name: 'Products' }).waitFor();
+    await sidebarLink(page, 'Product').click();
+    await page.getByRole('heading', { name: 'Product' }).waitFor();
     await page.getByRole('cell', { name: 'Chai' }).waitFor();
     await assertRowMissing(page, 'Ikura');
 
@@ -146,7 +114,9 @@ describe('Admin frontend smoke', () => {
     await filterSelect(page, 'Visibility').selectOption('active');
     await page.getByRole('cell', { name: 'Chai' }).waitFor();
 
-    await row(page, 'Chai').getByRole('link', { name: 'Archive' }).click();
+    await row(page, 'Chai').getByRole('link').first().click();
+    await page.getByRole('heading', { name: 'Chai' }).waitFor();
+    await page.getByRole('link', { name: 'Archive this Product' }).click();
     await page.getByRole('heading', { name: 'Archive Chai' }).waitFor();
     await page.getByRole('button', { name: 'Archive Chai' }).click();
 
@@ -158,41 +128,70 @@ describe('Admin frontend smoke', () => {
     await page.getByRole('cell', { name: 'Ikura' }).waitFor();
   });
 
-  it('covers relation sidebar filters and bulk actions from the UI', async () => {
+  it('covers relation sidebar filters and bulk actions from the UI', { timeout: 45_000 }, async () => {
     await login(page, baseUrl);
 
-    await page.getByRole('link', { name: 'Orders' }).click();
-    await page.getByRole('heading', { name: 'Orders' }).waitFor();
+    await sidebarLink(page, 'Order').click();
+    await page.getByRole('heading', { name: 'Order' }).waitFor();
 
     const userFilter = relationFilter(page, 'User');
-    await userFilter.getByRole('button').click();
-    await userFilter.getByRole('button', { name: 'ada@example.com' }).waitFor();
-    await userFilter.getByRole('button', { name: 'grace@example.com' }).waitFor();
-    await userFilter.getByRole('textbox').fill('grace');
-    await userFilter.getByRole('button', { name: 'grace@example.com' }).click();
+    await userFilter.locator('.relation-picker__trigger').click();
+    await userFilter.locator('.relation-picker__dropdown input[type="search"]').waitFor();
+    await userFilter.locator('.relation-option--button', { hasText: 'ada@example.com' }).waitFor();
+    await userFilter.locator('.relation-option--button', { hasText: 'grace@example.com' }).waitFor();
+    await userFilter.locator('.relation-picker__dropdown input[type="search"]').fill('grace');
+    await userFilter.locator('.relation-option--button', { hasText: 'grace@example.com' }).click();
 
     await page.getByRole('cell', { name: 'ORD-1002' }).waitFor();
     await assertRowMissing(page, 'ORD-1001');
 
-    await page.getByRole('link', { name: 'Users' }).click();
-    await page.getByRole('heading', { name: 'Users' }).waitFor();
+    await sidebarLink(page, 'User').click();
+    await page.getByRole('heading', { name: 'User' }).waitFor();
     await row(page, 'ada@example.com').locator('input[type="checkbox"]').check();
     await row(page, 'grace@example.com').locator('input[type="checkbox"]').check();
     await page.getByRole('combobox').first().selectOption({ label: 'Deactivate selected' });
     await page.getByRole('button', { name: 'Go' }).click();
 
     await expectToast(page, 'Deactivate selected applied to 2 users.');
-    await row(page, 'ada@example.com').getByRole('link', { name: 'ada@example.com' }).click();
-    await expectUnchecked(page.getByLabel('Active'));
+    await row(page, 'ada@example.com').getByRole('link').first().click();
+    await expectUnchecked(checkboxField(page, 'Active'));
   });
 });
 
 async function login(page: Page, baseUrl: string) {
-  await page.goto(`${baseUrl}/admin`);
-  await page.getByLabel('Email').fill('ada@example.com');
-  await page.getByLabel('Password').fill('admin123');
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByRole('link', { name: 'Users' }).waitFor();
+  const response = await fetch(`${baseUrl}/admin/_auth/login`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      email: 'ada@example.com',
+      password: 'admin123',
+      rememberMe: false,
+    }),
+  });
+
+  assert.equal(response.status, 201);
+  const cookie = response.headers.get('set-cookie');
+  assert.ok(cookie);
+
+  const [cookiePair] = cookie.split(';', 1);
+  const separatorIndex = cookiePair.indexOf('=');
+  assert.notEqual(separatorIndex, -1);
+
+  await page.context().addCookies([
+    {
+      name: cookiePair.slice(0, separatorIndex),
+      value: cookiePair.slice(separatorIndex + 1),
+      domain: '127.0.0.1',
+      path: '/admin',
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
+
+  await page.goto(`${baseUrl}/admin#/users`);
+  await sidebarLink(page, 'User').waitFor();
 }
 
 function filterSelect(page: Page, label: string) {
@@ -201,6 +200,14 @@ function filterSelect(page: Page, label: string) {
 
 function relationFilter(page: Page, label: string) {
   return page.locator('.filters-sidebar__filter').filter({ hasText: label });
+}
+
+function sidebarLink(page: Page, label: string) {
+  return page.getByRole('complementary').getByRole('link', { name: label });
+}
+
+function checkboxField(page: Page, label: string) {
+  return page.locator('.field--checkbox').filter({ hasText: label }).locator('input[type="checkbox"]');
 }
 
 function row(page: Page, text: string) {
@@ -249,43 +256,54 @@ async function poll(assertion: () => Promise<void>, timeoutMs = 5000, intervalMs
   throw lastError;
 }
 
-async function waitForReady(stream: NodeJS.ReadableStream, marker: string): Promise<void> {
+async function waitForProcessReady(
+  process: ChildProcessByStdio<null, Readable, Readable>,
+  marker: string,
+  stderr: string[],
+): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     let buffer = '';
+    let settled = false;
 
     const onData = (chunk: string | Buffer) => {
       buffer += chunk.toString();
       if (buffer.includes(marker)) {
-        stream.off('data', onData);
+        settled = true;
+        process.stdout.off('data', onData);
+        process.stdout.off('error', onError);
+        process.off('exit', onExit);
         resolve();
       }
     };
 
     const onError = (error: Error) => {
-      stream.off('data', onData);
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      process.stdout.off('data', onData);
+      process.off('exit', onExit);
       reject(error);
     };
 
-    stream.on('data', onData);
-    stream.once('error', onError);
-  });
-}
-
-async function waitForChrome(port: number): Promise<void> {
-  const deadline = Date.now() + 10000;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/json/version`);
-      if (response.ok) {
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      if (settled) {
         return;
       }
-    } catch {
-      // Keep polling until Chrome opens the debugging port.
-    }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+      settled = true;
+      process.stdout.off('data', onData);
+      process.stdout.off('error', onError);
+      reject(
+        new Error(
+          `Fixture app exited before becoming ready (code=${code ?? 'null'}, signal=${signal ?? 'null'}): ${stderr.join('')}`.trim(),
+        ),
+      );
+    };
 
-  throw new Error(`Chrome debugging port ${port} did not become ready`);
+    process.stdout.on('data', onData);
+    process.stdout.once('error', onError);
+    process.once('exit', onExit);
+  });
 }

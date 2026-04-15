@@ -5,6 +5,7 @@ import type {
   AdminAdapterResource,
   AdminListQuery,
   AdminListResult,
+  AdminSearchField,
 } from '../types/admin.types.js';
 
 type Store = Record<string, Array<Record<string, unknown>>>;
@@ -240,7 +241,8 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
     const resourceName = resource.resourceName;
     const rows = [...(this.store[resourceName] ?? [])];
     const filtered = rows.filter((row) =>
-      matchesSearch(row, query.search) && matchesFilters(row, query.filters, resource.softDelete?.fieldName),
+      matchesSearch(resource, row, query.search) &&
+      matchesFilters(row, query.filters, resource.softDelete?.fieldName),
     );
     const sorted = sortRows(filtered, query.sort, query.order ?? 'asc');
     const start = (query.page - 1) * query.pageSize;
@@ -318,13 +320,50 @@ export class InMemoryAdminAdapter implements AdminAdapter, OnModuleInit {
   }
 }
 
-function matchesSearch(row: Record<string, unknown>, search?: string): boolean {
+function matchesSearch(
+  resource: AdminAdapterResource,
+  row: Record<string, unknown>,
+  search?: string,
+): boolean {
   if (!search) {
     return true;
   }
 
-  const candidate = Object.values(row).join(' ').toLowerCase();
-  return candidate.includes(search.toLowerCase());
+  const needle = search.toLowerCase();
+  return resource.search.some((field) => getSearchCandidates(row, field).some((candidate) => candidate.includes(needle)));
+}
+
+function getSearchCandidates(row: Record<string, unknown>, field: AdminSearchField): string[] {
+  if (field.kind === 'field') {
+    return [String(row[field.path] ?? '').toLowerCase()].filter(Boolean);
+  }
+
+  const relationValue = row[field.relationField];
+  if (field.relationKind === 'many-to-many') {
+    const relationIds = Array.isArray(relationValue) ? relationValue.map(String) : [];
+    if (relationIds.length === 0) {
+      return [];
+    }
+
+    return (IN_MEMORY_ADMIN_STORE[field.relationResource] ?? [])
+      .filter((candidate) => relationIds.includes(String(candidate[field.valueField] ?? '')))
+      .map((candidate) => String(candidate[field.targetField] ?? '').toLowerCase())
+      .filter(Boolean);
+  }
+
+  if (relationValue == null) {
+    return [];
+  }
+
+  const related = (IN_MEMORY_ADMIN_STORE[field.relationResource] ?? []).find(
+    (candidate) => String(candidate[field.valueField] ?? '') === String(relationValue),
+  );
+
+  if (!related) {
+    return [];
+  }
+
+  return [String(related[field.targetField] ?? '').toLowerCase()].filter(Boolean);
 }
 
 function matchesFilters(

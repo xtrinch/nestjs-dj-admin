@@ -119,11 +119,35 @@ export interface AdminAdapterResource<TModel extends AdminEntity = AdminEntity> 
   resourceName: string;
   label: string;
   model?: AdminEntityClass<TModel>;
-  search: string[];
+  search: AdminSearchField[];
   filters: string[];
   fields: AdminFieldSchema[];
   softDelete?: AdminSoftDeleteSchema;
 }
+
+export type AdminSearchOption =
+  | string
+  | {
+      path: string;
+      label?: string;
+    };
+
+export type AdminSearchField =
+  | {
+      kind: 'field';
+      path: string;
+      label: string;
+    }
+  | {
+      kind: 'relation';
+      path: string;
+      label: string;
+      relationField: string;
+      relationResource: string;
+      targetField: string;
+      valueField: string;
+      relationKind: 'many-to-one' | 'many-to-many';
+    };
 
 export interface AdminAdapter {
   findMany<TModel extends AdminEntity>(
@@ -241,7 +265,7 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   defaultSort?: AdminSortConfig;
   sortable?: string[];
   listDisplayLinks?: string[] | null;
-  search?: string[];
+  search?: AdminSearchOption[];
   filters?: string[];
   readonly?: string[];
   permissions?: AdminPermissions;

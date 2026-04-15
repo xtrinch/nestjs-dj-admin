@@ -7,6 +7,7 @@ import type { AdminFieldMode, AdminFieldSchema } from '../types/admin.types.js';
 type ValidationMetadata = {
   propertyName: string;
   type: string;
+  name?: string;
   constraints?: unknown[];
 };
 
@@ -55,7 +56,7 @@ export class DtoIntrospectorService {
           name: propertyName,
           label: extra.label ?? startCase(propertyName),
           input: extra.input ?? this.resolveInput(propertyName, validators, type, extra.relation?.kind),
-          required: !validators.some((validator) => validator.type === 'conditionalValidation'),
+          required: !validators.some((validator) => matchesValidator(validator, 'conditionalValidation', 'isOptional')),
           readOnly: readonlyFields.includes(propertyName),
           modes,
           helpText: extra.helpText,
@@ -104,15 +105,15 @@ export class DtoIntrospectorService {
       return 'select';
     }
 
-    if (validators.some((validator) => validator.type === 'isEmail')) {
+    if (validators.some((validator) => matchesValidator(validator, 'isEmail'))) {
       return 'email';
     }
 
-    if (validators.some((validator) => validator.type === 'isBoolean')) {
+    if (validators.some((validator) => matchesValidator(validator, 'isBoolean'))) {
       return 'checkbox';
     }
 
-    if (validators.some((validator) => validator.type === 'isDate')) {
+    if (validators.some((validator) => matchesValidator(validator, 'isDate'))) {
       return /at$/i.test(propertyName) ? 'datetime-local' : 'date';
     }
 
@@ -120,7 +121,7 @@ export class DtoIntrospectorService {
       return /at$/i.test(propertyName) ? 'datetime-local' : 'date';
     }
 
-    if (validators.some((validator) => validator.type === 'isEnum')) {
+    if (validators.some((validator) => matchesValidator(validator, 'isEnum'))) {
       return 'select';
     }
 
@@ -132,7 +133,7 @@ export class DtoIntrospectorService {
   }
 
   private resolveEnumValues(validators: ValidationMetadata[]): string[] | undefined {
-    const enumValidator = validators.find((validator) => validator.type === 'isEnum');
+    const enumValidator = validators.find((validator) => matchesValidator(validator, 'isEnum'));
     const candidate = enumValidator?.constraints?.[0];
 
     if (!candidate || typeof candidate !== 'object') {
@@ -143,6 +144,13 @@ export class DtoIntrospectorService {
       (value) => typeof value === 'string',
     );
   }
+}
+
+function matchesValidator(
+  validator: ValidationMetadata,
+  ...names: string[]
+): boolean {
+  return names.includes(validator.type) || names.includes(validator.name ?? '');
 }
 
 function startCase(value: string): string {

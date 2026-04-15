@@ -22,6 +22,8 @@ import type {
   AdminListQuery,
   AdminRequestUser,
   AdminResourceSchema,
+  AdminSearchField,
+  AdminSearchOption,
   AdminWriteTransform,
 } from '../types/admin.types.js';
 import { AdminAuditService } from './admin-audit.service.js';
@@ -545,16 +547,59 @@ export class AdminService implements OnModuleInit {
 
   private toAdapterResource(resource: {
     schema: AdminResourceSchema;
-    options: { model: AdminAdapterResource['model'] };
-  }, searchFields?: string[]): AdminAdapterResource {
+    options: { model: AdminAdapterResource['model']; search?: AdminSearchOption[] };
+  }, searchFields?: AdminSearchField[]): AdminAdapterResource {
     return {
       resourceName: resource.schema.resourceName,
       label: resource.schema.label,
       model: resource.options.model,
-      search: searchFields ?? resource.schema.search,
+      search: searchFields ?? this.resolveSearchFields(resource),
       filters: resource.schema.filters,
       fields: resource.schema.fields,
       softDelete: resource.schema.softDelete,
+    };
+  }
+
+  private resolveSearchFields(resource: {
+    schema: AdminResourceSchema;
+    options: { search?: AdminSearchOption[] };
+  }): AdminSearchField[] {
+    return (resource.options.search ?? []).map((entry) =>
+      typeof entry === 'string'
+        ? {
+            kind: 'field',
+            path: entry,
+            label: entry,
+          }
+        : this.resolveRelationSearchField(resource.schema, entry),
+    );
+  }
+
+  private resolveRelationSearchField(
+    schema: AdminResourceSchema,
+    entry: Extract<AdminSearchOption, { path: string; label?: string }>,
+  ): AdminSearchField {
+    const [relationField, ...targetParts] = entry.path.split('.');
+    const targetField = targetParts.join('.');
+    const field = schema.fields.find((candidate) => candidate.name === relationField);
+
+    if (!field?.relation || !targetField) {
+      return {
+        kind: 'field',
+        path: entry.path,
+        label: entry.label ?? entry.path,
+      };
+    }
+
+    return {
+      kind: 'relation',
+      path: entry.path,
+      label: entry.label ?? entry.path,
+      relationField,
+      relationResource: field.relation.option.resource,
+      targetField,
+      valueField: field.relation.option.valueField ?? 'id',
+      relationKind: field.relation.kind,
     };
   }
 
@@ -590,7 +635,7 @@ export class AdminService implements OnModuleInit {
     );
   }
 
-  private resolveLookupSearchFields(schema: AdminResourceSchema): string[] {
+  private resolveLookupSearchFields(schema: AdminResourceSchema): AdminSearchField[] {
     const searchableFieldNames = new Set(
       schema.fields
         .filter((field) => ['text', 'email', 'select'].includes(field.input))
@@ -608,12 +653,20 @@ export class AdminService implements OnModuleInit {
     )];
 
     if (resolved.length > 0) {
-      return resolved;
+      return resolved.map((field) => ({
+        kind: 'field',
+        path: field,
+        label: field,
+      }));
     }
 
     return schema.fields
       .filter((field) => field.name !== 'id' && ['text', 'email', 'select'].includes(field.input))
-      .map((field) => field.name);
+      .map((field) => ({
+        kind: 'field',
+        path: field.name,
+        label: field.name,
+      }));
   }
 
   private async buildDeleteRelatedSummary(

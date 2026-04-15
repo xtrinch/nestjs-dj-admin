@@ -742,7 +742,7 @@ Current intentional limits:
 - this is an admin framework, not a complete auth framework
 - relation metadata is explicit; ORM relations are not auto-derived into admin forms
 - the bundled UI is opinionated and not yet a full theming system
-- advanced workflows such as import/export, dashboards, and saved filters are not part of `0.1.x`
+- advanced workflows such as richer dashboards are not part of `0.1.x`
 - the TypeORM demo is migration-backed, but it is still a demo app rather than production rollout guidance
 
 Current operational constraints:

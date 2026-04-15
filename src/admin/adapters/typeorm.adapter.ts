@@ -5,6 +5,7 @@ import type {
   AdminAdapterResource,
   AdminEntity,
   AdminListQuery,
+  AdminSearchField,
 } from '../types/admin.types.js';
 
 @Injectable()
@@ -49,9 +50,51 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
       builder.andWhere(
         new Brackets((searchQuery) => {
           for (const field of resource.search) {
-            searchQuery.orWhere(`${this.buildSearchExpression(repository, alias, field)} ${operator} :search`, {
-              search: `%${query.search}%`,
-            });
+            if (field.kind === 'field') {
+              searchQuery.orWhere(`${this.buildSearchExpression(repository, alias, field.path)} ${operator} :search`, {
+                search: `%${query.search}%`,
+              });
+              continue;
+            }
+
+            if (field.relationKind === 'many-to-many') {
+              const relation = repository.metadata.findRelationWithPropertyPath(field.relationField);
+              if (!relation) {
+                continue;
+              }
+
+              const relationAlias = `${field.relationField}_search`;
+              const alreadyJoined = builder.expressionMap.joinAttributes.some(
+                (join) => join.alias.name === relationAlias,
+              );
+              if (!alreadyJoined) {
+                builder.leftJoin(`${alias}.${relation.propertyPath}`, relationAlias);
+              }
+
+              searchQuery.orWhere(
+                `${this.buildRawSearchExpression(relationAlias, field.targetField)} ${operator} :search`,
+                { search: `%${query.search}%` },
+              );
+              continue;
+            }
+
+            const relatedRepository = this.getRepositoryByResourceName(field.relationResource);
+            const relatedAlias = `${field.relationField}_related_search`;
+            const relatedValueColumn = this.getColumnPath(relatedRepository, relatedAlias, field.valueField);
+            const relatedTargetColumn = this.buildSearchExpression(
+              relatedRepository,
+              relatedAlias,
+              field.targetField,
+            );
+
+            searchQuery.orWhere(
+              `${alias}.${field.relationField} IN ${relatedRepository
+                .createQueryBuilder(relatedAlias)
+                .select(relatedValueColumn)
+                .where(`${relatedTargetColumn} ${operator} :search`)
+                .getQuery()}`,
+              { search: `%${query.search}%` },
+            );
           }
         }),
       );
@@ -173,6 +216,18 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     return (metadata.target as ObjectLiteral | undefined) ?? metadata.name;
   }
 
+  private getRepositoryByResourceName(resourceName: string): Repository<ObjectLiteral> {
+    const metadata = this.dataSource.entityMetadatas.find(
+      (entity) => entity.tableName === resourceName || entity.tablePath === resourceName,
+    );
+
+    if (!metadata) {
+      throw new Error(`TypeORM entity metadata not found for related admin resource "${resourceName}"`);
+    }
+
+    return this.dataSource.getRepository((metadata.target as never) ?? metadata.name);
+  }
+
   private getRelationNames(resource: AdminAdapterResource): string[] {
     return resource.fields
       .filter((field) => field.relation?.kind === 'many-to-many')
@@ -190,14 +245,30 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     alias: string,
     field: string,
   ): string {
-    const column = repository.metadata.findColumnWithPropertyName(field);
-    const columnPath = column ? `${alias}.${column.propertyPath}` : `${alias}.${field}`;
+    const columnPath = this.getColumnPath(repository, alias, field);
 
     if (this.dataSource.options.type === 'postgres') {
       return `CAST(${columnPath} AS TEXT)`;
     }
 
     return columnPath;
+  }
+
+  private buildRawSearchExpression(alias: string, field: string): string {
+    if (this.dataSource.options.type === 'postgres') {
+      return `CAST(${alias}.${field} AS TEXT)`;
+    }
+
+    return `${alias}.${field}`;
+  }
+
+  private getColumnPath(
+    repository: Repository<ObjectLiteral>,
+    alias: string,
+    field: string,
+  ): string {
+    const column = repository.metadata.findColumnWithPropertyName(field);
+    return column ? `${alias}.${column.propertyPath}` : `${alias}.${field}`;
   }
 
   private normalizeMutationData<TModel extends AdminEntity>(

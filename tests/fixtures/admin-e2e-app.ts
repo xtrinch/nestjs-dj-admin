@@ -9,6 +9,7 @@ import { userAdminOptions } from '../../examples/shared/src/modules/user/shared.
 import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../../src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '../../src/admin/admin.module.js';
 import { AdminResource } from '../../src/admin/decorators/admin-resource.decorator.js';
+import { AdminUiService } from '../../src/admin/services/admin-ui.service.js';
 
 const SEEDED_USERS = [
   {
@@ -119,15 +120,15 @@ const SEEDED_ORDERS = [
   },
 ] as const;
 
-class TestUserModel {}
-class TestCategoryModel {}
-class TestProductModel {}
-class TestOrderModel {}
+class User {}
+class Category {}
+class Product {}
+class Order {}
 
 class TestUserAdmin {}
 Injectable()(TestUserAdmin);
 AdminResource({
-  model: TestUserModel,
+  model: User,
   resourceName: 'users',
   ...userAdminOptions,
   password: {
@@ -167,7 +168,7 @@ AdminResource({
 class TestCategoryAdmin {}
 Injectable()(TestCategoryAdmin);
 AdminResource({
-  model: TestCategoryModel,
+  model: Category,
   resourceName: 'categories',
   ...categoryAdminOptions,
 })(TestCategoryAdmin);
@@ -175,7 +176,7 @@ AdminResource({
 class TestProductAdmin {}
 Injectable()(TestProductAdmin);
 AdminResource({
-  model: TestProductModel,
+  model: Product,
   resourceName: 'products',
   ...productAdminOptions,
 })(TestProductAdmin);
@@ -183,7 +184,7 @@ AdminResource({
 class TestOrderAdmin {}
 Injectable()(TestOrderAdmin);
 AdminResource({
-  model: TestOrderModel,
+  model: Order,
   resourceName: 'orders',
   ...orderAdminOptions,
 })(TestOrderAdmin);
@@ -240,6 +241,8 @@ async function bootstrap(): Promise<void> {
       forbidUnknownValues: false,
     }),
   );
+
+  app.get(AdminUiService).onApplicationBootstrap();
 
   const port = Number(process.env['ADMIN_E2E_PORT'] ?? 3101);
   await app.listen(port, '127.0.0.1');
