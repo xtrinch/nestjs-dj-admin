@@ -281,7 +281,9 @@ The examples show the full pattern in:
 
 ## Auth Hardening Guidance
 
-The current auth layer is intentionally minimal. It is enough to make the admin usable, but it is not a complete production auth system.
+The current auth layer is production-capable, but intentionally scoped.
+
+It is enough to run the admin in production when paired with a real `authenticate(...)` implementation, a durable `sessionStore`, and an explicit cookie/security posture. It does not try to replace the host application's broader security architecture.
 
 What the library currently does:
 
@@ -293,7 +295,7 @@ What the library currently does:
 - supports configurable cookie policy with a safer `secure: 'auto'` default
 - supports `cookieName`, `rememberMeMaxAgeMs`, and `sessionTtlMs`
 
-What the library does not currently do for you:
+What the library does not try to do for you:
 
 - session rotation or revocation across processes
 - CSRF protection
@@ -369,7 +371,7 @@ The host application owns:
 - CSRF protection decisions
 - rate limits, lockouts, audit logging, and broader security controls
 
-In short: `nestjs-dj-admin` provides an admin auth integration point, not a full security framework.
+In short: `nestjs-dj-admin` provides a production-usable admin auth layer, not a full application security framework.
 
 ## Resource Registration
 
