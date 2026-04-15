@@ -296,10 +296,16 @@ export class AdminService implements OnModuleInit {
     const filters = resource.schema.filters;
 
     const options = await Promise.all(
-      filters.map(async (field) => ({
-        field,
-        values: (await this.adapter.distinct?.(this.toAdapterResource(resource), field)) ?? [],
-      })),
+      filters.map(async (field) => {
+        const fieldSchema = resource.schema.fields.find((candidate) => candidate.name === field);
+
+        return {
+          field,
+          values: fieldSchema?.relation
+            ? []
+            : (await this.adapter.distinct?.(this.toAdapterResource(resource), field)) ?? [],
+        };
+      }),
     );
 
     if (resource.schema.softDelete?.enabled) {

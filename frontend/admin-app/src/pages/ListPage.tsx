@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BooleanIcon } from '../components/BooleanIcon.js';
 import { formatAdminValue } from '../formatters.js';
 import {
@@ -9,9 +9,10 @@ import {
   runResourceAction,
 } from '../services/resources.service.js';
 import { queueToast, showToast } from '../services/toast.service.js';
-import type { ResourceMetaResponse } from '../types.js';
+import type { AdminLookupItem, ResourceField, ResourceMetaResponse } from '../types.js';
 
 const PAGE_SIZE = 20;
+const RELATION_FILTER_LOOKUP_PAGE_SIZE = 20;
 
 export function ListPage({
   resourceName,
@@ -32,7 +33,6 @@ export function ListPage({
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [relationLabels, setRelationLabels] = useState<Record<string, Record<string, string>>>({});
-  const [filterValueLabels, setFilterValueLabels] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
     void load();
@@ -77,7 +77,6 @@ export function ListPage({
       setItems(listJson.items);
       const relationLabelSets = await loadRelationLabels(metaJson, listJson.items);
       setRelationLabels(relationLabelSets);
-      setFilterValueLabels(await loadRelationFilterLabels(metaJson));
       setSelectedIds([]);
       setSelectedBulkAction('');
       setTotal(listJson.total);
@@ -149,68 +148,53 @@ export function ListPage({
       <header className="panel__header">
         <div>
           <span className="panel__eyebrow">Resource</span>
-          <h2>{meta.resource.label}</h2>
+          <div className="panel__title-row">
+            <h2>{meta.resource.label}</h2>
+            {meta.resource.softDelete?.enabled ? (
+              <span className="resource-pill">Soft delete</span>
+            ) : null}
+          </div>
         </div>
         <a className="button button--primary" href={`#/${resourceName}/new`}>
           New {meta.resource.label}
         </a>
       </header>
 
-      <div className="toolbar">
-        <select
-          className="input toolbar__action-select"
-          value={selectedBulkAction}
-          onChange={(event) => setSelectedBulkAction(event.target.value)}
-        >
-          <option value="">Bulk actions</option>
-          <option value="delete_selected">
-            {meta.resource.softDelete?.enabled ? 'Archive selected' : 'Delete selected'}
-          </option>
-          {meta.resource.bulkActions.map((action) => (
-            <option key={action.slug} value={action.slug}>
-              {action.name}
-            </option>
-          ))}
-        </select>
-        <button
-          className={selectedBulkAction === 'delete_selected' ? 'button button--danger' : 'button'}
-          disabled={selectedIds.length === 0 || !selectedBulkAction}
-          type="button"
-          onClick={() => void runBulkAction()}
-        >
-          Go
-        </button>
-        <input
-          className="input"
-          placeholder={`Search ${meta.resource.search.join(', ') || meta.resource.label}`}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        {meta.filterOptions.map((filterOption) => (
-          <select
-            key={filterOption.field}
-            className="input"
-            value={filters[filterOption.field] ?? ''}
-            onChange={(event) =>
-              setFilters((current) => ({
-                ...current,
-                [filterOption.field]: event.target.value,
-              }))
-            }
-          >
-            {filterOption.field === '__softDeleteState' ? null : (
-              <option value="">All {resolveFilterLabel(filterOption.field)}</option>
-            )}
-            {filterOption.values.map((value) => (
-              <option key={String(value)} value={String(value)}>
-                {resolveFilterValueLabel(filterOption.field, filterValueLabels[filterOption.field], value)}
+      <div className="changelist">
+        <div className="changelist__main">
+          <div className="toolbar">
+            <select
+              className="input toolbar__action-select"
+              value={selectedBulkAction}
+              onChange={(event) => setSelectedBulkAction(event.target.value)}
+            >
+              <option value="">Bulk actions</option>
+              <option value="delete_selected">
+                {meta.resource.softDelete?.enabled ? 'Archive selected' : 'Delete selected'}
               </option>
-            ))}
-          </select>
-        ))}
-      </div>
+              {meta.resource.bulkActions.map((action) => (
+                <option key={action.slug} value={action.slug}>
+                  {action.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className={selectedBulkAction === 'delete_selected' ? 'button button--danger' : 'button'}
+              disabled={selectedIds.length === 0 || !selectedBulkAction}
+              type="button"
+              onClick={() => void runBulkAction()}
+            >
+              Go
+            </button>
+            <input
+              className="input toolbar__search"
+              placeholder={`Search ${meta.resource.search.join(', ') || meta.resource.label}`}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
 
-      <table className="table">
+          <table className="table">
         <thead>
           <tr>
             <th>
@@ -263,10 +247,10 @@ export function ListPage({
             })}
             <th>Actions</th>
           </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={String(item.id)}>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={String(item.id)}>
               <td>
                 <input
                   checked={selectedIds.includes(String(item.id))}
@@ -305,29 +289,29 @@ export function ListPage({
                   </td>
                 );
               })}
-              <td className="table__actions">
-                <div className="table__actions-list">
-                  <a className="button button--danger" href={`#/${resourceName}/delete/${String(item.id)}`}>
-                    {meta.resource.softDelete?.enabled ? 'Archive' : 'Delete'}
-                  </a>
-                  {meta.resource.actions.map((action) => (
-                    <button
-                      key={action.slug}
-                      className="button"
-                      type="button"
-                      onClick={() => void runAction(String(item.id), action.slug)}
-                    >
-                      {action.name}
-                    </button>
-                  ))}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                <td className="table__actions">
+                  <div className="table__actions-list">
+                    <a className="button button--danger" href={`#/${resourceName}/delete/${String(item.id)}`}>
+                      {meta.resource.softDelete?.enabled ? 'Archive' : 'Delete'}
+                    </a>
+                    {meta.resource.actions.map((action) => (
+                      <button
+                        key={action.slug}
+                        className="button"
+                        type="button"
+                        onClick={() => void runAction(String(item.id), action.slug)}
+                      >
+                        {action.name}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          </table>
 
-      <footer className="pagination">
+          <footer className="pagination">
         <span className="pagination__summary">
           Page {page} of {totalPages} • {total} items
         </span>
@@ -349,39 +333,97 @@ export function ListPage({
             Next
           </button>
         </div>
-      </footer>
+          </footer>
+        </div>
+
+        {meta.filterOptions.length > 0 ? (
+          <aside className="filters-sidebar">
+            <div className="filters-sidebar__header">
+              <span className="panel__eyebrow">Filter</span>
+              <h3>Refine results</h3>
+            </div>
+            <div className="filters-sidebar__body">
+              {meta.filterOptions.map((filterOption) => {
+                const field = meta.resource.fields.find((candidate) => candidate.name === filterOption.field);
+
+                return (
+                  <label className="filters-sidebar__filter" key={filterOption.field}>
+                    <span className="filters-sidebar__label">
+                      {resolveFilterLabel(filterOption.field, fieldLabels[filterOption.field])}
+                    </span>
+                    {field?.relation ? (
+                      <RelationFilterControl
+                        field={field}
+                        value={filters[filterOption.field] ?? ''}
+                        onChange={(value) =>
+                          setFilters((current) => ({
+                            ...current,
+                            [filterOption.field]: value,
+                          }))
+                        }
+                      />
+                    ) : (
+                      <select
+                        className="input"
+                        value={filters[filterOption.field] ?? ''}
+                        onChange={(event) =>
+                          setFilters((current) => ({
+                            ...current,
+                            [filterOption.field]: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">All</option>
+                        {filterOption.values.map((value) => (
+                          <option key={String(value)} value={String(value)}>
+                            {resolveFilterValueLabel(filterOption.field, value)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </aside>
+        ) : null}
+      </div>
     </section>
   );
 }
 
-function resolveFilterLabel(field: string): string {
+function resolveFilterLabel(field: string, label?: string): string {
   if (field === '__softDeleteState') {
     return 'visibility';
   }
 
-  return field;
+  return label ?? field;
 }
 
 function resolveFilterValueLabel(
   field: string,
-  relationLabels: Record<string, string> | undefined,
   value: string | number,
 ): string {
   if (field === '__softDeleteState') {
-    if (value === 'active') {
-      return 'Active';
-    }
-
-    if (value === 'deleted') {
-      return 'Deleted';
-    }
-
-    if (value === 'all') {
-      return 'All';
-    }
+    return startCase(String(value));
   }
 
-  return resolveRelationLabel(relationLabels, value);
+  if (isBooleanFilterValue(value)) {
+    return String(value) === 'true' ? 'Yes' : 'No';
+  }
+
+  return startCase(String(value));
+}
+
+function isBooleanFilterValue(value: string | number): boolean {
+  return value === 'true' || value === 'false';
+}
+
+function startCase(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/^\w/, (match) => match.toUpperCase());
 }
 
 async function loadRelationLabels(
@@ -417,40 +459,6 @@ async function loadRelationLabels(
   return Object.fromEntries(entries);
 }
 
-async function loadRelationFilterLabels(
-  meta: ResourceMetaResponse,
-): Promise<Record<string, Record<string, string>>> {
-  const relationFilterFields = meta.filterOptions
-    .map((filterOption) => ({
-      filterOption,
-      field: meta.resource.fields.find((candidate) => candidate.name === filterOption.field),
-    }))
-    .filter(
-      (entry): entry is {
-        filterOption: ResourceMetaResponse['filterOptions'][number];
-        field: ResourceMetaResponse['resource']['fields'][number];
-      } => Boolean(entry.field?.relation),
-    );
-
-  const entries = await Promise.all(
-    relationFilterFields.map(async ({ filterOption, field }) => {
-      const ids = [...new Set(filterOption.values.map((value) => String(value)).filter(Boolean))];
-      if (ids.length === 0) {
-        return [filterOption.field, {}] as const;
-      }
-
-      const data = await lookupResource(field.relation!.option.resource, {
-        ids,
-        pageSize: ids.length,
-      });
-
-      return [filterOption.field, Object.fromEntries(data.items.map((item) => [item.value, item.label]))] as const;
-    }),
-  );
-
-  return Object.fromEntries(entries);
-}
-
 function resolveRelationLabel(
   labels: Record<string, string> | undefined,
   value: unknown,
@@ -480,8 +488,170 @@ function extractRelationIds(value: unknown, valueField = 'id'): string[] {
   }
 
   if (Array.isArray(value)) {
-    return value.flatMap((item) => extractRelationIds(item, valueField));
+  return value.flatMap((item) => extractRelationIds(item, valueField));
+}
+
+function RelationFilterControl({
+  field,
+  value,
+  onChange,
+}: {
+  field: ResourceField;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [options, setOptions] = useState<AdminLookupItem[]>([]);
+  const [selectedCache, setSelectedCache] = useState<Record<string, AdminLookupItem>>({});
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedOption = value ? selectedCache[value] ?? options.find((option) => option.value === value) ?? null : null;
+
+  useEffect(() => {
+    if (!open || !field.relation) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void search();
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [open, query, field.name, field.relation?.option.resource]);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!value || selectedOption || !field.relation) {
+      return;
+    }
+
+    void hydrateSelected(value);
+  }, [value, selectedOption, field.name, field.relation?.option.resource]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+    };
+  }, [open]);
+
+  async function search() {
+    if (!field.relation) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await lookupResource(field.relation.option.resource, {
+        page: 1,
+        pageSize: RELATION_FILTER_LOOKUP_PAGE_SIZE,
+        q: query.trim() || undefined,
+      });
+      setOptions(response.items);
+      setLoaded(true);
+      setSelectedCache((current) => ({
+        ...current,
+        ...Object.fromEntries(response.items.map((item) => [item.value, item])),
+      }));
+    } finally {
+      setLoading(false);
+    }
   }
+
+  async function hydrateSelected(id: string) {
+    if (!field.relation) {
+      return;
+    }
+
+    const response = await lookupResource(field.relation.option.resource, {
+      ids: [id],
+      page: 1,
+      pageSize: 1,
+    });
+
+    setSelectedCache((current) => ({
+      ...current,
+      ...Object.fromEntries(response.items.map((item) => [item.value, item])),
+    }));
+  }
+
+  return (
+    <div className="relation-picker" ref={rootRef}>
+      <button
+        className="input relation-picker__trigger"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{selectedOption?.label ?? 'All'}</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </button>
+      {open ? (
+        <div className="relation-picker__dropdown">
+          <input
+            autoFocus
+            className="input"
+            placeholder={`Search ${field.label.toLowerCase()}`}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <div className={`relation-picker__results${loading ? ' relation-picker__results--loading' : ''}`}>
+            <button
+              className="relation-option relation-option--button"
+              type="button"
+              onClick={() => {
+                onChange('');
+                setOpen(false);
+              }}
+            >
+              All
+            </button>
+            {options.map((option) => (
+              <button
+                key={option.value}
+                className="relation-option relation-option--button"
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setSelectedCache((current) => ({
+                    ...current,
+                    [option.value]: option,
+                  }));
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+            {!loading && loaded && options.length === 0 ? (
+              <div className="relation-picker__empty">No matches found.</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
   if (typeof value === 'object') {
     const candidate = (value as Record<string, unknown>)[valueField];

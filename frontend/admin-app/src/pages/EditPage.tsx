@@ -138,7 +138,12 @@ export function EditPage({
       <header className="panel__header">
         <div>
           <span className="panel__eyebrow">{id ? `Edit ${resource.label}` : `Add ${resource.label}`}</span>
-          <h2>{id ? (entityLabel ?? resource.label) : `Add ${resource.label}`}</h2>
+          <div className="panel__title-row">
+            <h2>{id ? (entityLabel ?? resource.label) : `Add ${resource.label}`}</h2>
+            {resource.softDelete?.enabled ? (
+              <span className="resource-pill">Soft delete</span>
+            ) : null}
+          </div>
         </div>
         <div className="panel__actions">
           {id

@@ -93,7 +93,12 @@ export function DeleteConfirmPage({
       <header className="panel__header">
         <div>
           <span className="panel__eyebrow">{isSoftDelete ? 'Confirm archive' : 'Confirm deletion'}</span>
-          <h2>{title}</h2>
+          <div className="panel__title-row">
+            <h2>{title}</h2>
+            {isSoftDelete ? (
+              <span className="resource-pill">Soft delete</span>
+            ) : null}
+          </div>
         </div>
       </header>
 
