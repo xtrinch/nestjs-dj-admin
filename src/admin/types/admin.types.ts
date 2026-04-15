@@ -284,6 +284,7 @@ export interface AdminModuleOptions {
   adapter?: Type<AdminAdapter> | Provider<AdminAdapter>;
   auth?: AdminAuthOptions;
   display?: AdminDisplayOptions;
+  branding?: AdminBrandingOptions;
   auditLog?: AdminAuditOptions;
 }
 
@@ -391,4 +392,18 @@ export interface AdminDisplaySchema {
   locale: string;
   dateFormat: Intl.DateTimeFormatOptions;
   dateTimeFormat: Intl.DateTimeFormatOptions;
+}
+
+export interface AdminBrandingOptions {
+  siteHeader?: string;
+  siteTitle?: string;
+  indexTitle?: string;
+  accentColor?: string;
+}
+
+export interface AdminBrandingSchema {
+  siteHeader: string;
+  siteTitle: string;
+  indexTitle: string;
+  accentColor: string;
 }

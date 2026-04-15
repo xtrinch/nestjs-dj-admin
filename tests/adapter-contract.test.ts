@@ -11,6 +11,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaAdminAdapter, TypeOrmAdminAdapter } from '../src/index.js';
 import type { AdminAdapter, AdminAdapterResource } from '../src/index.js';
 import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../src/admin/adapters/in-memory.adapter.js';
+import { Order as PrismaOrder } from '../examples/prisma-demo-app/src/modules/order/order.entity.js';
 import { User as PrismaUser } from '../examples/prisma-demo-app/src/modules/user/user.entity.js';
 
 const execFileAsync = promisify(execFile);
@@ -18,6 +19,7 @@ const execFileAsync = promisify(execFile);
 type AdapterHarness = {
   adapter: AdminAdapter;
   resource: AdminAdapterResource;
+  orderResource: AdminAdapterResource;
   reset(): Promise<void>;
   dispose(): Promise<void>;
   getIdByEmail(email: string): Promise<string>;
@@ -50,6 +52,39 @@ const TEST_USERS = [
   },
 ] as const;
 
+const TEST_ORDERS = [
+  {
+    number: 'ORD-1001',
+    orderDate: '2026-04-01',
+    deliveryTime: '09:00',
+    fulfillmentAt: '2026-04-01T09:30:00.000Z',
+    userEmail: 'ada@example.com',
+    status: 'pending',
+    total: 129.99,
+    internalNote: 'Call before delivery.',
+  },
+  {
+    number: 'ORD-1002',
+    orderDate: '2026-04-02',
+    deliveryTime: '14:30',
+    fulfillmentAt: '2026-04-02T14:15:00.000Z',
+    userEmail: 'grace@example.com',
+    status: 'paid',
+    total: 349.5,
+    internalNote: 'Gift order.',
+  },
+  {
+    number: 'ORD-1003',
+    orderDate: '2026-04-03',
+    deliveryTime: null,
+    fulfillmentAt: null,
+    userEmail: 'ada@example.com',
+    status: 'cancelled',
+    total: 79,
+    internalNote: '',
+  },
+] as const;
+
 const POSTGRES_CONFIG = {
   host: process.env['DB_HOST'] ?? '127.0.0.1',
   port: Number(process.env['DB_PORT'] ?? 5432),
@@ -73,6 +108,7 @@ const USER_RESOURCE_FIELDS = [
 const postgresAvailable = await canConnectToPostgres();
 
 class PlainUserModel {}
+class PlainOrderModel {}
 
 const TypeOrmUserSchema = new EntitySchema({
   name: 'User',
@@ -104,6 +140,56 @@ const TypeOrmUserSchema = new EntitySchema({
     active: {
       type: Boolean,
       default: true,
+    },
+    createdAt: {
+      type: 'timestamptz',
+      createDate: true,
+    },
+    updatedAt: {
+      type: 'timestamptz',
+      updateDate: true,
+    },
+  },
+});
+
+const TypeOrmOrderSchema = new EntitySchema({
+  name: 'Order',
+  tableName: 'orders',
+  columns: {
+    id: {
+      type: Number,
+      primary: true,
+      generated: true,
+    },
+    number: {
+      type: String,
+      unique: true,
+    },
+    orderDate: {
+      type: 'date',
+    },
+    deliveryTime: {
+      type: 'time',
+      nullable: true,
+    },
+    fulfillmentAt: {
+      type: 'timestamptz',
+      nullable: true,
+    },
+    userId: {
+      type: Number,
+    },
+    status: {
+      type: String,
+    },
+    total: {
+      type: 'decimal',
+      precision: 10,
+      scale: 2,
+    },
+    internalNote: {
+      type: 'text',
+      default: '',
     },
     createdAt: {
       type: 'timestamptz',
@@ -204,6 +290,17 @@ async function runAdapterContractSuite(harness: AdapterHarness) {
     assert.equal(String((result.items[0] as Record<string, unknown>).email), 'grace@example.com');
   });
 
+  it('findMany supports relation-aware search', async () => {
+    const result = await harness.adapter.findMany(harness.orderResource, {
+      page: 1,
+      pageSize: 10,
+      search: 'grace@example.com',
+    });
+
+    assert.equal(result.total, 1);
+    assert.equal(String((result.items[0] as Record<string, unknown>).number), 'ORD-1002');
+  });
+
   it('findOne returns a matching record', async () => {
     const id = await harness.getIdByEmail('ada@example.com');
     const record = await harness.adapter.findOne(harness.resource, id);
@@ -279,12 +376,27 @@ async function createInMemoryHarness(): Promise<AdapterHarness> {
   return {
     adapter,
     resource: createUserResource(PlainUserModel),
+    orderResource: createOrderResource(PlainOrderModel),
     async reset() {
       IN_MEMORY_ADMIN_STORE.users = TEST_USERS.map((user, index) => ({
         id: String(index + 1),
         ...user,
         createdAt: `2026-04-0${index + 1}T08:00:00.000Z`,
         updatedAt: `2026-04-1${index}T08:00:00.000Z`,
+      }));
+      const userIds = Object.fromEntries(IN_MEMORY_ADMIN_STORE.users.map((user) => [String(user.email), String(user.id)]));
+      IN_MEMORY_ADMIN_STORE.orders = TEST_ORDERS.map((order, index) => ({
+        id: String(index + 101),
+        number: order.number,
+        orderDate: order.orderDate,
+        deliveryTime: order.deliveryTime,
+        fulfillmentAt: order.fulfillmentAt,
+        userId: userIds[order.userEmail],
+        status: order.status,
+        total: order.total,
+        internalNote: order.internalNote,
+        createdAt: `2026-04-0${index + 4}T08:00:00.000Z`,
+        updatedAt: `2026-04-1${index + 3}T08:00:00.000Z`,
       }));
     },
     async dispose() {},
@@ -308,7 +420,7 @@ async function createTypeOrmHarness(): Promise<AdapterHarness> {
     password: POSTGRES_CONFIG.password,
     database: POSTGRES_CONFIG.database,
     schema,
-    entities: [TypeOrmUserSchema],
+    entities: [TypeOrmUserSchema, TypeOrmOrderSchema],
     synchronize: true,
   });
 
@@ -318,9 +430,25 @@ async function createTypeOrmHarness(): Promise<AdapterHarness> {
   return {
     adapter,
     resource: createUserResource(TypeOrmUserSchema),
+    orderResource: createOrderResource(TypeOrmOrderSchema),
     async reset() {
-      await truncateUsers(schema);
-      await dataSource.getRepository(TypeOrmUserSchema).save(TEST_USERS.map((user) => ({ ...user })));
+      await truncateTables(schema, ['orders', 'users']);
+      const savedUsers = await dataSource
+        .getRepository(TypeOrmUserSchema)
+        .save(TEST_USERS.map((user) => ({ ...user })));
+      const userIds = Object.fromEntries(savedUsers.map((user) => [String(user.email), Number(user.id)]));
+      await dataSource.getRepository(TypeOrmOrderSchema).save(
+        TEST_ORDERS.map((order) => ({
+          number: order.number,
+          orderDate: order.orderDate,
+          deliveryTime: order.deliveryTime,
+          fulfillmentAt: order.fulfillmentAt ? new Date(order.fulfillmentAt) : null,
+          userId: userIds[order.userEmail],
+          status: order.status,
+          total: order.total,
+          internalNote: order.internalNote,
+        })),
+      );
     },
     async dispose() {
       await dataSource.destroy();
@@ -359,10 +487,26 @@ async function createPrismaHarness(): Promise<AdapterHarness> {
   return {
     adapter: new PrismaAdminAdapter(prisma),
     resource: createUserResource(PrismaUser),
+    orderResource: createOrderResource(PrismaOrder),
     async reset() {
+      await prisma.order.deleteMany();
       await prisma.user.deleteMany();
       await prisma.user.createMany({
         data: TEST_USERS.map((user) => ({ ...user })),
+      });
+      const users = await prisma.user.findMany({ select: { id: true, email: true } });
+      const userIds = Object.fromEntries(users.map((user) => [String(user.email), Number(user.id)]));
+      await prisma.order.createMany({
+        data: TEST_ORDERS.map((order) => ({
+          number: order.number,
+          orderDate: new Date(order.orderDate),
+          deliveryTime: order.deliveryTime,
+          fulfillmentAt: order.fulfillmentAt ? new Date(order.fulfillmentAt) : null,
+          userId: userIds[order.userEmail],
+          status: order.status as never,
+          total: order.total,
+          internalNote: order.internalNote,
+        })),
       });
     },
     async dispose() {
@@ -381,9 +525,51 @@ function createUserResource(model: unknown): AdminAdapterResource {
     resourceName: 'users',
     label: 'User',
     model: model as never,
-    search: ['email', 'phone', 'profileUrl'],
+    search: [
+      { kind: 'field', path: 'email', label: 'email' },
+      { kind: 'field', path: 'phone', label: 'phone' },
+      { kind: 'field', path: 'profileUrl', label: 'profileUrl' },
+    ],
     filters: ['role', 'active'],
     fields: [...USER_RESOURCE_FIELDS],
+  };
+}
+
+function createOrderResource(model: unknown): AdminAdapterResource {
+  return {
+    resourceName: 'orders',
+    label: 'Order',
+    model: model as never,
+    search: [
+      { kind: 'field', path: 'number', label: 'number' },
+      {
+        kind: 'relation',
+        path: 'userId.email',
+        label: 'user email',
+        relationField: 'userId',
+        relationResource: 'users',
+        targetField: 'email',
+        valueField: 'id',
+        relationKind: 'many-to-one',
+      },
+    ],
+    filters: ['status', 'userId'],
+    fields: [
+      { name: 'id', label: 'Id', input: 'text', required: false, readOnly: true },
+      { name: 'number', label: 'Number', input: 'text', required: true, readOnly: false },
+      {
+        name: 'userId',
+        label: 'User',
+        input: 'select',
+        required: true,
+        readOnly: false,
+        relation: {
+          kind: 'many-to-one',
+          option: { resource: 'users', labelField: 'email', valueField: 'id' },
+        },
+      },
+      { name: 'status', label: 'Status', input: 'select', required: true, readOnly: false },
+    ],
   };
 }
 
@@ -427,11 +613,12 @@ async function dropSchema(schema: string): Promise<void> {
   }
 }
 
-async function truncateUsers(schema: string): Promise<void> {
+async function truncateTables(schema: string, tables: string[]): Promise<void> {
   const client = new Client(POSTGRES_CONFIG);
   await client.connect();
   try {
-    await client.query(`TRUNCATE TABLE "${schema}"."users" RESTART IDENTITY CASCADE`);
+    const tableList = tables.map((table) => `"${schema}"."${table}"`).join(', ');
+    await client.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
   } finally {
     await client.end();
   }

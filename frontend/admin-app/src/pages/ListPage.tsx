@@ -181,6 +181,54 @@ export function ListPage({
   const shouldOfferSelectAllMatching = !allMatchingSelected && total > items.length && allVisibleSelected;
   const singularItemLabel = meta.resource.label.toLowerCase();
   const pluralItemLabel = `${singularItemLabel}s`;
+  const selectionContent = selectedIds.length > 0
+    ? allMatchingSelected
+      ? (
+          <>
+            <span>All {total} {pluralItemLabel} are selected.</span>
+            <button
+              className="selection-banner__link"
+              type="button"
+              onClick={() => {
+                setSelectedIds([]);
+                setAllMatchingSelected(false);
+              }}
+            >
+              Clear selection
+            </button>
+          </>
+        )
+      : (
+          <>
+            <span>
+              {pageSelectionCount} {pageSelectionCount === 1 ? singularItemLabel : pluralItemLabel} on this page selected.
+            </span>
+            {shouldOfferSelectAllMatching ? (
+              <button
+                className="selection-banner__link"
+                disabled={selectingAllMatching}
+                type="button"
+                onClick={() => void selectAllMatching()}
+              >
+                {selectingAllMatching
+                  ? `Selecting all ${total} ${pluralItemLabel}…`
+                  : `Select all ${total} ${pluralItemLabel}`}
+              </button>
+            ) : (
+              <button
+                className="selection-banner__link"
+                type="button"
+                onClick={() => {
+                  setSelectedIds([]);
+                  setAllMatchingSelected(false);
+                }}
+              >
+                Clear selection
+              </button>
+            )}
+          </>
+        )
+    : null;
 
   return (
     <section className="panel">
@@ -201,30 +249,7 @@ export function ListPage({
 
       <div className="changelist">
         <div className="changelist__main">
-          <div className="toolbar">
-            <select
-              className="input toolbar__action-select"
-              value={selectedBulkAction}
-              onChange={(event) => setSelectedBulkAction(event.target.value)}
-            >
-              <option value="">Bulk actions</option>
-              <option value="delete_selected">
-                {meta.resource.softDelete?.enabled ? 'Archive selected' : 'Delete selected'}
-              </option>
-              {meta.resource.bulkActions.map((action) => (
-                <option key={action.slug} value={action.slug}>
-                  {action.name}
-                </option>
-              ))}
-            </select>
-            <button
-              className={selectedBulkAction === 'delete_selected' ? 'button button--danger' : 'button'}
-              disabled={selectedIds.length === 0 || !selectedBulkAction}
-              type="button"
-              onClick={() => void runBulkAction()}
-            >
-              Go
-            </button>
+          <div className="toolbar toolbar--search">
             <input
               className="input toolbar__search"
               placeholder={`Search ${meta.resource.search.join(', ') || meta.resource.label}`}
@@ -233,54 +258,37 @@ export function ListPage({
             />
           </div>
 
-          {selectedIds.length > 0 ? (
-            <div className="selection-banner">
-              {allMatchingSelected ? (
-                <>
-                  <span>All {total} {pluralItemLabel} are selected.</span>
-                  <button
-                    className="selection-banner__link"
-                    type="button"
-                    onClick={() => {
-                      setSelectedIds([]);
-                      setAllMatchingSelected(false);
-                    }}
-                  >
-                    Clear selection
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span>
-                    {pageSelectionCount} {pageSelectionCount === 1 ? singularItemLabel : pluralItemLabel} on this page selected.
-                  </span>
-                  {shouldOfferSelectAllMatching ? (
-                    <button
-                      className="selection-banner__link"
-                      disabled={selectingAllMatching}
-                      type="button"
-                      onClick={() => void selectAllMatching()}
-                    >
-                      {selectingAllMatching
-                        ? `Selecting all ${total} ${pluralItemLabel}…`
-                        : `Select all ${total} ${pluralItemLabel}`}
-                    </button>
-                  ) : (
-                    <button
-                      className="selection-banner__link"
-                      type="button"
-                      onClick={() => {
-                        setSelectedIds([]);
-                        setAllMatchingSelected(false);
-                      }}
-                    >
-                      Clear selection
-                    </button>
-                  )}
-                </>
-              )}
+          <div className="toolbar toolbar--actions">
+            <div className="toolbar__bulk-actions">
+              <select
+                className="input toolbar__action-select"
+                value={selectedBulkAction}
+                onChange={(event) => setSelectedBulkAction(event.target.value)}
+              >
+                <option value="">Bulk actions</option>
+                <option value="delete_selected">
+                  {meta.resource.softDelete?.enabled ? 'Archive selected' : 'Delete selected'}
+                </option>
+                {meta.resource.bulkActions.map((action) => (
+                  <option key={action.slug} value={action.slug}>
+                    {action.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                className={selectedBulkAction === 'delete_selected' ? 'button button--danger' : 'button'}
+                disabled={selectedIds.length === 0 || !selectedBulkAction}
+                type="button"
+                onClick={() => void runBulkAction()}
+              >
+                Go
+              </button>
             </div>
-          ) : null}
+
+            <div className="selection-banner selection-banner--inline">
+              {selectionContent}
+            </div>
+          </div>
 
           <table className="table">
         <thead>

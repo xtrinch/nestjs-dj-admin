@@ -40,14 +40,6 @@ This is mostly a product decision pass, not a large implementation task.
 - add one concrete production-style example for `auditLog.store`
 - do one more UI polish pass if any obvious rough edges remain during smoke testing
 
-## Safe to defer to `0.2.x`
-
-These are valuable, but they should not block a disciplined `0.1.0`:
-
-- richer theming
-- more advanced bulk workflows
-- relation-aware search beyond basic selectors
-
 ## Current honest status
 
 What is already in good shape:
@@ -58,6 +50,7 @@ What is already in good shape:
 - Django-admin-style password handling
 - optional soft delete as a reusable library capability
 - dedicated object actions and bulk actions
+- explicit relation-aware search, defined per resource instead of guessed by the library
 - migration-backed TypeORM and Prisma demos
 - pluggable session storage and configurable cookie policy
 - pluggable audit logging, with DB-backed examples in the ORM demos

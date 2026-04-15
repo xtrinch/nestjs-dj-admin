@@ -113,7 +113,7 @@ export const orderAdminOptions = {
     order: 'desc',
   },
   sortable: ['orderDate', 'updatedAt', 'number'],
-  search: ['number'],
+  search: ['number', { path: 'userId.email', label: 'User email' }],
   filters: ['status', 'userId'],
   readonly: ['createdAt', 'updatedAt'],
   permissions: {

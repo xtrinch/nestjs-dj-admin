@@ -5,7 +5,6 @@ import type {
   AdminAdapterResource,
   AdminEntity,
   AdminListQuery,
-  AdminSearchField,
 } from '../types/admin.types.js';
 
 @Injectable()
@@ -88,11 +87,11 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
             );
 
             searchQuery.orWhere(
-              `${alias}.${field.relationField} IN ${relatedRepository
+              `${alias}.${field.relationField} IN (${relatedRepository
                 .createQueryBuilder(relatedAlias)
                 .select(relatedValueColumn)
                 .where(`${relatedTargetColumn} ${operator} :search`)
-                .getQuery()}`,
+                .getQuery()})`,
               { search: `%${query.search}%` },
             );
           }

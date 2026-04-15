@@ -17,7 +17,7 @@ export class PrismaAdminAdapter implements AdminAdapter {
     query: AdminListQuery,
   ) {
     const delegate = this.getDelegate(resource);
-    const where = buildPrismaWhere(resource, query);
+    const where = await this.buildPrismaWhere(resource, query);
     const orderBy = query.sort ? { [query.sort]: query.order ?? 'asc' } : undefined;
     const include = buildPrismaInclude(resource);
     const [items, total] = await Promise.all([
@@ -112,95 +112,120 @@ export class PrismaAdminAdapter implements AdminAdapter {
 
     return singularize(lowerFirst(resource.resourceName));
   }
-}
 
-function buildPrismaWhere(resource: AdminAdapterResource, query: AdminListQuery) {
-  const clauses: Record<string, unknown>[] = [];
-  const softDeleteFieldName = resource.softDelete?.fieldName;
-  const softDeleteFilterField = resource.softDelete?.filterField;
-  const softDeleteState = softDeleteFilterField ? query.filters?.[softDeleteFilterField] : undefined;
+  private getDelegateByResourceName(resourceName: string) {
+    const delegateName = singularize(lowerFirst(resourceName));
+    const delegate = (this.prisma as unknown as Record<string, any>)[delegateName];
+    if (!delegate) {
+      throw new Error(`Prisma model delegate "${delegateName}" not found`);
+    }
 
-  if (softDeleteFieldName) {
-    if (softDeleteState === 'deleted') {
+    return delegate;
+  }
+
+  private async buildPrismaWhere(resource: AdminAdapterResource, query: AdminListQuery) {
+    const clauses: Record<string, unknown>[] = [];
+    const softDeleteFieldName = resource.softDelete?.fieldName;
+    const softDeleteFilterField = resource.softDelete?.filterField;
+    const softDeleteState = softDeleteFilterField ? query.filters?.[softDeleteFilterField] : undefined;
+
+    if (softDeleteFieldName) {
+      if (softDeleteState === 'deleted') {
+        clauses.push({
+          [softDeleteFieldName]: {
+            not: null,
+          },
+        });
+      } else if (softDeleteState !== 'all') {
+        clauses.push({
+          [softDeleteFieldName]: null,
+        });
+      }
+    }
+
+    if (query.search && resource.search.length > 0) {
       clauses.push({
-        [softDeleteFieldName]: {
-          not: null,
+        OR: await Promise.all(
+          resource.search.map((field) => this.buildPrismaSearchClause(field, query.search!)),
+        ),
+      });
+    }
+
+    for (const [field, value] of Object.entries(query.filters ?? {})) {
+      if (softDeleteFieldName && field === softDeleteFilterField) {
+        continue;
+      }
+
+      clauses.push(
+        Array.isArray(value)
+          ? {
+              [field]: {
+                in: value,
+              },
+            }
+          : { [field]: value },
+      );
+    }
+
+    if (clauses.length === 0) {
+      return undefined;
+    }
+
+    if (clauses.length === 1) {
+      return clauses[0];
+    }
+
+    return { AND: clauses };
+  }
+
+  private async buildPrismaSearchClause(
+    field: AdminSearchField,
+    search: string,
+  ): Promise<Record<string, unknown>> {
+    if (field.kind === 'field') {
+      return {
+        [field.path]: {
+          contains: search,
+          mode: 'insensitive',
         },
-      });
-    } else if (softDeleteState !== 'all') {
-      clauses.push({
-        [softDeleteFieldName]: null,
-      });
-    }
-  }
-
-  if (query.search && resource.search.length > 0) {
-    clauses.push({
-      OR: resource.search.map((field) => buildPrismaSearchClause(field, query.search!)),
-    });
-  }
-
-  for (const [field, value] of Object.entries(query.filters ?? {})) {
-    if (softDeleteFieldName && field === softDeleteFilterField) {
-      continue;
+      };
     }
 
-    clauses.push(
-      Array.isArray(value)
-        ? {
-            [field]: {
-              in: value,
+    if (field.relationKind === 'many-to-many') {
+      return {
+        [field.relationField]: {
+          some: {
+            [field.targetField]: {
+              contains: search,
+              mode: 'insensitive',
             },
-          }
-        : { [field]: value },
-    );
-  }
-
-  if (clauses.length === 0) {
-    return undefined;
-  }
-
-  if (clauses.length === 1) {
-    return clauses[0];
-  }
-
-  return { AND: clauses };
-}
-
-function buildPrismaSearchClause(field: AdminSearchField, search: string): Record<string, unknown> {
-  if (field.kind === 'field') {
-    return {
-      [field.path]: {
-        contains: search,
-        mode: 'insensitive',
-      },
-    };
-  }
-
-  if (field.relationKind === 'many-to-many') {
-    return {
-      [field.relationField]: {
-        some: {
-          [field.targetField]: {
-            contains: search,
-            mode: 'insensitive',
           },
         },
+      };
+    }
+
+    const relatedDelegate = this.getDelegateByResourceName(field.relationResource);
+    const relatedRows = await relatedDelegate.findMany({
+      select: {
+        [field.valueField]: true,
+      },
+      where: {
+        [field.targetField]: {
+          contains: search,
+          mode: 'insensitive',
+        },
+      },
+    });
+    const ids = relatedRows
+      .map((row: Record<string, unknown>) => row[field.valueField])
+      .filter((value: unknown) => value != null);
+
+    return {
+      [field.relationField]: {
+        in: ids,
       },
     };
   }
-
-  return {
-    [field.relationField]: {
-      in: [],
-    },
-    __relationSearch: {
-      relationResource: field.relationResource,
-      targetField: field.targetField,
-      valueField: field.valueField,
-      search,
-    },
-  };
 }
 
 function coerceId(id: string): string | number {

@@ -29,6 +29,13 @@ export interface AdminDisplayConfig {
   dateTimeFormat: Intl.DateTimeFormatOptions;
 }
 
+export interface AdminBrandingConfig {
+  siteHeader: string;
+  siteTitle: string;
+  indexTitle: string;
+  accentColor: string;
+}
+
 export interface AdminDeleteSummaryItem {
   id: string;
   label: string;
@@ -141,6 +148,7 @@ export interface ResourceSchema {
 export interface AdminMetaResponse {
   resources: ResourceSchema[];
   display: AdminDisplayConfig;
+  branding: AdminBrandingConfig;
   auditLog?: {
     enabled: boolean;
   };

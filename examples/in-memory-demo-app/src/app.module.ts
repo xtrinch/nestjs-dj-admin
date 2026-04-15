@@ -18,6 +18,12 @@ import { UserModule } from './modules/user/user.module.js';
     AdminModule.forRoot({
       path: '/admin',
       adapter: InMemoryAdminAdapter,
+      branding: {
+        siteHeader: 'Northwind Admin',
+        siteTitle: 'Northwind Admin',
+        indexTitle: 'Northwind administration',
+        accentColor: '#7aa37a',
+      },
       display: {
         locale: 'en-US',
         dateFormat: {

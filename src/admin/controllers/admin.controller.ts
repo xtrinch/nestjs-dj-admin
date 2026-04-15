@@ -16,6 +16,7 @@ import { AdminAuditService } from '../services/admin-audit.service.js';
 import { AdminService } from '../services/admin.service.js';
 import { ADMIN_OPTIONS } from '../admin.constants.js';
 import type {
+  AdminBrandingSchema,
   AdminAuthCredentials,
   AdminDisplaySchema,
   AdminListQuery,
@@ -65,6 +66,7 @@ export class AdminController {
         .getResources()
         .filter((resource) => canReadResource(resource, user)),
       display: resolveDisplay(this.adminOptions),
+      branding: resolveBranding(this.adminOptions),
       auditLog: {
         enabled: this.adminAuditService.enabled,
       },
@@ -276,5 +278,14 @@ function resolveDisplay(options: AdminModuleOptions): AdminDisplaySchema {
       hour: 'numeric',
       minute: '2-digit',
     },
+  };
+}
+
+function resolveBranding(options: AdminModuleOptions): AdminBrandingSchema {
+  return {
+    siteHeader: options.branding?.siteHeader ?? 'DJ Admin',
+    siteTitle: options.branding?.siteTitle ?? 'DJ Admin',
+    indexTitle: options.branding?.indexTitle ?? 'Site administration',
+    accentColor: options.branding?.accentColor ?? '#f59e0b',
   };
 }

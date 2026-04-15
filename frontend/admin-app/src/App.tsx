@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { ListPage } from './pages/ListPage.js';
 import { EditPage } from './pages/EditPage.js';
@@ -96,6 +96,7 @@ export function App() {
   const route = meta?.resources.length ? parseRoute(hash, meta.resources) : null;
   const categories = meta ? groupResources(meta.resources) : [];
   const routeUi = route ? describeRoute(route, pageSubjectLabel) : null;
+  const brandStyle = useMemo(() => buildBrandStyle(meta?.branding.accentColor), [meta?.branding.accentColor]);
 
   useEffect(() => {
     if (!route) {
@@ -108,14 +109,14 @@ export function App() {
 
   useEffect(() => {
     if (!routeUi) {
-      document.title = 'DJ Admin';
+      document.title = meta?.branding.siteTitle ?? 'DJ Admin';
       return;
     }
 
     document.title = routeUi.pageLabel
-      ? `${routeUi.pageLabel} | ${routeUi.resourceLabel} | DJ Admin`
-      : `${routeUi.resourceLabel} | DJ Admin`;
-  }, [routeUi]);
+      ? `${routeUi.pageLabel} | ${routeUi.resourceLabel} | ${meta?.branding.siteTitle ?? 'DJ Admin'}`
+      : `${routeUi.resourceLabel} | ${meta?.branding.siteTitle ?? 'DJ Admin'}`;
+  }, [meta?.branding.siteTitle, routeUi]);
 
   async function loadAdmin() {
     try {
@@ -170,7 +171,7 @@ export function App() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell" style={brandStyle}>
       {toast ? (
         <div className="toast-layer" aria-live="polite">
           <div className={`toast toast--${toast.variant ?? 'success'}`} role="status">
@@ -180,8 +181,8 @@ export function App() {
       ) : null}
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand__eyebrow">Nest-native</span>
-          <h1>DJ Admin</h1>
+          <span className="brand__eyebrow">Administration</span>
+          <h1>{meta.branding.siteHeader}</h1>
         </div>
         <nav className="nav">
           <SidebarNav
@@ -212,6 +213,7 @@ export function App() {
           ) : null}
           <RouteContent
             auditLogEnabled={meta.auditLog?.enabled === true}
+            branding={meta.branding}
             categories={categories}
             display={meta.display}
             route={activeRoute}
@@ -221,6 +223,97 @@ export function App() {
       </main>
     </div>
   );
+}
+
+function buildBrandStyle(accentColor: string | undefined) {
+  const accent = normalizeHexColor(accentColor) ?? '#f59e0b';
+  const accentStrong = shadeHexColor(accent, -0.12);
+  const accentSoft = shadeHexColor(accent, 0.18);
+  const accentMuted = shadeHexColor(accent, 0.34);
+  const surfaceHi = shadeHexColor(accent, -0.78);
+  const surface = shadeHexColor(accent, -0.84);
+  const surfaceLow = shadeHexColor(accent, -0.9);
+  const sidebarTop = shadeHexColor(accent, -0.86);
+  const sidebarBottom = shadeHexColor(accent, -0.9);
+  const topbarTop = shadeHexColor(accent, -0.8);
+  const topbarBottom = shadeHexColor(accent, -0.86);
+  const border = shadeHexColor(accent, -0.68);
+  const textMuted = shadeHexColor(accent, 0.28);
+  const textSubtle = shadeHexColor(accent, 0.14);
+  const rgb = hexToRgb(accent);
+
+  return {
+    '--admin-accent': accent,
+    '--admin-accent-strong': accentStrong,
+    '--admin-accent-soft': accentSoft,
+    '--admin-accent-muted': accentMuted,
+    '--admin-accent-rgb': rgb ? `${rgb.r} ${rgb.g} ${rgb.b}` : '245 158 11',
+    '--admin-surface-hi': surfaceHi,
+    '--admin-surface': surface,
+    '--admin-surface-low': surfaceLow,
+    '--admin-sidebar-top': sidebarTop,
+    '--admin-sidebar-bottom': sidebarBottom,
+    '--admin-topbar-top': topbarTop,
+    '--admin-topbar-bottom': topbarBottom,
+    '--admin-border': border,
+    '--admin-text-muted': textMuted,
+    '--admin-text-subtle': textSubtle,
+  } as CSSProperties;
+}
+
+function normalizeHexColor(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`;
+  }
+
+  return null;
+}
+
+function hexToRgb(hex: string) {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) {
+    return null;
+  }
+
+  const value = normalized.slice(1);
+  return {
+    r: Number.parseInt(value.slice(0, 2), 16),
+    g: Number.parseInt(value.slice(2, 4), 16),
+    b: Number.parseInt(value.slice(4, 6), 16),
+  };
+}
+
+function shadeHexColor(hex: string, amount: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) {
+    return hex;
+  }
+
+  const adjust = (channel: number) =>
+    Math.max(
+      0,
+      Math.min(
+        255,
+        Math.round(amount >= 0 ? channel + (255 - channel) * amount : channel * (1 + amount)),
+      ),
+    );
+
+  const next = {
+    r: adjust(rgb.r),
+    g: adjust(rgb.g),
+    b: adjust(rgb.b),
+  };
+
+  return `#${next.r.toString(16).padStart(2, '0')}${next.g.toString(16).padStart(2, '0')}${next.b.toString(16).padStart(2, '0')}`;
 }
 
 function SidebarNav({
@@ -268,12 +361,14 @@ function SidebarNav({
 
 function RouteContent({
   auditLogEnabled,
+  branding,
   categories,
   display,
   route,
   onTitleChange,
 }: {
   auditLogEnabled: boolean;
+  branding: AdminMetaResponse['branding'];
   categories: Array<[string, ResourceSchema[]]>;
   display: AdminMetaResponse['display'];
   route: AppRoute;
@@ -284,6 +379,7 @@ function RouteContent({
       <DashboardPage
         key="dashboard"
         auditLogEnabled={auditLogEnabled}
+        branding={branding}
         categories={categories}
         display={display}
         onTitleChange={onTitleChange}

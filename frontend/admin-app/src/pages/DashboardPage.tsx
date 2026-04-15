@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { formatAdminValue } from '../formatters.js';
 import { getAuditLog, listResource } from '../services/resources.service.js';
 import { showToast } from '../services/toast.service.js';
-import type { AdminAuditEntry, AdminDisplayConfig, ResourceSchema } from '../types.js';
+import type { AdminAuditEntry, AdminBrandingConfig, AdminDisplayConfig, ResourceSchema } from '../types.js';
 
 type DashboardCounts = Record<string, number>;
 
@@ -10,11 +10,13 @@ export function DashboardPage({
   categories,
   display,
   auditLogEnabled,
+  branding,
   onTitleChange,
 }: {
   categories: Array<[string, ResourceSchema[]]>;
   display: AdminDisplayConfig;
   auditLogEnabled: boolean;
+  branding: AdminBrandingConfig;
   onTitleChange?: (label: string | null) => void;
 }) {
   const [counts, setCounts] = useState<DashboardCounts>({});
@@ -67,10 +69,10 @@ export function DashboardPage({
       <section className="panel dashboard__hero">
         <span className="panel__eyebrow">Overview</span>
         <div className="panel__title-row">
-          <h2>Dashboard</h2>
+          <h2>{branding.indexTitle}</h2>
         </div>
         <p className="dashboard__copy">
-          Browse registered resources by category and jump straight into common admin work.
+          Browse registered resources for {branding.siteHeader} and jump straight into common admin work.
         </p>
       </section>
 

@@ -23,6 +23,12 @@ import { UserModule } from './modules/user/user.module.js';
     UserModule,
     AdminModule.forRoot({
       path: '/admin',
+      branding: {
+        siteHeader: 'Northwind Admin',
+        siteTitle: 'Northwind Admin',
+        indexTitle: 'Northwind administration',
+        accentColor: '#7aa37a',
+      },
       display: {
         locale: 'en-US',
         dateFormat: {

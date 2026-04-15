@@ -89,6 +89,11 @@ The complete barrel lives in [src/index.ts](/Users/mojca/repos/nestjs-dj-admin/s
 ```ts
 AdminModule.forRoot({
   path: '/admin',
+  branding: {
+    siteHeader: 'Back Office',
+    siteTitle: 'Back Office',
+    indexTitle: 'Site administration',
+  },
   auth: {
     authenticate: async ({ email, password }, request) => {
       const user = await usersService.findByEmail(email);
@@ -120,6 +125,33 @@ Auth options currently include:
 - `sessionStore`
 - `cookie`
 - `authenticate(credentials, request)`
+
+## Branding
+
+Like Django admin, the library supports a few basic branding tweaks without turning them into a full theming system.
+
+`AdminModule.forRoot(...)` accepts:
+
+- `branding.siteHeader`
+- `branding.siteTitle`
+- `branding.indexTitle`
+- `branding.accentColor`
+
+Example:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  branding: {
+    siteHeader: 'Northwind Admin',
+    siteTitle: 'Northwind Admin',
+    indexTitle: 'Northwind administration',
+    accentColor: '#7aa37a',
+  },
+});
+```
+
+These control the sidebar header, browser title suffix, dashboard title, and the main accent color used across the admin chrome.
 
 For production deployments, the main auth hardening knobs are:
 
@@ -272,6 +304,13 @@ The resource options define:
 - DTOs for create and update
 - optional write-time transforms
 
+Search fields can be either:
+
+- plain local fields like `'number'`
+- explicit relation paths like `{ path: 'userId.email', label: 'User email' }`
+
+Relation-aware search is opt-in and resource-defined. The library does not guess joins or related fields automatically.
+
 Example:
 
 ```ts
@@ -281,7 +320,7 @@ Example:
   category: 'Sales',
   objectLabel: 'number',
   list: ['id', 'number', 'orderDate', 'userId', 'status', 'total'],
-  search: ['number'],
+  search: ['number', { path: 'userId.email', label: 'User email' }],
   filters: ['status', 'userId'],
   readonly: ['createdAt', 'updatedAt'],
   createDto: CreateOrderDto,
@@ -550,6 +589,7 @@ This drives:
 - lookup endpoints
 - relation labels in list pages
 - delete summaries and object labeling
+- explicit relation-aware search paths such as `userId.email`
 
 See:
 
