@@ -39,6 +39,9 @@ import { UserModule } from './modules/user/user.module.js';
           minute: '2-digit',
         },
       },
+      auditLog: {
+        enabled: true,
+      },
       auth: {
         authenticate: async ({ email, password }) => {
           const user = IN_MEMORY_ADMIN_STORE.users.find(

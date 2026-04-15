@@ -18,6 +18,8 @@ Highlights:
 - shared adapter contract tests
 - backend end-to-end coverage
 - migration-backed TypeORM and Prisma example apps
+- explicit branding hooks and accent-color support
+- audit log disabled by default, with opt-in enablement and pluggable stores
 
 Current caveats:
 

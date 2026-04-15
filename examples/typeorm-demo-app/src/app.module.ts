@@ -68,6 +68,7 @@ import { UserModule } from './modules/user/user.module.js';
         },
       },
       auditLog: {
+        enabled: true,
         store: new TypeOrmAdminAuditStore(() => initializeDemoDataSource()),
       },
     }),

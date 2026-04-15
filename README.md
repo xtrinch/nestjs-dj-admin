@@ -126,6 +126,23 @@ Auth options currently include:
 - `cookie`
 - `authenticate(credentials, request)`
 
+## Default Configuration
+
+The current `0.1.0` defaults are:
+
+- admin path: the documented default remains `/admin`
+- audit log: disabled by default
+- audit retention: `500` entries when audit logging is enabled without a custom store policy
+- session TTL: `12 hours`
+- remember-me TTL: `30 days`
+- auth cookie defaults:
+  - `httpOnly: true`
+  - `sameSite: 'lax'`
+  - `secure: 'auto'`
+  - `path: '/'`
+
+These defaults are intended to be conservative enough for local development and demos while still being explicit about what production deployments should usually override.
+
 ## Branding
 
 Like Django admin, the library supports a few basic branding tweaks without turning them into a full theming system.
@@ -187,6 +204,73 @@ AdminModule.forRoot({
     },
   },
 });
+```
+
+Concrete production-style pattern:
+
+```ts
+import { AdminModule } from 'nestjs-dj-admin';
+import { redisAdminSessionStore } from './auth/admin-session.store.js';
+
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    authenticate: async ({ email, password }) => {
+      const user = await usersService.findByEmail(email);
+      if (!user) {
+        return null;
+      }
+
+      return passwords.verify(password, user.passwordHash)
+        ? { id: String(user.id), role: user.role, email: user.email }
+        : null;
+    },
+    sessionStore: redisAdminSessionStore,
+    sessionTtlMs: 1000 * 60 * 60 * 12,
+    cookie: {
+      secure: 'auto',
+      sameSite: 'lax',
+      path: '/admin',
+    },
+  },
+});
+```
+
+Store shape:
+
+```ts
+import type {
+  AdminSessionRecord,
+  AdminSessionStore,
+} from 'nestjs-dj-admin';
+
+export class RedisAdminSessionStore implements AdminSessionStore {
+  constructor(private readonly redis: RedisClient) {}
+
+  async get(sessionId: string): Promise<AdminSessionRecord | null> {
+    const raw = await this.redis.get(`admin-session:${sessionId}`);
+    return raw ? (JSON.parse(raw) as AdminSessionRecord) : null;
+  }
+
+  async set(sessionId: string, record: AdminSessionRecord): Promise<void> {
+    const ttlSeconds = record.expiresAt
+      ? Math.max(1, Math.ceil((record.expiresAt - Date.now()) / 1000))
+      : undefined;
+
+    if (ttlSeconds) {
+      await this.redis.set(`admin-session:${sessionId}`, JSON.stringify(record), {
+        EX: ttlSeconds,
+      });
+      return;
+    }
+
+    await this.redis.set(`admin-session:${sessionId}`, JSON.stringify(record));
+  }
+
+  async delete(sessionId: string): Promise<void> {
+    await this.redis.del(`admin-session:${sessionId}`);
+  }
+}
 ```
 
 The examples show the full pattern in:
@@ -522,19 +606,119 @@ Current behavior:
 - the core library falls back to an in-memory store unless you provide `auditLog.store`
 - the TypeORM and Prisma example apps wire the audit log into their database
 - newest entries are shown first
-- the feature is enabled by default and can be disabled with:
+- the feature is disabled by default and can be enabled with:
 
 ```ts
 AdminModule.forRoot({
-  path: 'admin',
+  path: '/admin',
   auditLog: {
-    enabled: false,
+    enabled: true,
   },
 });
 ```
 
 - `auditLog.maxEntries` controls retention
 - `auditLog.store` lets the host app provide a durable sink
+
+Concrete production-style pattern:
+
+```ts
+import { AdminModule } from 'nestjs-dj-admin';
+import { PrismaAdminAuditStore } from './modules/admin-audit/prisma-admin-audit.store.js';
+
+AdminModule.forRoot({
+  path: '/admin',
+  auditLog: {
+    enabled: true,
+    store: new PrismaAdminAuditStore(prisma),
+  },
+});
+```
+
+Store shape:
+
+```ts
+import type {
+  AdminAuditEntry,
+  AdminAuditResult,
+  AdminAuditStore,
+} from 'nestjs-dj-admin';
+
+class PrismaAdminAuditStore implements AdminAuditStore {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async append(entry: AdminAuditEntry, maxEntries: number): Promise<void> {
+    await this.prisma.adminAuditLog.create({
+      data: {
+        id: entry.id,
+        timestamp: new Date(entry.timestamp),
+        action: entry.action,
+        actorId: entry.actor.id,
+        actorRole: entry.actor.role,
+        actorEmail: entry.actor.email ?? null,
+        summary: entry.summary,
+        resourceName: entry.resourceName ?? null,
+        resourceLabel: entry.resourceLabel ?? null,
+        objectId: entry.objectId ?? null,
+        objectLabel: entry.objectLabel ?? null,
+        actionLabel: entry.actionLabel ?? null,
+        count: entry.count ?? null,
+      },
+    });
+
+    const overflow = await this.prisma.adminAuditLog.findMany({
+      select: { id: true },
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      skip: maxEntries,
+    });
+
+    if (overflow.length > 0) {
+      await this.prisma.adminAuditLog.deleteMany({
+        where: { id: { in: overflow.map((item) => item.id) } },
+      });
+    }
+  }
+
+  async list(query: { page: number; pageSize: number }): Promise<AdminAuditResult> {
+    const page = Math.max(1, query.page);
+    const pageSize = Math.max(1, query.pageSize);
+    const [items, total] = await Promise.all([
+      this.prisma.adminAuditLog.findMany({
+        orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.adminAuditLog.count(),
+    ]);
+
+    return {
+      items: items.map((row) => ({
+        id: row.id,
+        timestamp: row.timestamp.toISOString(),
+        action: row.action,
+        actor: {
+          id: row.actorId,
+          role: row.actorRole,
+          email: row.actorEmail ?? undefined,
+        },
+        summary: row.summary,
+        resourceName: row.resourceName ?? undefined,
+        resourceLabel: row.resourceLabel ?? undefined,
+        objectId: row.objectId ?? undefined,
+        objectLabel: row.objectLabel ?? undefined,
+        actionLabel: row.actionLabel ?? undefined,
+        count: row.count ?? undefined,
+      })),
+      total,
+    };
+  }
+}
+```
+
+See the real implementations in:
+
+- [examples/prisma-demo-app/src/modules/admin-audit/prisma-admin-audit.store.ts](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/src/modules/admin-audit/prisma-admin-audit.store.ts)
+- [examples/typeorm-demo-app/src/modules/admin-audit/typeorm-admin-audit.store.ts](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/src/modules/admin-audit/typeorm-admin-audit.store.ts)
 
 This is intentionally closer to Django admin's `LogEntry` concept than to a compliance-grade immutable audit system.
 

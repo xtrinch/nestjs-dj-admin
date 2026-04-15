@@ -72,6 +72,7 @@ const prisma = new PrismaClient({
         },
       },
       auditLog: {
+        enabled: true,
         store: new PrismaAdminAuditStore(prisma),
       },
     }),

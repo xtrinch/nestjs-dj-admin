@@ -18,7 +18,7 @@ export class AdminAuditService {
   }
 
   get enabled(): boolean {
-    return this.options.auditLog?.enabled !== false;
+    return this.options.auditLog?.enabled === true;
   }
 
   async record(event: AdminAuditEvent): Promise<void> {
