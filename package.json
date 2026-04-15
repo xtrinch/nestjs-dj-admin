@@ -65,13 +65,17 @@
     "class-validator": "^0.14.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "typeorm": "^0.3.25"
+    "typeorm": "^0.3.25",
+    "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
     "@prisma/client": {
       "optional": true
     },
     "typeorm": {
+      "optional": true
+    },
+    "zod": {
       "optional": true
     }
   },
@@ -109,5 +113,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "^8.58.2",
     "vite": "7.1.10"
+    ,
+    "zod": "^4.1.12"
   }
 }

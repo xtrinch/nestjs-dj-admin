@@ -256,6 +256,18 @@ export interface AdminSoftDeleteOptions {
   fieldName?: string;
 }
 
+export interface AdminSchemaBuildContext<TModel extends AdminEntity = AdminEntity> {
+  readonlyFields: string[];
+  model?: AdminEntityClass<TModel>;
+}
+
+export interface AdminSchemaProvider<TModel extends AdminEntity = AdminEntity> {
+  buildCreateFields(context: AdminSchemaBuildContext<TModel>): AdminFieldSchema[];
+  buildUpdateFields(context: AdminSchemaBuildContext<TModel>): AdminFieldSchema[];
+  validateCreate(payload: Record<string, unknown>): Promise<Record<string, unknown>> | Record<string, unknown>;
+  validateUpdate(payload: Record<string, unknown>): Promise<Record<string, unknown>> | Record<string, unknown>;
+}
+
 export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> {
   model: AdminEntityClass<TModel>;
   resourceName?: string;
@@ -273,8 +285,7 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
   bulkActions?: AdminBulkAction<TModel>[];
   softDelete?: AdminSoftDeleteOptions;
   password?: AdminPasswordOptions;
-  createDto?: Type<unknown>;
-  updateDto?: Type<unknown>;
+  schema: AdminSchemaProvider<TModel>;
   transformCreate?: AdminWriteTransform<TModel>;
   transformUpdate?: AdminWriteTransform<TModel>;
 }

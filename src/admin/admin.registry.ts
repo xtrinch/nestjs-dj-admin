@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import { ADMIN_RESOURCE_METADATA } from './admin.constants.js';
-import { DtoIntrospectorService } from './services/dto-introspector.service.js';
 import type { AdminFieldSchema, AdminResourceOptions, AdminResourceSchema } from './types/admin.types.js';
 import { actionSlug, buildResourceName } from './utils/resource-name.util.js';
 
@@ -18,7 +17,6 @@ export class AdminRegistry {
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly metadataScanner: MetadataScanner,
-    private readonly dtoIntrospector: DtoIntrospectorService,
   ) {}
 
   initialize(): void {
@@ -38,18 +36,8 @@ export class AdminRegistry {
       }
 
       const resourceName = options.resourceName ?? buildResourceName(options.model.name);
-      const createFields = this.dtoIntrospector.buildFields(
-        options.createDto,
-        options.readonly ?? [],
-        options.model,
-        'create',
-      ).filter((field) => !field.readOnly);
-      const updateFields = this.dtoIntrospector.buildFields(
-        options.updateDto,
-        options.readonly ?? [],
-        options.model,
-        'update',
-      );
+      const createFields = this.buildFieldsForMode(options, 'create').filter((field) => !field.readOnly);
+      const updateFields = this.buildFieldsForMode(options, 'update');
       const listDisplayLinks =
         options.listDisplayLinks === null
           ? []
@@ -122,6 +110,21 @@ export class AdminRegistry {
     }
 
     return resource;
+  }
+
+  private buildFieldsForMode(
+    options: AdminResourceOptions,
+    mode: 'create' | 'update',
+  ): AdminFieldSchema[] {
+    return mode === 'create'
+      ? options.schema.buildCreateFields({
+          readonlyFields: options.readonly ?? [],
+          model: options.model,
+        })
+      : options.schema.buildUpdateFields({
+          readonlyFields: options.readonly ?? [],
+          model: options.model,
+        });
   }
 }
 

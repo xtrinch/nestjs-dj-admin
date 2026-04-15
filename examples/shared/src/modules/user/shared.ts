@@ -1,3 +1,4 @@
+import { adminSchemaFromClassValidator } from '#src/index.js';
 import { AdminField } from '#src/admin/decorators/admin-field.decorator.js';
 import type { AdminResourceOptions } from '#src/admin/types/admin.types.js';
 import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
@@ -102,8 +103,10 @@ export const userAdminOptions = {
     read: ['admin'],
     write: ['admin'],
   },
-  createDto: CreateUserDto,
-  updateDto: UpdateUserDto,
+  schema: adminSchemaFromClassValidator({
+    createDto: CreateUserDto,
+    updateDto: UpdateUserDto,
+  }),
   actions: [
     {
       name: 'Deactivate',

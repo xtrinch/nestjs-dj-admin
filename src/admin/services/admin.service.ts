@@ -6,8 +6,6 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
 import { ADMIN_ADAPTER } from '../admin.constants.js';
 import { AdminRegistry } from '../admin.registry.js';
 import type {
@@ -103,7 +101,7 @@ export class AdminService implements OnModuleInit {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
     const data = await this.prepareMutationPayload(
-      resource.options.createDto,
+      resource,
       resource.options.transformCreate,
       payload,
       {
@@ -130,7 +128,7 @@ export class AdminService implements OnModuleInit {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
     const data = await this.prepareMutationPayload(
-      resource.options.updateDto,
+      resource,
       resource.options.transformUpdate,
       payload,
       {
@@ -452,34 +450,15 @@ export class AdminService implements OnModuleInit {
     };
   }
 
-  private async validateDto(
-    dtoClass: Function | undefined,
-    payload: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
-    if (!dtoClass) {
-      return payload;
-    }
-
-    const dtoInstance = plainToInstance(dtoClass as never, payload, {
-      enableImplicitConversion: true,
-    });
-    const errors = await validate(dtoInstance as object);
-
-    if (errors.length > 0) {
-      throw new BadRequestException({
-        message: 'Validation failed',
-        errors: errors.map((error) => ({
-          field: error.property,
-          constraints: error.constraints,
-        })),
-      });
-    }
-
-    return dtoInstance as Record<string, unknown>;
-  }
-
   private async prepareMutationPayload(
-    dtoClass: Function | undefined,
+    resource: {
+      options: {
+        schema: {
+          validateCreate(payload: Record<string, unknown>): Promise<Record<string, unknown>> | Record<string, unknown>;
+          validateUpdate(payload: Record<string, unknown>): Promise<Record<string, unknown>> | Record<string, unknown>;
+        };
+      };
+    },
     transform: AdminWriteTransform | undefined,
     payload: Record<string, unknown>,
     context: {
@@ -490,7 +469,9 @@ export class AdminService implements OnModuleInit {
       id?: string;
     },
   ): Promise<Record<string, unknown>> {
-    const data = await this.validateDto(dtoClass, payload);
+    const data = context.operation === 'create'
+      ? await resource.options.schema.validateCreate(payload)
+      : await resource.options.schema.validateUpdate(payload);
     if (!transform) {
       return data;
     }

@@ -1,3 +1,4 @@
+import { adminSchemaFromClassValidator } from '#src/index.js';
 import { AdminField } from '#src/admin/decorators/admin-field.decorator.js';
 import type { AdminResourceOptions } from '#src/admin/types/admin.types.js';
 import { Type } from 'class-transformer';
@@ -120,8 +121,10 @@ export const orderAdminOptions = {
     read: ['admin'],
     write: ['admin'],
   },
-  createDto: CreateOrderDto,
-  updateDto: UpdateOrderDto,
+  schema: adminSchemaFromClassValidator({
+    createDto: CreateOrderDto,
+    updateDto: UpdateOrderDto,
+  }),
   actions: [
     {
       name: 'Mark as paid',

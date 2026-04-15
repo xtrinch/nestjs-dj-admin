@@ -33,3 +33,4 @@ password: admin123
 
 - Starts with seeded users, orders, categories, products, and order details
 - Best option for quickly checking admin behavior without database setup
+- Intentionally mixes schema providers: `Category` uses explicit Zod schema config, while the other demo resources stay on the DTO and `class-validator` path

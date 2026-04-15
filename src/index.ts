@@ -13,6 +13,8 @@ export { AdminAuditService } from './admin/services/admin-audit.service.js';
 export { AdminPermissionService } from './admin/services/admin-permission.service.js';
 export { DtoIntrospectorService } from './admin/services/dto-introspector.service.js';
 export { AdminUiService } from './admin/services/admin-ui.service.js';
+export { adminSchemaFromClassValidator } from './admin/schema/class-validator-schema.provider.js';
+export { adminSchemaFromZod } from './admin/schema/zod-schema.provider.js';
 
 export { PrismaAdminAdapter } from './admin/adapters/prisma.adapter.js';
 export { TypeOrmAdminAdapter } from './admin/adapters/typeorm.adapter.js';
@@ -46,6 +48,8 @@ export type {
   AdminRequestUser,
   AdminResourceOptions,
   AdminResourceSchema,
+  AdminSchemaBuildContext,
+  AdminSchemaProvider,
   AdminSessionRecord,
   AdminSessionStore,
   AdminSoftDeleteOptions,

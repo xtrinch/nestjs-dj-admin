@@ -1,3 +1,4 @@
+import { adminSchemaFromClassValidator } from '#src/index.js';
 import type { AdminResourceOptions } from '#src/admin/types/admin.types.js';
 import { IsOptional, IsString } from 'class-validator';
 
@@ -35,6 +36,8 @@ export const categoryAdminOptions = {
     read: ['admin'],
     write: ['admin'],
   },
-  createDto: CreateCategoryDto,
-  updateDto: UpdateCategoryDto,
+  schema: adminSchemaFromClassValidator({
+    createDto: CreateCategoryDto,
+    updateDto: UpdateCategoryDto,
+  }),
 } satisfies Omit<AdminResourceOptions, 'model'>;

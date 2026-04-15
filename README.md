@@ -389,6 +389,7 @@ The resource options define:
 - bulk actions
 - DTOs for create and update
 - optional write-time transforms
+- either DTO-based form metadata or a schema provider
 
 Search fields can be either:
 
@@ -400,6 +401,11 @@ Relation-aware search is opt-in and resource-defined. The library does not guess
 Example:
 
 ```ts
+const orderSchema = adminSchemaFromClassValidator({
+  createDto: CreateOrderDto,
+  updateDto: UpdateOrderDto,
+});
+
 @Injectable()
 @AdminResource({
   model: Order,
@@ -409,8 +415,7 @@ Example:
   search: ['number', { path: 'userId.email', label: 'User email' }],
   filters: ['status', 'userId'],
   readonly: ['createdAt', 'updatedAt'],
-  createDto: CreateOrderDto,
-  updateDto: UpdateOrderDto,
+  schema: orderSchema,
   actions: [
     {
       name: 'Mark as paid',
@@ -444,6 +449,8 @@ export class OrderAdmin {}
 Form fields come from your DTOs, not from inspecting the ORM model directly.
 
 Validation stays server-side through `class-validator`, while the admin library derives UI metadata from DTO fields and optional `@AdminField(...)` annotations.
+
+This is the default Nest-native path, not the only supported one.
 
 Example:
 
@@ -482,6 +489,90 @@ export class CreateOrderDto {
   status!: OrderStatus;
 }
 ```
+
+## Schema Providers
+
+`nestjs-dj-admin` currently supports these built-in schema providers:
+
+- Primary: `adminSchemaFromClassValidator(...)` for `class-validator`-annotated class schemas
+- Alternate: `adminSchemaFromZod(...)` for Zod object schemas
+
+```ts
+import { adminSchemaFromClassValidator, adminSchemaFromZod } from 'nestjs-dj-admin';
+```
+
+Use `adminSchemaFromClassValidator(...)` by default:
+
+```ts
+@Injectable()
+@AdminResource({
+  model: User,
+  list: ['id', 'email', 'role', 'active'],
+  search: ['email'],
+  filters: ['role', 'active'],
+  schema: adminSchemaFromClassValidator({
+    createDto: CreateUserDto,
+    updateDto: UpdateUserDto,
+  }),
+})
+export class UserAdmin {}
+```
+
+This is the primary supported path for Nest apps.
+
+Use `adminSchemaFromZod(...)` when your app already uses Zod schemas:
+
+```ts
+import { adminSchemaFromZod } from 'nestjs-dj-admin';
+import { z } from 'zod';
+```
+
+Example:
+
+```ts
+const createUserSchema = z.object({
+  email: z.email(),
+  role: z.enum(['admin', 'editor', 'viewer']),
+  active: z.boolean(),
+  userId: z.coerce.number(),
+});
+
+const updateUserSchema = createUserSchema.partial();
+
+@Injectable()
+@AdminResource({
+  model: User,
+  list: ['id', 'email', 'role', 'active'],
+  search: ['email'],
+  filters: ['role', 'active'],
+  schema: adminSchemaFromZod({
+    create: createUserSchema,
+    update: updateUserSchema,
+    fields: {
+      userId: {
+        label: 'User',
+        relation: {
+          kind: 'many-to-one',
+          option: { resource: 'users', labelField: 'email', valueField: 'id' },
+        },
+      },
+    },
+  }),
+})
+export class UserAdmin {}
+```
+
+This gives you:
+
+- admin field generation from Zod schemas
+- server-side create/update validation through Zod
+- parsed/coerced payloads passed into resource transforms and adapter writes
+- field overrides for labels, relations, help text, and input hints where raw Zod schemas are not expressive enough for admin UI concerns
+
+The in-memory demo intentionally shows both approaches in one app:
+
+- `Category` uses `schema: adminSchemaFromZod(...)`
+- the other demo resources use `schema: adminSchemaFromClassValidator(...)`
 
 Currently supported primitive inputs include:
 
@@ -526,10 +617,14 @@ That is the intended place for:
 Example:
 
 ```ts
-@AdminResource({
-  model: User,
+const userSchema = adminSchemaFromClassValidator({
   createDto: CreateUserDto,
   updateDto: UpdateUserDto,
+});
+
+@AdminResource({
+  model: User,
+  schema: userSchema,
   password: {
     hash: hashPassword,
     helpText:
@@ -873,6 +968,8 @@ More detail: [examples/prisma-demo-app/README.md](/Users/mojca/repos/nestjs-dj-a
 ### In-Memory Setup
 
 Fastest demo app. Uses the bundled in-memory adapter and starts with seeded baseline data, with no external database.
+
+This demo also shows mixed schema providers in one app: `Category` uses Zod, while the other resources use DTOs plus `class-validator`.
 
 Clean setup:
 

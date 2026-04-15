@@ -1,3 +1,4 @@
+import { adminSchemaFromClassValidator } from '#src/index.js';
 import type { AdminResourceOptions } from '#src/admin/types/admin.types.js';
 import { AdminField } from '#src/admin/decorators/admin-field.decorator.js';
 import { Type } from 'class-transformer';
@@ -102,6 +103,8 @@ export const productAdminOptions = {
     write: ['admin'],
   },
   softDelete: {},
-  createDto: CreateProductDto,
-  updateDto: UpdateProductDto,
+  schema: adminSchemaFromClassValidator({
+    createDto: CreateProductDto,
+    updateDto: UpdateProductDto,
+  }),
 } satisfies Omit<AdminResourceOptions, 'model'>;
