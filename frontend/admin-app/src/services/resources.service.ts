@@ -1,5 +1,6 @@
 import { adminFetch, readJson } from '../api.js';
 import type {
+  AdminAuditResponse,
   AdminDeleteSummary,
   AdminDisplayConfig,
   AdminLookupResponse,
@@ -15,6 +16,18 @@ export async function getAdminMeta(): Promise<AdminMetaResponse> {
 export async function getResourceMeta(resourceName: string): Promise<ResourceMetaResponse> {
   const response = await adminFetch(`/_meta/${resourceName}`);
   return readJson<ResourceMetaResponse>(response);
+}
+
+export async function getAuditLog(query: {
+  page: number;
+  pageSize: number;
+}): Promise<AdminAuditResponse> {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+  });
+  const response = await adminFetch(`/_audit?${params.toString()}`);
+  return readJson<AdminAuditResponse>(response);
 }
 
 export async function listResource(

@@ -33,6 +33,50 @@ export interface AdminLookupResult {
   total: number;
 }
 
+export type AdminAuditAction =
+  | 'login'
+  | 'logout'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'soft-delete'
+  | 'password-change'
+  | 'action'
+  | 'bulk-action';
+
+export interface AdminAuditActor {
+  id: string;
+  role: string;
+  email?: string;
+}
+
+export interface AdminAuditEvent {
+  action: AdminAuditAction;
+  actor: AdminAuditActor;
+  summary: string;
+  resourceName?: string;
+  resourceLabel?: string;
+  objectId?: string;
+  objectLabel?: string;
+  actionLabel?: string;
+  count?: number;
+}
+
+export interface AdminAuditEntry extends AdminAuditEvent {
+  id: string;
+  timestamp: string;
+}
+
+export interface AdminAuditResult {
+  items: AdminAuditEntry[];
+  total: number;
+}
+
+export interface AdminAuditStore {
+  append(entry: AdminAuditEntry, maxEntries: number): Promise<void> | void;
+  list(query: { page: number; pageSize: number }): Promise<AdminAuditResult> | AdminAuditResult;
+}
+
 export interface AdminDeleteSummaryItem {
   id: string;
   label: string;
@@ -216,6 +260,7 @@ export interface AdminModuleOptions {
   adapter?: Type<AdminAdapter> | Provider<AdminAdapter>;
   auth?: AdminAuthOptions;
   display?: AdminDisplayOptions;
+  auditLog?: AdminAuditOptions;
 }
 
 export interface AdminAuthCredentials {
@@ -224,13 +269,42 @@ export interface AdminAuthCredentials {
   rememberMe?: boolean;
 }
 
+export interface AdminSessionRecord {
+  user: AdminRequestUser;
+  expiresAt?: number;
+}
+
+export interface AdminSessionStore {
+  get(sessionId: string): Promise<AdminSessionRecord | null> | AdminSessionRecord | null;
+  set(sessionId: string, record: AdminSessionRecord): Promise<void> | void;
+  delete(sessionId: string): Promise<void> | void;
+}
+
+export interface AdminAuthCookieOptions {
+  httpOnly?: boolean;
+  sameSite?: 'lax' | 'strict' | 'none';
+  secure?: boolean | 'auto';
+  path?: string;
+  domain?: string;
+}
+
 export interface AdminAuthOptions {
   cookieName?: string;
   rememberMeMaxAgeMs?: number;
+  sessionTtlMs?: number;
+  sessionStore?: AdminSessionStore;
+  cookie?: AdminAuthCookieOptions;
   authenticate: (
     credentials: AdminAuthCredentials,
     request: Request,
   ) => Promise<AdminRequestUser | null>;
+}
+
+export interface AdminAuditOptions {
+  enabled?: boolean;
+  maxEntries?: number;
+  filePath?: string;
+  store?: AdminAuditStore;
 }
 
 export interface AdminFieldSchema {

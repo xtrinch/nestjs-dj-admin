@@ -6,6 +6,7 @@ import { verifyPassword } from './auth/password.js';
 import { DataSource } from 'typeorm';
 import { initializeDemoDataSource } from './database/demo-data.source.js';
 import { DemoDataService } from './database/demo-data.service.js';
+import { TypeOrmAdminAuditStore } from './modules/admin-audit/typeorm-admin-audit.store.js';
 import { CategoryModule } from './modules/category/category.module.js';
 import { OrderDetailModule } from './modules/order-detail/order-detail.module.js';
 import { OrderModule } from './modules/order/order.module.js';
@@ -59,6 +60,9 @@ import { UserModule } from './modules/user/user.module.js';
             email: user.email,
           };
         },
+      },
+      auditLog: {
+        store: new TypeOrmAdminAuditStore(() => initializeDemoDataSource()),
       },
     }),
   ],

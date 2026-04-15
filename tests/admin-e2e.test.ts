@@ -84,6 +84,7 @@ describe('Admin backend e2e', () => {
     assert.equal(meta.response.status, 200);
     assert.ok(Array.isArray(meta.body.resources));
     assert.ok(meta.body.resources.some((resource: { resourceName: string }) => resource.resourceName === 'users'));
+    assert.equal(meta.body.auditLog.enabled, true);
 
     const resourceMeta = await request(adminBaseUrl, '/_meta/users', { cookie });
     assert.equal(resourceMeta.response.status, 200);
@@ -290,6 +291,69 @@ describe('Admin backend e2e', () => {
 
     const newLogin = await loginAs(adminBaseUrl, 'new-admin@example.com', 'secondPass123');
     assert.equal(newLogin.response.status, 201);
+  });
+
+  it('records audit log entries for auth and admin mutations', async () => {
+    const login = await loginAs(adminBaseUrl, 'ada@example.com', 'admin123');
+    const { cookie } = login;
+
+    const created = await request(adminBaseUrl, '/categories', {
+      method: 'POST',
+      cookie,
+      body: {
+        name: 'Audit Snacks',
+        description: 'tracked',
+      },
+    });
+    assert.equal(created.response.status, 201);
+    const categoryId = String(created.body.id);
+
+    const removed = await request(adminBaseUrl, `/categories/${categoryId}`, {
+      method: 'DELETE',
+      cookie,
+    });
+    assert.equal(removed.response.status, 200);
+
+    const logout = await request(adminBaseUrl, '/_auth/logout', {
+      method: 'POST',
+      cookie,
+    });
+    assert.equal(logout.response.status, 201);
+
+    const relogin = await loginAs(adminBaseUrl, 'ada@example.com', 'admin123');
+    const audit = await request(adminBaseUrl, '/_audit?page=1&pageSize=20', {
+      cookie: relogin.cookie,
+    });
+    assert.equal(audit.response.status, 200);
+    assert.ok(audit.body.total >= 4);
+    assert.ok(
+      audit.body.items.some(
+        (entry: { action: string; summary: string }) =>
+          entry.action === 'login' && /ada@example.com logged in/.test(entry.summary),
+      ),
+    );
+    assert.ok(
+      audit.body.items.some(
+        (entry: { action: string; summary: string; resourceName?: string }) =>
+          entry.action === 'create' &&
+          entry.resourceName === 'categories' &&
+          /Audit Snacks/.test(entry.summary),
+      ),
+    );
+    assert.ok(
+      audit.body.items.some(
+        (entry: { action: string; summary: string; resourceName?: string }) =>
+          entry.action === 'delete' &&
+          entry.resourceName === 'categories' &&
+          /Audit Snacks/.test(entry.summary),
+      ),
+    );
+    assert.ok(
+      audit.body.items.some(
+        (entry: { action: string; summary: string }) =>
+          entry.action === 'logout' && /ada@example.com logged out/.test(entry.summary),
+      ),
+    );
   });
 });
 

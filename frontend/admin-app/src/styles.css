@@ -295,11 +295,12 @@ a {
 }
 
 .filters-sidebar {
+  position: relative;
   border: 1px solid rgba(214, 211, 209, 0.1);
   border-radius: 0.8rem;
   background: linear-gradient(180deg, rgba(37, 33, 29, 0.96) 0%, rgba(27, 24, 21, 0.94) 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .filters-sidebar__header {
@@ -316,6 +317,7 @@ a {
   display: grid;
   gap: 0.85rem;
   padding: 0.9rem 1rem 1rem;
+  overflow: visible;
 }
 
 .filters-sidebar__filter {
@@ -366,6 +368,12 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #b8aa95;
+}
+
+.table__empty {
+  color: #b8aa95;
+  text-align: center;
+  padding: 1.1rem 0.5rem;
 }
 
 .table__sort {

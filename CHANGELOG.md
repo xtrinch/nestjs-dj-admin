@@ -2,11 +2,11 @@
 
 All notable changes to `nestjs-dj-admin` should be documented in this file.
 
-The format is loosely based on Keep a Changelog, but kept intentionally lightweight for the current pre-`0.1.0` phase.
+The format is loosely based on Keep a Changelog, but kept intentionally lightweight.
 
-## [0.1.0-preview] - 2026-04-15
+## [0.1.0] - 2026-04-15
 
-Initial public preview release candidate.
+Initial public release.
 
 Highlights:
 
@@ -19,8 +19,8 @@ Highlights:
 - backend end-to-end coverage
 - migration-backed TypeORM and Prisma example apps
 
-Known preview caveats:
+Current caveats:
 
-- API and UI contracts may still change before a stable `0.1.0`
+- API and UI contracts may still change across `0.x` minors before `1.0.0`
 - production auth/session hardening guidance is still intentionally thin
 - theming and advanced admin workflows remain limited

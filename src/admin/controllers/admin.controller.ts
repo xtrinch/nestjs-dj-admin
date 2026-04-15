@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AdminAuthService } from '../services/admin-auth.service.js';
+import { AdminAuditService } from '../services/admin-audit.service.js';
 import { AdminService } from '../services/admin.service.js';
 import { ADMIN_OPTIONS } from '../admin.constants.js';
 import type {
@@ -29,12 +30,13 @@ export class AdminController {
     @Inject(ADMIN_OPTIONS) private readonly adminOptions: AdminModuleOptions,
     private readonly adminService: AdminService,
     private readonly adminAuthService: AdminAuthService,
+    private readonly adminAuditService: AdminAuditService,
   ) {}
 
   @Get('_auth/me')
-  me(@Req() request: Request) {
+  async me(@Req() request: Request) {
     return {
-      user: this.adminAuthService.requireUser(request),
+      user: await this.adminAuthService.requireUser(request),
     };
   }
 
@@ -50,25 +52,41 @@ export class AdminController {
   }
 
   @Post('_auth/logout')
-  logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
-    this.adminAuthService.logout(request, response);
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    await this.adminAuthService.logout(request, response);
     return { success: true };
   }
 
   @Get('_meta')
-  getResources(@Req() request: Request) {
-    const user = this.adminAuthService.requireUser(request);
+  async getResources(@Req() request: Request) {
+    const user = await this.adminAuthService.requireUser(request);
     return {
       resources: this.adminService
         .getResources()
         .filter((resource) => canReadResource(resource, user)),
       display: resolveDisplay(this.adminOptions),
+      auditLog: {
+        enabled: this.adminAuditService.enabled,
+      },
     };
+  }
+
+  @Get('_audit')
+  async getAuditLog(
+    @Query('page') pageParam: string | undefined,
+    @Query('pageSize') pageSizeParam: string | undefined,
+    @Req() request: Request,
+  ) {
+    await this.adminAuthService.requireUser(request);
+    return this.adminAuditService.list({
+      page: Number(pageParam ?? 1),
+      pageSize: Number(pageSizeParam ?? 50),
+    });
   }
 
   @Get('_meta/:resource')
   async getResourceMeta(@Param('resource') resource: string, @Req() request: Request) {
-    const user = this.adminAuthService.requireUser(request);
+    const user = await this.adminAuthService.requireUser(request);
     const schema = this.adminService.getResourceSchema(resource, user);
     const filters = await this.adminService.getFilterOptions(resource, user);
 
@@ -80,7 +98,7 @@ export class AdminController {
   }
 
   @Get('_lookup/:resource')
-  lookup(
+  async lookup(
     @Param('resource') resource: string,
     @Query('q') q: string | undefined,
     @Query('ids') idsParam: string | string[] | undefined,
@@ -96,12 +114,12 @@ export class AdminController {
         page: Number(pageParam ?? 1),
         pageSize: Number(pageSizeParam ?? 20),
       },
-      this.adminAuthService.requireUser(request),
+      await this.adminAuthService.requireUser(request),
     );
   }
 
   @Get(':resource')
-  list(
+  async list(
     @Param('resource') resource: string,
     @Query() query: Record<string, string | string[]>,
     @Req() request: Request,
@@ -109,12 +127,12 @@ export class AdminController {
     return this.adminService.list(
       resource,
       parseListQuery(query),
-      this.adminAuthService.requireUser(request),
+      await this.adminAuthService.requireUser(request),
     );
   }
 
   @Get(':resource/_delete-summary')
-  getDeleteSummary(
+  async getDeleteSummary(
     @Param('resource') resource: string,
     @Query('ids') idsParam: string,
     @Req() request: Request,
@@ -122,12 +140,12 @@ export class AdminController {
     return this.adminService.getDeleteSummary(
       resource,
       parseIds(idsParam),
-      this.adminAuthService.requireUser(request),
+      await this.adminAuthService.requireUser(request),
     );
   }
 
   @Post(':resource/_bulk-delete')
-  bulkRemove(
+  async bulkRemove(
     @Param('resource') resource: string,
     @Body('ids') ids: string[],
     @Req() request: Request,
@@ -135,12 +153,12 @@ export class AdminController {
     return this.adminService.bulkRemove(
       resource,
       parseIds(ids),
-      this.adminAuthService.requireUser(request),
+      await this.adminAuthService.requireUser(request),
     );
   }
 
   @Post(':resource/_bulk-actions/:action')
-  runBulkAction(
+  async runBulkAction(
     @Param('resource') resource: string,
     @Param('action') action: string,
     @Body('ids') ids: string[],
@@ -150,57 +168,57 @@ export class AdminController {
       resource,
       parseIds(ids),
       action,
-      this.adminAuthService.requireUser(request),
+      await this.adminAuthService.requireUser(request),
     );
   }
 
   @Get(':resource/:id')
-  detail(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
-    return this.adminService.detail(resource, id, this.adminAuthService.requireUser(request));
+  async detail(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
+    return this.adminService.detail(resource, id, await this.adminAuthService.requireUser(request));
   }
 
   @Post(':resource')
-  create(
+  async create(
     @Param('resource') resource: string,
     @Body() payload: Record<string, unknown>,
     @Req() request: Request,
   ) {
-    return this.adminService.create(resource, payload, this.adminAuthService.requireUser(request));
+    return this.adminService.create(resource, payload, await this.adminAuthService.requireUser(request));
   }
 
   @Patch(':resource/:id')
-  update(
+  async update(
     @Param('resource') resource: string,
     @Param('id') id: string,
     @Body() payload: Record<string, unknown>,
     @Req() request: Request,
   ) {
-    return this.adminService.update(resource, id, payload, this.adminAuthService.requireUser(request));
+    return this.adminService.update(resource, id, payload, await this.adminAuthService.requireUser(request));
   }
 
   @Post(':resource/:id/password')
-  changePassword(
+  async changePassword(
     @Param('resource') resource: string,
     @Param('id') id: string,
     @Body() payload: Record<string, unknown>,
     @Req() request: Request,
   ) {
-    return this.adminService.changePassword(resource, id, payload, this.adminAuthService.requireUser(request));
+    return this.adminService.changePassword(resource, id, payload, await this.adminAuthService.requireUser(request));
   }
 
   @Delete(':resource/:id')
-  remove(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
-    return this.adminService.remove(resource, id, this.adminAuthService.requireUser(request));
+  async remove(@Param('resource') resource: string, @Param('id') id: string, @Req() request: Request) {
+    return this.adminService.remove(resource, id, await this.adminAuthService.requireUser(request));
   }
 
   @Post(':resource/:id/actions/:action')
-  runAction(
+  async runAction(
     @Param('resource') resource: string,
     @Param('id') id: string,
     @Param('action') action: string,
     @Req() request: Request,
   ) {
-    return this.adminService.runAction(resource, id, action, this.adminAuthService.requireUser(request));
+    return this.adminService.runAction(resource, id, action, await this.adminAuthService.requireUser(request));
   }
 }
 

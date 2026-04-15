@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import { verifyPassword } from './auth/password.js';
 import { DEFAULT_PRISMA_DATABASE_URL } from '../prisma.config.js';
 import { DemoDataService } from './database/demo-data.service.js';
+import { PrismaAdminAuditStore } from './modules/admin-audit/prisma-admin-audit.store.js';
 import { CategoryModule } from './modules/category/category.module.js';
 import { OrderDetailModule } from './modules/order-detail/order-detail.module.js';
 import { OrderModule } from './modules/order/order.module.js';
@@ -63,6 +64,9 @@ const prisma = new PrismaClient({
             email: user.email,
           };
         },
+      },
+      auditLog: {
+        store: new PrismaAdminAuditStore(prisma),
       },
     }),
   ],

@@ -90,3 +90,21 @@ model OrderDetail {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model AdminAuditLog {
+  id            String   @id
+  timestamp     DateTime @default(now())
+  action        String
+  actorId       String
+  actorRole     String
+  actorEmail    String?
+  summary       String
+  resourceName  String?
+  resourceLabel String?
+  objectId      String?
+  objectLabel   String?
+  actionLabel   String?
+  count         Int?
+
+  @@index([timestamp, id])
+}

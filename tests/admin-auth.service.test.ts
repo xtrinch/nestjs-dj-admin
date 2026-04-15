@@ -1,0 +1,154 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import type { Request, Response } from 'express';
+import { UnauthorizedException } from '@nestjs/common';
+import { AdminAuditService } from '../src/admin/services/admin-audit.service.js';
+import { AdminAuthService } from '../src/admin/services/admin-auth.service.js';
+import type {
+  AdminModuleOptions,
+  AdminRequestUser,
+  AdminSessionRecord,
+  AdminSessionStore,
+} from '../src/admin/types/admin.types.js';
+
+describe('AdminAuthService', () => {
+  it('uses a custom session store and secure cookies for https requests', async () => {
+    const store = new RecordingSessionStore();
+    const service = createService({
+      path: 'admin',
+      auth: {
+        authenticate: async () => ({
+          id: '1',
+          role: 'admin',
+          email: 'ada@example.com',
+        }),
+        sessionStore: store,
+        cookie: {
+          secure: 'auto',
+          sameSite: 'strict',
+          path: '/admin',
+        },
+      },
+    });
+
+    const request = createRequest({
+      headers: {
+        'x-forwarded-proto': 'https',
+      },
+    });
+    const response = createResponse();
+
+    const user = await service.login(
+      { email: 'ada@example.com', password: 'secret' },
+      request,
+      response,
+    );
+
+    assert.equal(user.email, 'ada@example.com');
+    assert.equal(store.setCalls.length, 1);
+    assert.equal(store.setCalls[0].record.user.email, 'ada@example.com');
+    assert.equal(response.cookies.length, 1);
+    assert.equal(response.cookies[0].name, 'admin_session');
+    assert.equal(response.cookies[0].options.secure, true);
+    assert.equal(response.cookies[0].options.sameSite, 'strict');
+    assert.equal(response.cookies[0].options.path, '/admin');
+  });
+
+  it('expires stale sessions from the store and rejects the request', async () => {
+    const store = new RecordingSessionStore();
+    store.records.set('expired-session', {
+      user: {
+        id: '1',
+        role: 'admin',
+        email: 'ada@example.com',
+      },
+      expiresAt: Date.now() - 1000,
+    });
+
+    const service = createService({
+      path: 'admin',
+      auth: {
+        authenticate: async () => null,
+        sessionStore: store,
+      },
+    });
+
+    const request = createRequest({
+      headers: {
+        cookie: 'admin_session=expired-session',
+      },
+    });
+
+    await assert.rejects(
+      service.requireUser(request),
+      (error: unknown) => error instanceof UnauthorizedException,
+    );
+    assert.deepEqual(store.deleteCalls, ['expired-session']);
+  });
+});
+
+function createService(options: AdminModuleOptions): AdminAuthService {
+  const auditService = new AdminAuditService(options);
+  return new AdminAuthService(options, auditService);
+}
+
+function createRequest(input: {
+  headers?: Record<string, string>;
+  secure?: boolean;
+  user?: AdminRequestUser;
+}): Request {
+  return {
+    user: input.user,
+    secure: input.secure ?? false,
+    header(name: string) {
+      return input.headers?.[name.toLowerCase()] ?? input.headers?.[name] ?? undefined;
+    },
+  } as Request;
+}
+
+function createResponse(): Response & {
+  cookies: Array<{
+    name: string;
+    value: string;
+    options: Record<string, unknown>;
+  }>;
+} {
+  const cookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+
+  return {
+    cookies,
+    cookie(name: string, value: string, options: Record<string, unknown>) {
+      cookies.push({ name, value, options });
+      return this as Response;
+    },
+    clearCookie() {
+      return this as Response;
+    },
+  } as Response & {
+    cookies: Array<{
+      name: string;
+      value: string;
+      options: Record<string, unknown>;
+    }>;
+  };
+}
+
+class RecordingSessionStore implements AdminSessionStore {
+  readonly records = new Map<string, AdminSessionRecord>();
+  readonly setCalls: Array<{ sessionId: string; record: AdminSessionRecord }> = [];
+  readonly deleteCalls: string[] = [];
+
+  get(sessionId: string): AdminSessionRecord | null {
+    return this.records.get(sessionId) ?? null;
+  }
+
+  set(sessionId: string, record: AdminSessionRecord): void {
+    this.records.set(sessionId, record);
+    this.setCalls.push({ sessionId, record });
+  }
+
+  delete(sessionId: string): void {
+    this.records.delete(sessionId);
+    this.deleteCalls.push(sessionId);
+  }
+}

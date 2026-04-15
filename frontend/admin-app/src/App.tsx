@@ -4,12 +4,30 @@ import { ListPage } from './pages/ListPage.js';
 import { EditPage } from './pages/EditPage.js';
 import { PasswordPage } from './pages/PasswordPage.js';
 import { DeleteConfirmPage } from './pages/DeleteConfirmPage.js';
+import { AuditLogPage } from './pages/AuditLogPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
 import { consumeToast, onToast } from './services/toast.service.js';
 import type { AdminToast } from './services/toast.service.js';
 import type { AdminMetaResponse, AdminUser, ResourceSchema } from './types.js';
+
+type AppRoute =
+  | {
+      kind: 'audit';
+      category: 'System';
+      resourceName: 'audit-log';
+      resourceLabel: 'Audit Log';
+      pageLabel: null;
+    }
+  | {
+      kind: 'resource';
+      resource: ResourceSchema;
+      resourceName: string;
+      mode: 'list' | 'edit' | 'password' | 'delete';
+      id?: string;
+      deleteIds: string[];
+    };
 
 export function App() {
   const [meta, setMeta] = useState<AdminMetaResponse | null>(null);
@@ -69,6 +87,7 @@ export function App() {
 
   const route = meta?.resources.length ? parseRoute(hash, meta.resources) : null;
   const categories = meta ? groupResources(meta.resources) : [];
+  const routeUi = route ? describeRoute(route, pageSubjectLabel) : null;
 
   useEffect(() => {
     if (!route) {
@@ -76,35 +95,19 @@ export function App() {
       return;
     }
 
-    if (route.mode === 'list') {
-      setPageSubjectLabel(null);
-      return;
-    }
-
-    if (route.mode === 'edit') {
-      setPageSubjectLabel(route.id ?? null);
-      return;
-    }
-
-    if (route.mode === 'password') {
-      setPageSubjectLabel(route.id);
-      return;
-    }
-
-    setPageSubjectLabel(route.deleteIds.length === 1 ? route.deleteIds[0] : `${route.deleteIds.length} items`);
+    setPageSubjectLabel(getInitialRouteSubjectLabel(route));
   }, [route]);
 
   useEffect(() => {
-    if (!route) {
+    if (!routeUi) {
       document.title = 'DJ Admin';
       return;
     }
 
-    const routeLabel = getRoutePageLabel(route, pageSubjectLabel);
-    document.title = routeLabel
-      ? `${routeLabel} | ${route.resource.label} | DJ Admin`
-      : `${route.resource.label} | DJ Admin`;
-  }, [route, pageSubjectLabel]);
+    document.title = routeUi.pageLabel
+      ? `${routeUi.pageLabel} | ${routeUi.resourceLabel} | DJ Admin`
+      : `${routeUi.resourceLabel} | DJ Admin`;
+  }, [routeUi]);
 
   async function loadAdmin() {
     try {
@@ -173,20 +176,11 @@ export function App() {
           <h1>DJ Admin</h1>
         </div>
         <nav className="nav">
-          {categories.map(([category, resources]) => (
-            <section key={category} className="nav__group">
-              <span className="nav__group-label">{category}</span>
-              {resources.map((resource) => (
-                <a
-                  key={resource.resourceName}
-                  className={activeRoute.resourceName === resource.resourceName ? 'nav__link active' : 'nav__link'}
-                  href={`#/${resource.resourceName}`}
-                >
-                  {resource.label}
-                </a>
-              ))}
-            </section>
-          ))}
+          <SidebarNav
+            activeRoute={activeRoute}
+            auditLogEnabled={meta.auditLog?.enabled === true}
+            categories={categories}
+          />
         </nav>
       </aside>
       <main className="content">
@@ -200,43 +194,114 @@ export function App() {
           </div>
         </header>
         <div className="content__body">
-          <Breadcrumbs
-            category={activeRoute.resource.category}
-            resourceName={activeRoute.resourceName}
-            resourceLabel={activeRoute.resource.label}
-            pageLabel={getRoutePageLabel(activeRoute, pageSubjectLabel)}
+          {routeUi ? (
+            <Breadcrumbs
+              category={routeUi.category}
+              resourceName={routeUi.resourceName}
+              resourceLabel={routeUi.resourceLabel}
+              pageLabel={routeUi.pageLabel}
+            />
+          ) : null}
+          <RouteContent
+            display={meta.display}
+            route={activeRoute}
+            onTitleChange={setPageSubjectLabel}
           />
-          {activeRoute.mode === 'list' ? (
-            <ListPage
-              key={`list:${activeRoute.resourceName}`}
-              resourceName={activeRoute.resourceName}
-              onTitleChange={setPageSubjectLabel}
-            />
-          ) : activeRoute.mode === 'delete' ? (
-            <DeleteConfirmPage
-              key={`delete:${activeRoute.resourceName}:${activeRoute.deleteIds.join(',')}`}
-              resourceName={activeRoute.resourceName}
-              ids={activeRoute.deleteIds}
-              onTitleChange={setPageSubjectLabel}
-            />
-          ) : activeRoute.mode === 'password' ? (
-            <PasswordPage
-              key={`password:${activeRoute.resourceName}:${activeRoute.id}`}
-              resource={activeRoute.resource}
-              id={activeRoute.id}
-              onTitleChange={setPageSubjectLabel}
-            />
-          ) : (
-            <EditPage
-              key={`edit:${activeRoute.resourceName}:${activeRoute.id ?? 'new'}`}
-              resource={activeRoute.resource}
-              id={activeRoute.id}
-              onTitleChange={setPageSubjectLabel}
-            />
-          )}
         </div>
       </main>
     </div>
+  );
+}
+
+function SidebarNav({
+  activeRoute,
+  auditLogEnabled,
+  categories,
+}: {
+  activeRoute: AppRoute;
+  auditLogEnabled: boolean;
+  categories: Array<[string, ResourceSchema[]]>;
+}) {
+  return (
+    <>
+      {categories.map(([category, resources]) => (
+        <section key={category} className="nav__group">
+          <span className="nav__group-label">{category}</span>
+          {resources.map((resource) => (
+            <a
+              key={resource.resourceName}
+              className={isActiveResourceRoute(activeRoute, resource.resourceName) ? 'nav__link active' : 'nav__link'}
+              href={`#/${resource.resourceName}`}
+            >
+              {resource.label}
+            </a>
+          ))}
+        </section>
+      ))}
+      {auditLogEnabled ? (
+        <section className="nav__group">
+          <span className="nav__group-label">System</span>
+          <a className={activeRoute.kind === 'audit' ? 'nav__link active' : 'nav__link'} href="#/audit-log">
+            Audit Log
+          </a>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function RouteContent({
+  display,
+  route,
+  onTitleChange,
+}: {
+  display: AdminMetaResponse['display'];
+  route: AppRoute;
+  onTitleChange: (label: string | null) => void;
+}) {
+  if (route.kind === 'audit') {
+    return <AuditLogPage key="audit-log" display={display} onTitleChange={onTitleChange} />;
+  }
+
+  if (route.mode === 'list') {
+    return (
+      <ListPage
+        key={`list:${route.resourceName}`}
+        resourceName={route.resourceName}
+        onTitleChange={onTitleChange}
+      />
+    );
+  }
+
+  if (route.mode === 'delete') {
+    return (
+      <DeleteConfirmPage
+        key={`delete:${route.resourceName}:${route.deleteIds.join(',')}`}
+        resourceName={route.resourceName}
+        ids={route.deleteIds}
+        onTitleChange={onTitleChange}
+      />
+    );
+  }
+
+  if (route.mode === 'password') {
+    return (
+      <PasswordPage
+        key={`password:${route.resourceName}:${route.id}`}
+        resource={route.resource}
+        id={route.id ?? ''}
+        onTitleChange={onTitleChange}
+      />
+    );
+  }
+
+  return (
+    <EditPage
+      key={`edit:${route.resourceName}:${route.id ?? 'new'}`}
+      resource={route.resource}
+      id={route.id}
+      onTitleChange={onTitleChange}
+    />
   );
 }
 
@@ -253,10 +318,32 @@ function groupResources(resources: ResourceSchema[]) {
   return [...groups.entries()];
 }
 
-function getRoutePageLabel(
-  route: ReturnType<typeof parseRoute>,
-  subjectLabel: string | null,
-): string | null {
+function describeRoute(route: AppRoute, subjectLabel: string | null) {
+  return {
+    category: route.kind === 'audit' ? route.category : route.resource.category,
+    resourceName: route.resourceName,
+    resourceLabel: route.kind === 'audit' ? route.resourceLabel : route.resource.label,
+    pageLabel: getRoutePageLabel(route, subjectLabel),
+  };
+}
+
+function getInitialRouteSubjectLabel(route: AppRoute): string | null {
+  if (route.kind === 'audit' || route.mode === 'list') {
+    return null;
+  }
+
+  if (route.mode === 'edit' || route.mode === 'password') {
+    return route.id ?? null;
+  }
+
+  return route.deleteIds.length === 1 ? route.deleteIds[0] : `${route.deleteIds.length} items`;
+}
+
+function getRoutePageLabel(route: AppRoute, subjectLabel: string | null): string | null {
+  if (route.kind === 'audit') {
+    return null;
+  }
+
   if (route.mode === 'list') {
     return null;
   }
@@ -272,13 +359,28 @@ function getRoutePageLabel(
   return `Delete ${subjectLabel ?? route.resource.label}`;
 }
 
-function parseRoute(hash: string, resources: ResourceSchema[]) {
+function isActiveResourceRoute(route: AppRoute, resourceName: string): boolean {
+  return route.kind === 'resource' && route.resourceName === resourceName;
+}
+
+function parseRoute(hash: string, resources: ResourceSchema[]): AppRoute {
+  if (hash.replace(/^#\//, '') === 'audit-log') {
+    return {
+      kind: 'audit',
+      category: 'System',
+      resourceName: 'audit-log',
+      resourceLabel: 'Audit Log',
+      pageLabel: null,
+    };
+  }
+
   const [resourceName, mode, id, extra] = hash.replace(/^#\//, '').split('/');
   const fallback = resources[0];
   const resource = resources.find((item) => item.resourceName === resourceName) ?? fallback;
 
   if (mode === 'delete' && id) {
     return {
+      kind: 'resource',
       resource,
       resourceName: resource.resourceName,
       mode: 'delete' as const,
@@ -289,6 +391,7 @@ function parseRoute(hash: string, resources: ResourceSchema[]) {
 
   if (mode === 'edit' && id && extra === 'password') {
     return {
+      kind: 'resource',
       resource,
       resourceName: resource.resourceName,
       mode: 'password' as const,
@@ -298,6 +401,7 @@ function parseRoute(hash: string, resources: ResourceSchema[]) {
   }
 
   return {
+    kind: 'resource',
     resource,
     resourceName: resource.resourceName,
     mode: mode === 'new' || mode === 'edit' ? ('edit' as const) : ('list' as const),

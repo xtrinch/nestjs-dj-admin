@@ -73,6 +73,40 @@ export interface AdminLookupResponse {
   total: number;
 }
 
+export type AdminAuditAction =
+  | 'login'
+  | 'logout'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'soft-delete'
+  | 'password-change'
+  | 'action'
+  | 'bulk-action';
+
+export interface AdminAuditEntry {
+  id: string;
+  timestamp: string;
+  action: AdminAuditAction;
+  actor: {
+    id: string;
+    role: string;
+    email?: string;
+  };
+  summary: string;
+  resourceName?: string;
+  resourceLabel?: string;
+  objectId?: string;
+  objectLabel?: string;
+  actionLabel?: string;
+  count?: number;
+}
+
+export interface AdminAuditResponse {
+  items: AdminAuditEntry[];
+  total: number;
+}
+
 export interface ResourceSchema {
   resourceName: string;
   label: string;
@@ -107,6 +141,9 @@ export interface ResourceSchema {
 export interface AdminMetaResponse {
   resources: ResourceSchema[];
   display: AdminDisplayConfig;
+  auditLog?: {
+    enabled: boolean;
+  };
 }
 
 export interface ResourceMetaResponse {

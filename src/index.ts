@@ -9,6 +9,7 @@ export { AdminField, ADMIN_DTO_FIELD_METADATA } from './admin/decorators/admin-f
 
 export { AdminService } from './admin/services/admin.service.js';
 export { AdminAuthService } from './admin/services/admin-auth.service.js';
+export { AdminAuditService } from './admin/services/admin-audit.service.js';
 export { AdminPermissionService } from './admin/services/admin-permission.service.js';
 export { DtoIntrospectorService } from './admin/services/dto-introspector.service.js';
 export { AdminUiService } from './admin/services/admin-ui.service.js';
@@ -19,6 +20,14 @@ export { InMemoryAdminAdapter } from './admin/adapters/in-memory.adapter.js';
 
 export type {
   AdminAction,
+  AdminAuditAction,
+  AdminAuditActor,
+  AdminAuditEntry,
+  AdminAuditEvent,
+  AdminAuditOptions,
+  AdminAuditResult,
+  AdminAuditStore,
+  AdminAuthCookieOptions,
   AdminAuthCredentials,
   AdminAuthOptions,
   AdminAdapterResource,
@@ -37,6 +46,8 @@ export type {
   AdminRequestUser,
   AdminResourceOptions,
   AdminResourceSchema,
+  AdminSessionRecord,
+  AdminSessionStore,
   AdminSoftDeleteOptions,
   AdminSoftDeleteSchema,
   AdminWriteTransform,

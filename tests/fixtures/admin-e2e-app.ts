@@ -3,6 +3,7 @@ import { BadRequestException, Controller, Injectable, Module, Post, ValidationPi
 import { NestFactory } from '@nestjs/core';
 import { hashPassword, verifyPassword } from '../../examples/in-memory-demo-app/src/auth/password.js';
 import { categoryAdminOptions } from '../../examples/shared/src/modules/category/shared.js';
+import { orderAdminOptions } from '../../examples/shared/src/modules/order/shared.js';
 import { productAdminOptions } from '../../examples/shared/src/modules/product/shared.js';
 import { userAdminOptions } from '../../examples/shared/src/modules/user/shared.js';
 import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../../src/admin/adapters/in-memory.adapter.js';
@@ -89,9 +90,39 @@ const SEEDED_PRODUCTS = [
   },
 ] as const;
 
+const SEEDED_ORDERS = [
+  {
+    id: '301',
+    number: 'ORD-1001',
+    orderDate: '2026-04-08T09:00:00.000Z',
+    deliveryTime: '09:30',
+    fulfillmentAt: null,
+    userId: '1',
+    status: 'pending',
+    total: 42.5,
+    internalNote: 'Priority',
+    createdAt: '2026-04-08T09:00:00.000Z',
+    updatedAt: '2026-04-08T09:00:00.000Z',
+  },
+  {
+    id: '302',
+    number: 'ORD-1002',
+    orderDate: '2026-04-09T11:15:00.000Z',
+    deliveryTime: '12:00',
+    fulfillmentAt: null,
+    userId: '2',
+    status: 'pending',
+    total: 19.99,
+    internalNote: '',
+    createdAt: '2026-04-09T11:15:00.000Z',
+    updatedAt: '2026-04-09T11:15:00.000Z',
+  },
+] as const;
+
 class TestUserModel {}
 class TestCategoryModel {}
 class TestProductModel {}
+class TestOrderModel {}
 
 class TestUserAdmin {}
 Injectable()(TestUserAdmin);
@@ -149,6 +180,14 @@ AdminResource({
   ...productAdminOptions,
 })(TestProductAdmin);
 
+class TestOrderAdmin {}
+Injectable()(TestOrderAdmin);
+AdminResource({
+  model: TestOrderModel,
+  resourceName: 'orders',
+  ...orderAdminOptions,
+})(TestOrderAdmin);
+
 class TestController {
   reset() {
     resetStore();
@@ -188,7 +227,7 @@ Module({
     }),
   ],
   controllers: [TestController],
-  providers: [TestUserAdmin, TestCategoryAdmin, TestProductAdmin],
+  providers: [TestUserAdmin, TestCategoryAdmin, TestProductAdmin, TestOrderAdmin],
 })(AdminE2EServerModule);
 
 async function bootstrap(): Promise<void> {
@@ -210,7 +249,7 @@ async function bootstrap(): Promise<void> {
 function resetStore() {
   IN_MEMORY_ADMIN_STORE.users = SEEDED_USERS.map((user) => ({ ...user }));
   IN_MEMORY_ADMIN_STORE.categories = SEEDED_CATEGORIES.map((category) => ({ ...category }));
-  IN_MEMORY_ADMIN_STORE.orders = [];
+  IN_MEMORY_ADMIN_STORE.orders = SEEDED_ORDERS.map((order) => ({ ...order }));
   IN_MEMORY_ADMIN_STORE.products = SEEDED_PRODUCTS.map((product) => ({ ...product }));
   IN_MEMORY_ADMIN_STORE['order-details'] = [];
 }

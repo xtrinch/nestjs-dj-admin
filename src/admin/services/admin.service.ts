@@ -13,6 +13,7 @@ import { AdminRegistry } from '../admin.registry.js';
 import type {
   AdminAdapter,
   AdminAdapterResource,
+  AdminAuditAction,
   AdminDeleteImpactGroup,
   AdminPasswordOptions,
   AdminDeleteSummary,
@@ -23,6 +24,7 @@ import type {
   AdminResourceSchema,
   AdminWriteTransform,
 } from '../types/admin.types.js';
+import { AdminAuditService } from './admin-audit.service.js';
 import { AdminPermissionService } from './admin-permission.service.js';
 
 @Injectable()
@@ -33,6 +35,7 @@ export class AdminService implements OnModuleInit {
     private readonly registry: AdminRegistry,
     private readonly permissionService: AdminPermissionService,
     private readonly moduleRef: ModuleRef,
+    private readonly auditService: AdminAuditService,
   ) {}
 
   onModuleInit(): void {
@@ -112,6 +115,7 @@ export class AdminService implements OnModuleInit {
       resource.schema,
       () => this.adapter.create(this.toAdapterResource(resource), data),
     );
+    await this.recordEntityAudit(resource.schema, created as Record<string, unknown>, 'create', user);
     return this.serializeEntity(resource.schema, created as Record<string, unknown>);
   }
 
@@ -139,6 +143,7 @@ export class AdminService implements OnModuleInit {
       resource.schema,
       () => this.adapter.update(this.toAdapterResource(resource), id, data),
     );
+    await this.recordEntityAudit(resource.schema, updated as Record<string, unknown>, 'update', user, id);
     return this.serializeEntity(resource.schema, updated as Record<string, unknown>);
   }
 
@@ -161,13 +166,25 @@ export class AdminService implements OnModuleInit {
       resource.schema,
       () => this.adapter.update(this.toAdapterResource(resource), id, data),
     );
+    await this.recordEntityAudit(resource.schema, updated as Record<string, unknown>, 'password-change', user, id);
     return this.serializeEntity(resource.schema, updated as Record<string, unknown>);
   }
 
   async remove(resourceName: string, id: string, user: AdminRequestUser) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
+    const entity = await this.adapter.findOne(this.toAdapterResource(resource), id);
+    if (!entity) {
+      throw new NotFoundException(`${resource.schema.label} "${id}" not found`);
+    }
     await this.adapter.delete(this.toAdapterResource(resource), id);
+    await this.recordEntityAudit(
+      resource.schema,
+      entity as Record<string, unknown>,
+      resource.schema.softDelete?.enabled ? 'soft-delete' : 'delete',
+      user,
+      id,
+    );
     return { success: true };
   }
 
@@ -224,10 +241,36 @@ export class AdminService implements OnModuleInit {
   async bulkRemove(resourceName: string, ids: string[], user: AdminRequestUser) {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanWrite(user, resource.schema);
+    const entities = await Promise.all(
+      ids.map((id) => this.adapter.findOne(this.toAdapterResource(resource), id)),
+    );
 
     await Promise.all(
       ids.map((id) => this.adapter.delete(this.toAdapterResource(resource), id)),
     );
+
+    const labels = entities
+      .map((entity, index) => {
+        if (!entity) {
+          return ids[index];
+        }
+
+        return this.resolveEntityLabel(resource.schema, entity as Record<string, unknown>, ids[index]);
+      })
+      .join(', ');
+
+    await this.auditService.record({
+      action: resource.schema.softDelete?.enabled ? 'soft-delete' : 'delete',
+      actor: user,
+      summary:
+        ids.length === 1
+          ? `${resource.schema.softDelete?.enabled ? 'Archived' : 'Deleted'} ${labels}`
+          : `${resource.schema.softDelete?.enabled ? 'Archived' : 'Deleted'} ${ids.length} ${resource.schema.label} items`,
+      resourceName,
+      resourceLabel: resource.schema.label,
+      objectLabel: ids.length === 1 ? labels : undefined,
+      count: ids.length,
+    });
 
     return {
       success: true,
@@ -254,6 +297,18 @@ export class AdminService implements OnModuleInit {
       user,
       ids,
     });
+    await this.auditService.record({
+      action: 'bulk-action',
+      actor: user,
+      summary:
+        ids.length === 1
+          ? `Ran ${action.name} on 1 ${resource.schema.label}`
+          : `Ran ${action.name} on ${ids.length} ${resource.schema.label} items`,
+      resourceName,
+      resourceLabel: resource.schema.label,
+      actionLabel: action.name,
+      count: ids.length,
+    });
 
     return {
       success: true,
@@ -279,6 +334,20 @@ export class AdminService implements OnModuleInit {
       resourceName,
       resource: adapterResource,
       user,
+    });
+    const resultEntity =
+      result && typeof result === 'object'
+        ? (result as Record<string, unknown>)
+        : (entity as Record<string, unknown>);
+    await this.auditService.record({
+      action: 'action',
+      actor: user,
+      summary: `Ran ${action.name} on ${this.resolveEntityLabel(resource.schema, resultEntity, id)}`,
+      resourceName,
+      resourceLabel: resource.schema.label,
+      objectId: String(resultEntity.id ?? id),
+      objectLabel: this.resolveEntityLabel(resource.schema, resultEntity, id),
+      actionLabel: action.name,
     });
 
     return {
@@ -752,6 +821,34 @@ export class AdminService implements OnModuleInit {
     }
 
     return fallback;
+  }
+
+  private async recordEntityAudit(
+    schema: AdminResourceSchema,
+    entity: Record<string, unknown>,
+    action: Extract<AdminAuditAction, 'create' | 'update' | 'password-change' | 'delete' | 'soft-delete'>,
+    user: AdminRequestUser,
+    fallbackId?: string,
+  ) {
+    const objectId = String(entity.id ?? fallbackId ?? '');
+    const objectLabel = this.resolveEntityLabel(schema, entity, fallbackId ?? objectId);
+    const verb = {
+      create: 'Created',
+      update: 'Updated',
+      'password-change': 'Changed password for',
+      delete: 'Deleted',
+      'soft-delete': 'Archived',
+    }[action];
+
+    await this.auditService.record({
+      action,
+      actor: user,
+      summary: `${verb} ${objectLabel}`,
+      resourceName: schema.resourceName,
+      resourceLabel: schema.label,
+      objectId,
+      objectLabel,
+    });
   }
 }
 

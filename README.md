@@ -116,7 +116,46 @@ Auth options currently include:
 
 - `cookieName`
 - `rememberMeMaxAgeMs`
+- `sessionTtlMs`
+- `sessionStore`
+- `cookie`
 - `authenticate(credentials, request)`
+
+For production deployments, the main auth hardening knobs are:
+
+- `auth.sessionStore`
+  Provide durable shared session storage instead of using the built-in in-memory store.
+- `auth.sessionTtlMs`
+  Control server-side expiry for non-remembered sessions.
+- `auth.cookie`
+  Override cookie policy, including `sameSite`, `path`, `domain`, and `secure`.
+
+Example:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    authenticate: async ({ email, password }) => {
+      const user = await usersService.findByEmail(email);
+      if (!user) {
+        return null;
+      }
+
+      return passwords.verify(password, user.passwordHash)
+        ? { id: String(user.id), role: user.role, email: user.email }
+        : null;
+    },
+    sessionStore: redisAdminSessionStore,
+    sessionTtlMs: 1000 * 60 * 60 * 12,
+    cookie: {
+      secure: 'auto',
+      sameSite: 'lax',
+      path: '/admin',
+    },
+  },
+});
+```
 
 The examples show the full pattern in:
 
@@ -134,13 +173,13 @@ What the library currently does:
 - issues an opaque session cookie after successful login
 - reads that cookie on later admin requests
 - clears the cookie on logout
-- supports `cookieName` and `rememberMeMaxAgeMs`
+- supports pluggable server-side session storage
+- supports configurable cookie policy with a safer `secure: 'auto'` default
+- supports `cookieName`, `rememberMeMaxAgeMs`, and `sessionTtlMs`
 
 What the library does not currently do for you:
 
-- persistent session storage
 - session rotation or revocation across processes
-- secure-cookie environment switching
 - CSRF protection
 - login rate limiting
 - lockout or abuse detection
@@ -148,22 +187,24 @@ What the library does not currently do for you:
 
 ### Sessions And Cookies
 
-Today, the built-in admin auth service stores sessions in an in-memory `Map` and writes a cookie with:
+Today, the built-in admin auth service uses an in-memory session store by default and writes a cookie with:
 
 - `httpOnly: true`
 - `sameSite: 'lax'`
-- `secure: false`
+- `secure: 'auto'`
 - `path: '/'`
 
-That is acceptable for local development and the example apps, but it is not strong enough as-is for production deployment.
+`secure: 'auto'` means the cookie is marked secure when the incoming request is secure, including the common `X-Forwarded-Proto: https` proxy case.
+
+That is acceptable for local development and the example apps, but production deployments should still make the session and cookie policy explicit.
 
 Production guidance:
 
-- treat the built-in session behavior as a reference implementation, not a hardened final state
-- if you deploy the admin publicly or in a multi-instance environment, move session state to durable shared storage
-- use HTTPS and ensure cookies are marked `Secure` in real deployments
-- review whether `path: '/'` is appropriate for your app or whether your deployment should isolate the admin more tightly
-- decide whether admin sessions should be short-lived even when `rememberMe` is enabled
+- treat the default in-memory session store as a development fallback, not the production answer
+- if you deploy the admin publicly or in a multi-instance environment, provide a durable shared `sessionStore`
+- keep HTTPS in front of the admin and leave `cookie.secure` at `'auto'` or set it explicitly to `true`
+- review whether the default `path: '/'` is appropriate or whether your deployment should scope the cookie to `/admin`
+- set `sessionTtlMs` and `rememberMeMaxAgeMs` intentionally instead of relying on defaults
 
 ### CSRF Stance
 
@@ -422,6 +463,42 @@ The shared examples define both action styles in:
 - [examples/shared/src/modules/order/shared.ts](/Users/mojca/repos/nestjs-dj-admin/examples/shared/src/modules/order/shared.ts)
 - [examples/shared/src/modules/user/shared.ts](/Users/mojca/repos/nestjs-dj-admin/examples/shared/src/modules/user/shared.ts)
 
+## Audit Log
+
+The library includes a Django-admin-style activity log for admin-side events. This is an admin activity trail, not full domain object history.
+
+Recorded events include:
+
+- login and logout
+- create and update
+- delete and soft delete
+- password changes
+- single-record actions
+- bulk actions
+
+The bundled UI exposes this through the built-in `Audit Log` page in the `System` section.
+
+Current behavior:
+
+- the core library falls back to an in-memory store unless you provide `auditLog.store`
+- the TypeORM and Prisma example apps wire the audit log into their database
+- newest entries are shown first
+- the feature is enabled by default and can be disabled with:
+
+```ts
+AdminModule.forRoot({
+  path: 'admin',
+  auditLog: {
+    enabled: false,
+  },
+});
+```
+
+- `auditLog.maxEntries` controls retention
+- `auditLog.store` lets the host app provide a durable sink
+
+This is intentionally closer to Django admin's `LogEntry` concept than to a compliance-grade immutable audit system.
+
 ## Soft Delete
 
 Soft delete is optional and resource-specific. It is not enabled globally.
@@ -665,7 +742,7 @@ Current intentional limits:
 - this is an admin framework, not a complete auth framework
 - relation metadata is explicit; ORM relations are not auto-derived into admin forms
 - the bundled UI is opinionated and not yet a full theming system
-- advanced workflows such as audit logs, import/export, dashboards, soft delete, and saved filters are not part of `0.1.x`
+- advanced workflows such as import/export, dashboards, and saved filters are not part of `0.1.x`
 - the TypeORM demo is migration-backed, but it is still a demo app rather than production rollout guidance
 
 Current operational constraints:
@@ -673,6 +750,7 @@ Current operational constraints:
 - you must provide your own authentication check and password verification logic
 - you must decide your own production stance for sessions, CSRF, rate limits, and lockouts
 - if you use Prisma or TypeORM, you still own your underlying model design and database lifecycle
+- durable audit logging is app-owned; the bundled ORM demos show database-backed stores, while the core fallback stays in-memory
 
 ## Supported Version Matrix
 
@@ -700,7 +778,7 @@ Compatibility should currently be read as "supported in the versions above and i
 
 Current release stance:
 
-- `0.1.0-preview` or other pre-`1.0` tags should be read as early-adoption releases
+- `0.1.0` is intended as the first real public release
 - `0.1.x` aims for a coherent public package, but not long-term API immutability
 - `1.0.0` should only happen after the admin API, UI extension points, and operational guidance are more stable
 
@@ -710,7 +788,7 @@ Versioning expectations before `1.0.0`:
 - patch releases should stay focused on fixes and low-risk polish
 - release notes in [CHANGELOG.md](/Users/mojca/repos/nestjs-dj-admin/CHANGELOG.md) should call out any intentional breakage or upgrade-sensitive changes
 
-In practical terms, this package is ready for evaluation and internal use now, but external adopters should still upgrade intentionally rather than assuming fully stable semver behavior.
+In practical terms, this package is ready for real adoption, but external adopters should still upgrade intentionally rather than assuming fully stable semver behavior before `1.0.0`.
 
 ## Package Shape
 

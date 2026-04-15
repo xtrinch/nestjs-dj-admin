@@ -6,7 +6,6 @@ import {
   listResource,
   lookupResource,
   runBulkResourceAction,
-  runResourceAction,
 } from '../services/resources.service.js';
 import { queueToast, showToast } from '../services/toast.service.js';
 import type { AdminLookupItem, ResourceField, ResourceMetaResponse } from '../types.js';
@@ -85,15 +84,6 @@ export function ListPage({
       const message = (reason as Error).message;
       setError(message);
       showToast({ message, variant: 'error' });
-    }
-  }
-
-  async function runAction(id: string, actionSlug: string) {
-    try {
-      await runResourceAction(resourceName, id, actionSlug);
-      await load();
-    } catch (reason) {
-      showToast({ message: (reason as Error).message, variant: 'error' });
     }
   }
 
@@ -245,7 +235,6 @@ export function ListPage({
                 </th>
               );
             })}
-            <th>Actions</th>
           </tr>
           </thead>
           <tbody>
@@ -289,23 +278,6 @@ export function ListPage({
                   </td>
                 );
               })}
-                <td className="table__actions">
-                  <div className="table__actions-list">
-                    <a className="button button--danger" href={`#/${resourceName}/delete/${String(item.id)}`}>
-                      {meta.resource.softDelete?.enabled ? 'Archive' : 'Delete'}
-                    </a>
-                    {meta.resource.actions.map((action) => (
-                      <button
-                        key={action.slug}
-                        className="button"
-                        type="button"
-                        onClick={() => void runAction(String(item.id), action.slug)}
-                      >
-                        {action.name}
-                      </button>
-                    ))}
-                  </div>
-                </td>
               </tr>
             ))}
           </tbody>
@@ -488,7 +460,17 @@ function extractRelationIds(value: unknown, valueField = 'id'): string[] {
   }
 
   if (Array.isArray(value)) {
-  return value.flatMap((item) => extractRelationIds(item, valueField));
+    return value.flatMap((item) => extractRelationIds(item, valueField));
+  }
+
+  if (typeof value === 'object') {
+    const candidate = (value as Record<string, unknown>)[valueField];
+    return candidate === null || candidate === undefined || candidate === ''
+      ? []
+      : [String(candidate)];
+  }
+
+  return [String(value)];
 }
 
 function RelationFilterControl({
@@ -508,15 +490,22 @@ function RelationFilterControl({
   const [selectedCache, setSelectedCache] = useState<Record<string, AdminLookupItem>>({});
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  const selectedOption = value ? selectedCache[value] ?? options.find((option) => option.value === value) ?? null : null;
+  const selectedOption = value
+    ? selectedCache[value] ?? options.find((option) => option.value === value) ?? null
+    : null;
 
   useEffect(() => {
     if (!open || !field.relation) {
       return;
     }
 
+    if (!query.trim()) {
+      void search('');
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
-      void search();
+      void search(query);
     }, 180);
 
     return () => {
@@ -555,7 +544,7 @@ function RelationFilterControl({
     };
   }, [open]);
 
-  async function search() {
+  async function search(nextQuery = query) {
     if (!field.relation) {
       return;
     }
@@ -565,7 +554,7 @@ function RelationFilterControl({
       const response = await lookupResource(field.relation.option.resource, {
         page: 1,
         pageSize: RELATION_FILTER_LOOKUP_PAGE_SIZE,
-        q: query.trim() || undefined,
+        q: nextQuery.trim() || undefined,
       });
       setOptions(response.items);
       setLoaded(true);
@@ -651,14 +640,4 @@ function RelationFilterControl({
       ) : null}
     </div>
   );
-}
-
-  if (typeof value === 'object') {
-    const candidate = (value as Record<string, unknown>)[valueField];
-    return candidate === null || candidate === undefined || candidate === ''
-      ? []
-      : [String(candidate)];
-  }
-
-  return [String(value)];
 }
