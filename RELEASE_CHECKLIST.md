@@ -12,18 +12,6 @@ Recommended versioning stance:
 - `0.1.0`: only after the must-have items below are complete
 - `1.0.0`: much later, after proven stability and clearer production guidance
 
-## Must-have for `0.1.0`
-
-### 6. Release metadata and policy
-
-Before `0.1.0`, add:
-
-- changelog or release notes
-- explicit license
-- supported version matrix
-- known limitations section
-- versioning expectations
-
 ## Strongly recommended before `0.1.0`
 
 ### Auth hardening guidance
@@ -66,4 +54,5 @@ It is not yet a defended `0.1.0` stable release.
 
 ## Suggested order of work
 
-1. Final release metadata and changelog
+1. Tighten auth hardening guidance
+2. Decide whether destructive-action polish should block `0.1.0`

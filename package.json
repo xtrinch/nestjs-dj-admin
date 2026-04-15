@@ -2,6 +2,7 @@
   "name": "nestjs-dj-admin",
   "version": "0.1.0",
   "description": "NestJS-native admin framework inspired by Django admin",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,7 +17,9 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "clean:shadow": "node scripts/clean-shadow-build.mjs",
@@ -41,8 +44,8 @@
     "build:examples": "npm run prisma:generate:example && npm run clean && npm run build:lib && tsc -p examples/typeorm-demo-app/tsconfig.json && tsc -p examples/in-memory-demo-app/tsconfig.json && tsc -p examples/prisma-demo-app/tsconfig.json",
     "typeorm:setup:example": "node scripts/setup-typeorm-example.mjs",
     "prisma:generate:example": "prisma generate --config examples/prisma-demo-app/prisma.config.ts",
-    "prisma:push:example": "prisma db push --config examples/prisma-demo-app/prisma.config.ts",
-    "prisma:setup:example": "node scripts/setup-prisma-example.mjs && npm run prisma:generate:example && npm run prisma:push:example",
+    "prisma:migrate:deploy:example": "prisma migrate deploy --config examples/prisma-demo-app/prisma.config.ts",
+    "prisma:setup:example": "node scripts/setup-prisma-example.mjs && npm run prisma:migrate:deploy:example && npm run prisma:generate:example",
     "check": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"examples/**/*.ts\" \"frontend/admin-app/src/**/*.{ts,tsx}\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"examples/**/*.ts\" \"frontend/admin-app/src/**/*.{ts,tsx}\" \"tests/**/*.ts\" --fix",

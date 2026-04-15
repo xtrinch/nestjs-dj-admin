@@ -451,7 +451,7 @@ Default Prisma database URL:
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nestjs_dj_admin_prisma?schema=public
 ```
 
-`npm run prisma:setup:example` creates the demo database if needed, generates the client, and pushes the schema.
+`npm run prisma:setup:example` creates the demo database if needed, applies the checked-in Prisma migrations, and generates the client.
 
 More detail: [examples/prisma-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/README.md)
 
@@ -546,7 +546,7 @@ npm run lint
 npm run check
 ```
 
-## Limitations And Non-Goals
+## Known Limitations And Non-Goals
 
 Current intentional limits:
 
@@ -562,17 +562,20 @@ Current operational constraints:
 - you must decide your own production stance for sessions, CSRF, rate limits, and lockouts
 - if you use Prisma or TypeORM, you still own your underlying model design and database lifecycle
 
-## Compatibility Expectations
+## Supported Version Matrix
 
 The package is currently developed and tested against:
 
-- NestJS `^11.1.6`
-- `class-validator` `^0.14.2`
-- `class-transformer` `^0.5.1`
-- `rxjs` `^7.8.2`
-- TypeORM `^0.3.25`
-- Prisma Client `^6.15.0 || ^7.0.0`
-- Express `5.x`
+| Component | Supported / tested range |
+| --- | --- |
+| NestJS | `^11.1.6` |
+| `@nestjs/platform-express` | `^11.1.6` |
+| `class-validator` | `^0.14.2` |
+| `class-transformer` | `^0.5.1` |
+| `rxjs` | `^7.8.2` |
+| TypeORM | `^0.3.25` |
+| Prisma Client | `^6.15.0 || ^7.0.0` |
+| Express | `5.x` |
 
 Adapter dependencies are optional unless you use that adapter:
 
@@ -580,6 +583,22 @@ Adapter dependencies are optional unless you use that adapter:
 - `@prisma/client` is optional if you are not using `PrismaAdminAdapter`
 
 Compatibility should currently be read as "supported in the versions above and in the example apps", not "guaranteed across a wide matrix of older Nest, Prisma, or TypeORM versions".
+
+## Release Policy And Versioning Expectations
+
+Current release stance:
+
+- `0.1.0-preview` or other pre-`1.0` tags should be read as early-adoption releases
+- `0.1.x` aims for a coherent public package, but not long-term API immutability
+- `1.0.0` should only happen after the admin API, UI extension points, and operational guidance are more stable
+
+Versioning expectations before `1.0.0`:
+
+- minor releases may still include breaking changes when they materially improve the public package shape
+- patch releases should stay focused on fixes and low-risk polish
+- release notes in [CHANGELOG.md](/Users/mojca/repos/nestjs-dj-admin/CHANGELOG.md) should call out any intentional breakage or upgrade-sensitive changes
+
+In practical terms, this package is ready for evaluation and internal use now, but external adopters should still upgrade intentionally rather than assuming fully stable semver behavior.
 
 ## Package Shape
 
