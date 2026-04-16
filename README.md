@@ -1,5 +1,9 @@
 # nestjs-dj-admin
 
+[![npm version](https://img.shields.io/npm/v/nestjs-dj-admin.svg)](https://www.npmjs.com/package/nestjs-dj-admin)
+[![npm downloads](https://img.shields.io/npm/dm/nestjs-dj-admin.svg)](https://www.npmjs.com/package/nestjs-dj-admin)
+[![CI](https://github.com/xtrinch/nestjs-dj-admin/actions/workflows/ci.yml/badge.svg)](https://github.com/xtrinch/nestjs-dj-admin/actions/workflows/ci.yml)
+
 NestJS-native admin framework inspired by Django admin, packaged as an npm library.
 
 It gives you:
