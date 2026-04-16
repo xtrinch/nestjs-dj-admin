@@ -236,7 +236,9 @@ async function ensureChecked(locator: Locator) {
 
 async function expectUnchecked(locator: Locator) {
   await locator.waitFor();
-  assert.equal(await locator.isChecked(), false);
+  await poll(async () => {
+    assert.equal(await locator.isChecked(), false);
+  });
 }
 
 async function poll(assertion: () => Promise<void>, timeoutMs = 5000, intervalMs = 100): Promise<void> {
