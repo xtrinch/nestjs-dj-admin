@@ -1,6 +1,6 @@
 {
   "name": "nestjs-dj-admin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "NestJS-native admin framework inspired by Django admin",
   "keywords": [
     "nestjs",
@@ -15,7 +15,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xtrinch/nestjs-dj-admin.git"
+    "url": "https://github.com/xtrinch/nestjs-dj-admin.git"
   },
   "homepage": "https://github.com/xtrinch/nestjs-dj-admin#readme",
   "bugs": {
