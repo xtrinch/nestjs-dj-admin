@@ -13,19 +13,19 @@ It gives you:
 ## Screenshots
 
 <p>
-  <img src="./docs/screenshots/users-list.png" alt="Users changelist" width="32%" />
-  <img src="./docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="32%" />
-  <img src="./docs/screenshots/user-edit.png" alt="User change form" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/users-list.png" alt="Users changelist" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="32%" />
 </p>
 
-The example apps deliberately use a small back-office dataset derived from Northwind rather than a todo-style domain. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific model classes and thin `*.admin.ts` wrappers.
+The example apps use a small Northwind-style back-office dataset. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific models and thin `*.admin.ts` wrappers.
 
 ## Quickstart
 
-Install the package plus the Nest and validation dependencies it expects:
+Install the package plus the dependencies used in this TypeORM-based quickstart:
 
 ```bash
-npm install nestjs-dj-admin @nestjs/common @nestjs/core @nestjs/platform-express class-validator class-transformer reflect-metadata rxjs
+npm install nestjs-dj-admin @nestjs/common @nestjs/core @nestjs/platform-express class-validator class-transformer reflect-metadata rxjs typeorm
 ```
 
 Then mount the admin module and provide an adapter:
@@ -52,11 +52,42 @@ import { DataSource } from 'typeorm';
 export class AppModule {}
 ```
 
-Register at least one resource:
+Define create and update DTOs for a resource:
+
+```ts
+import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
+
+export class CreateUserDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  role!: string;
+
+  @IsBoolean()
+  active!: boolean;
+}
+
+export class UpdateUserDto {
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  role?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  active?: boolean;
+}
+```
+
+Register the resource with a schema built from those DTOs:
 
 ```ts
 import { Injectable } from '@nestjs/common';
-import { AdminResource } from 'nestjs-dj-admin';
+import { AdminResource, adminSchemaFromClassValidator } from 'nestjs-dj-admin';
 import { User } from './user.entity.js';
 
 @Injectable()
@@ -66,9 +97,15 @@ import { User } from './user.entity.js';
   search: ['email'],
   filters: ['role', 'active'],
   readonly: ['createdAt'],
+  schema: adminSchemaFromClassValidator({
+    createDto: CreateUserDto,
+    updateDto: UpdateUserDto,
+  }),
 })
 export class UserAdmin {}
 ```
+
+Admin form fields come from your DTOs, and create/update payloads are validated through `class-validator`.
 
 Build the library UI assets and start your app. The admin API and UI will be mounted at the `path` you configured, such as `/admin`.
 
@@ -88,7 +125,7 @@ import {
 } from 'nestjs-dj-admin';
 ```
 
-The complete barrel lives in [src/index.ts](/Users/mojca/repos/nestjs-dj-admin/src/index.ts).
+The complete barrel lives in [`src/index.ts`](https://github.com/xtrinch/nestjs-dj-admin/blob/main/src/index.ts).
 
 ## Auth Integration
 
@@ -149,8 +186,6 @@ The current `0.1.0` defaults are:
   - `secure: 'auto'`
   - `path: '/'`
 
-These defaults are intended to be conservative enough for local development and demos while still being explicit about what production deployments should usually override.
-
 Equivalent configuration:
 
 ```ts
@@ -176,7 +211,7 @@ AdminModule.forRoot({
 
 ## Branding
 
-Like Django admin, the library supports a few basic branding tweaks without turning them into a full theming system.
+The library supports a few basic branding tweaks without turning them into a full theming system.
 
 `AdminModule.forRoot(...)` accepts:
 
@@ -213,36 +248,6 @@ For production deployments, the main auth hardening knobs are:
 Example:
 
 ```ts
-AdminModule.forRoot({
-  path: '/admin',
-  auth: {
-    authenticate: async ({ email, password }) => {
-      const user = await usersService.findByEmail(email);
-      if (!user) {
-        return null;
-      }
-
-      return passwords.verify(password, user.passwordHash)
-        ? { id: String(user.id), role: user.role, email: user.email }
-        : null;
-    },
-    sessionStore: redisAdminSessionStore,
-    sessionTtlMs: 1000 * 60 * 60 * 12,
-    cookie: {
-      secure: 'auto',
-      sameSite: 'lax',
-      path: '/admin',
-    },
-  },
-});
-```
-
-Concrete production-style pattern:
-
-```ts
-import { AdminModule } from 'nestjs-dj-admin';
-import { redisAdminSessionStore } from './auth/admin-session.store.js';
-
 AdminModule.forRoot({
   path: '/admin',
   auth: {
@@ -312,9 +317,7 @@ The examples show the full pattern in:
 
 ## Auth Hardening Guidance
 
-The current auth layer is production-capable, but intentionally scoped.
-
-It is enough to run the admin in production when paired with a real `authenticate(...)` implementation, a durable `sessionStore`, and an explicit cookie/security posture. It does not try to replace the host application's broader security architecture.
+The auth layer is usable in production when paired with a real `authenticate(...)` implementation, a durable `sessionStore`, and an explicit cookie/security posture. It does not replace the host application's broader security architecture.
 
 What the library currently does:
 
@@ -481,8 +484,6 @@ Form fields come from your DTOs, not from inspecting the ORM model directly.
 
 Validation stays server-side through `class-validator`, while the admin library derives UI metadata from DTO fields and optional `@AdminField(...)` annotations.
 
-This is the default Nest-native path, not the only supported one.
-
 Example:
 
 ```ts
@@ -523,7 +524,7 @@ export class CreateOrderDto {
 
 ## Schema Providers
 
-`nestjs-dj-admin` currently supports these built-in schema providers:
+Built-in schema providers:
 
 - Primary: `adminSchemaFromClassValidator(...)` for `class-validator`-annotated class schemas
 - Alternate: `adminSchemaFromZod(...)` for Zod object schemas
@@ -548,8 +549,6 @@ Use `adminSchemaFromClassValidator(...)` by default:
 })
 export class UserAdmin {}
 ```
-
-This is the primary supported path for Nest apps.
 
 Use `adminSchemaFromZod(...)` when your app already uses Zod schemas:
 
@@ -600,7 +599,7 @@ This gives you:
 - parsed/coerced payloads passed into resource transforms and adapter writes
 - field overrides for labels, relations, help text, and input hints where raw Zod schemas are not expressive enough for admin UI concerns
 
-The in-memory demo intentionally shows both approaches in one app:
+The in-memory demo shows both approaches in one app:
 
 - `Category` uses `schema: adminSchemaFromZod(...)`
 - the other demo resources use `schema: adminSchemaFromClassValidator(...)`
@@ -1108,7 +1107,7 @@ Current operational constraints:
 
 ## Supported Version Matrix
 
-The package is currently developed and tested against:
+The package is developed and tested against:
 
 | Component | Supported / tested range |
 | --- | --- |
@@ -1126,8 +1125,6 @@ Adapter dependencies are optional unless you use that adapter:
 - `typeorm` is optional if you are not using `TypeOrmAdminAdapter`
 - `@prisma/client` is optional if you are not using `PrismaAdminAdapter`
 
-Compatibility should currently be read as "supported in the versions above and in the example apps", not "guaranteed across a wide matrix of older Nest, Prisma, or TypeORM versions".
-
 ## Release Policy And Versioning Expectations
 
 Current release stance:
@@ -1141,8 +1138,6 @@ Versioning expectations before `1.0.0`:
 - minor releases may still include breaking changes when they materially improve the public package shape
 - patch releases should stay focused on fixes and low-risk polish
 - release notes in [CHANGELOG.md](/Users/mojca/repos/nestjs-dj-admin/CHANGELOG.md) should call out any intentional breakage or upgrade-sensitive changes
-
-In practical terms, this package is ready for real adoption, but external adopters should still upgrade intentionally rather than assuming fully stable semver behavior before `1.0.0`.
 
 ## Package Shape
 

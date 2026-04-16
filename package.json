@@ -2,7 +2,25 @@
   "name": "nestjs-dj-admin",
   "version": "0.1.0",
   "description": "NestJS-native admin framework inspired by Django admin",
+  "keywords": [
+    "nestjs",
+    "admin",
+    "django-admin",
+    "backoffice",
+    "crud",
+    "typeorm",
+    "prisma"
+  ],
+  "author": "xtrinch",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xtrinch/nestjs-dj-admin.git"
+  },
+  "homepage": "https://github.com/xtrinch/nestjs-dj-admin#readme",
+  "bugs": {
+    "url": "https://github.com/xtrinch/nestjs-dj-admin/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,6 +39,9 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "clean:shadow": "node scripts/clean-shadow-build.mjs",
     "clean": "npm run clean:shadow && rm -rf dist examples/typeorm-demo-app/dist examples/in-memory-demo-app/dist examples/prisma-demo-app/dist",
