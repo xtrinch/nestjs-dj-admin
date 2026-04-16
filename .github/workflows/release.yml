@@ -51,7 +51,13 @@ jobs:
       - name: Verify packaged contents
         run: npm pack --dry-run
 
-      - name: Publish to npm
+      - name: Publish to npm with token fallback
+        id: publish_token
         run: npm publish --provenance
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm with Trusted Publishing
+        if: steps.publish_token.outcome == 'failure'
+        run: npm publish --provenance
