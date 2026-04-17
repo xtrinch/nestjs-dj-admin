@@ -1,15 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import {
-  Injectable,
+  CanActivate,
+  ForbiddenException,
   Inject,
+  Injectable,
   NotFoundException,
+  Type,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ContextIdFactory, ModuleRef } from '@nestjs/core';
+import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host.js';
 import type { CookieOptions, Request, Response } from 'express';
 import { ADMIN_OPTIONS } from '../admin.constants.js';
 import { AdminAuditService } from './admin-audit.service.js';
 import type {
+  AdminAuthConfigSchema,
   AdminAuthCredentials,
+  AdminExternalAuthOptions,
   AdminModuleOptions,
   AdminRequestUser,
   AdminSessionRecord,
@@ -22,9 +29,10 @@ export class AdminAuthService {
 
   constructor(
     @Inject(ADMIN_OPTIONS) private readonly options: AdminModuleOptions,
+    private readonly moduleRef: ModuleRef,
     private readonly auditService: AdminAuditService,
   ) {
-    this.sessionStore = options.auth?.sessionStore ?? new InMemoryAdminSessionStore();
+    this.sessionStore = this.sessionAuthOptions(options)?.sessionStore ?? new InMemoryAdminSessionStore();
   }
 
   async login(
@@ -32,7 +40,11 @@ export class AdminAuthService {
     request: Request,
     response: Response,
   ): Promise<AdminRequestUser> {
-    const authenticate = this.options.auth?.authenticate;
+    if (this.isExternalAuth()) {
+      throw new NotFoundException('Admin login is managed by the host application');
+    }
+
+    const authenticate = this.sessionAuthOptions()?.authenticate;
     if (!authenticate) {
       throw new NotFoundException('Admin authentication is not configured');
     }
@@ -63,6 +75,20 @@ export class AdminAuthService {
 
   async logout(request: Request, response: Response): Promise<void> {
     const user = await this.getCurrentUserAsync(request);
+    const externalAuth = this.externalAuthOptions();
+    if (externalAuth) {
+      await externalAuth.logout?.(request, response);
+
+      if (user) {
+        await this.auditService.record({
+          action: 'logout',
+          actor: user,
+          summary: `${user.email ?? user.id} logged out`,
+        });
+      }
+      return;
+    }
+
     const sessionId = this.readSessionId(request);
     if (sessionId) {
       await this.sessionStore.delete(sessionId);
@@ -86,6 +112,16 @@ export class AdminAuthService {
   async getCurrentUserAsync(request: Request): Promise<AdminRequestUser | null> {
     if (request.user) {
       return request.user;
+    }
+
+    if (this.isExternalAuth()) {
+      await this.runExternalGuards(request);
+      const externalAuth = this.externalAuthOptions();
+      const user = externalAuth ? await externalAuth.resolveUser(request) : null;
+      if (user) {
+        request.user = user;
+      }
+      return user;
     }
 
     const sessionId = this.readSessionId(request);
@@ -119,20 +155,39 @@ export class AdminAuthService {
     return user;
   }
 
+  getAuthConfig(): AdminAuthConfigSchema {
+    const externalAuth = this.externalAuthOptions();
+    if (externalAuth) {
+      return {
+        mode: 'external',
+        loginEnabled: false,
+        logoutEnabled: typeof externalAuth.logout === 'function',
+        loginUrl: externalAuth.loginUrl,
+        loginMessage: externalAuth.loginMessage,
+      };
+    }
+
+    return {
+      mode: 'session',
+      loginEnabled: true,
+      logoutEnabled: true,
+    };
+  }
+
   private get cookieName(): string {
-    return this.options.auth?.cookieName ?? 'admin_session';
+    return this.sessionAuthOptions()?.cookieName ?? 'admin_session';
   }
 
   private get rememberMeMaxAgeMs(): number {
-    return this.options.auth?.rememberMeMaxAgeMs ?? 1000 * 60 * 60 * 24 * 30;
+    return this.sessionAuthOptions()?.rememberMeMaxAgeMs ?? 1000 * 60 * 60 * 24 * 30;
   }
 
   private get sessionTtlMs(): number {
-    return this.options.auth?.sessionTtlMs ?? 1000 * 60 * 60 * 12;
+    return this.sessionAuthOptions()?.sessionTtlMs ?? 1000 * 60 * 60 * 12;
   }
 
   private cookieOptions(request: Request): CookieOptions {
-    const configured = this.options.auth?.cookie ?? {};
+    const configured = this.sessionAuthOptions()?.cookie ?? {};
     const secureSetting = configured.secure ?? 'auto';
 
     return {
@@ -169,6 +224,71 @@ export class AdminAuthService {
     }
 
     return null;
+  }
+
+  private isExternalAuth(): boolean {
+    return this.options.auth?.mode === 'external';
+  }
+
+  private sessionAuthOptions(options: AdminModuleOptions = this.options) {
+    if (!options.auth || options.auth.mode === 'external') {
+      return null;
+    }
+
+    return options.auth;
+  }
+
+  private externalAuthOptions(): AdminExternalAuthOptions | null {
+    if (this.options.auth?.mode !== 'external') {
+      return null;
+    }
+
+    return this.options.auth;
+  }
+
+  private async runExternalGuards(request: Request): Promise<void> {
+    const externalAuth = this.externalAuthOptions();
+    if (!externalAuth) {
+      return;
+    }
+
+    const guardedRequest = request as Request & { __djAdminGuardsSatisfied?: boolean };
+    if (guardedRequest.__djAdminGuardsSatisfied) {
+      return;
+    }
+
+    const guards = externalAuth.guards ?? [];
+    if (guards.length === 0) {
+      guardedRequest.__djAdminGuardsSatisfied = true;
+      return;
+    }
+
+    const context = new ExecutionContextHost([request]);
+    context.setType('http');
+
+    for (const guardToken of guards) {
+      const guard = await this.resolveGuard(guardToken, request);
+      const result = await guard.canActivate(context);
+      if (!result) {
+        throw new ForbiddenException('Access denied by admin guard');
+      }
+    }
+
+    guardedRequest.__djAdminGuardsSatisfied = true;
+  }
+
+  private async resolveGuard(
+    guardToken: CanActivate | Type<CanActivate>,
+    request: Request,
+  ): Promise<CanActivate> {
+    if (typeof guardToken !== 'function') {
+      return guardToken;
+    }
+
+    const contextId = ContextIdFactory.getByRequest(request);
+    return this.moduleRef.resolve(guardToken, contextId, {
+      strict: false,
+    });
   }
 }
 

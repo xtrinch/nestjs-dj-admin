@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Request, Response } from 'express';
-import { UnauthorizedException } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { AdminAuditService } from '../src/admin/services/admin-audit.service.js';
 import { AdminAuthService } from '../src/admin/services/admin-auth.service.js';
 import type {
@@ -85,11 +86,67 @@ describe('AdminAuthService', () => {
     );
     assert.deepEqual(store.deleteCalls, ['expired-session']);
   });
+
+  it('supports external auth via resolveUser', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        mode: 'external',
+        resolveUser: (request) => {
+          return request.user ?? null;
+        },
+        loginUrl: '/host-auth/login',
+        loginMessage: 'Use the host app',
+      },
+    });
+
+    const request = createRequest({
+      user: {
+        id: '1',
+        role: 'admin',
+        email: 'ada@example.com',
+      },
+    });
+
+    const user = await service.requireUser(request);
+    assert.equal(user.email, 'ada@example.com');
+    assert.deepEqual(service.getAuthConfig(), {
+      mode: 'external',
+      loginEnabled: false,
+      logoutEnabled: false,
+      loginUrl: '/host-auth/login',
+      loginMessage: 'Use the host app',
+    });
+  });
+
+  it('rejects built-in login when auth is external', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        mode: 'external',
+        resolveUser: async () => null,
+      },
+    });
+
+    await assert.rejects(
+      service.login(
+        { email: 'ada@example.com', password: 'secret' },
+        createRequest({}),
+        createResponse(),
+      ),
+      (error: unknown) =>
+        error instanceof NotFoundException &&
+        error.message === 'Admin login is managed by the host application',
+    );
+  });
 });
 
 function createService(options: AdminModuleOptions): AdminAuthService {
   const auditService = new AdminAuditService(options);
-  return new AdminAuthService(options, auditService);
+  const moduleRef = {
+    resolve: async (token: unknown) => token,
+  } as ModuleRef;
+  return new AdminAuthService(options, moduleRef, auditService);
 }
 
 function createRequest(input: {

@@ -36,6 +36,11 @@ export class AdminController {
     private readonly adminPermissionService: AdminPermissionService,
   ) {}
 
+  @Get('_auth/config')
+  getAuthConfig() {
+    return this.adminAuthService.getAuthConfig();
+  }
+
   @Get('_auth/me')
   async me(@Req() request: Request) {
     return {

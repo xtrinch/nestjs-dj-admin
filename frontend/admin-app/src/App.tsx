@@ -8,11 +8,13 @@ import { AuditLogPage } from './pages/AuditLogPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { CustomPage } from './pages/CustomPage.js';
 import { LoginPage } from './pages/LoginPage.js';
-import { getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
+import { ExternalAuthPage } from './pages/ExternalAuthPage.js';
+import { getAdminAuthConfig, getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
 import { consumeToast, onToast } from './services/toast.service.js';
 import type { AdminToast } from './services/toast.service.js';
 import type {
+  AdminAuthConfig,
   AdminMetaResponse,
   AdminUser,
   CustomPageSchema,
@@ -61,6 +63,7 @@ type AppRoute =
 
 export function App() {
   const [meta, setMeta] = useState<AdminMetaResponse | null>(null);
+  const [authConfig, setAuthConfig] = useState<AdminAuthConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>(
@@ -142,6 +145,8 @@ export function App() {
 
   async function loadAdmin() {
     try {
+      const nextAuthConfig = await getAdminAuthConfig();
+      setAuthConfig(nextAuthConfig);
       const currentUser = await getCurrentAdminUser();
       if (!currentUser) {
         setAuthState('unauthenticated');
@@ -176,6 +181,10 @@ export function App() {
   }
 
   if (authState === 'unauthenticated') {
+    if (authConfig?.mode === 'external') {
+      return <ExternalAuthPage config={authConfig} />;
+    }
+
     return <LoginPage onAuthenticated={loadAdmin} />;
   }
 
@@ -219,9 +228,11 @@ export function App() {
           <div className="topbar__spacer" />
           <div className="session-bar">
             <span className="session-bar__label">Welcome, {user.email ?? user.id}</span>
-            <button className="session-bar__link" type="button" onClick={() => void logout()}>
-              Log out
-            </button>
+            {authConfig?.logoutEnabled !== false ? (
+              <button className="session-bar__link" type="button" onClick={() => void logout()}>
+                Log out
+              </button>
+            ) : null}
           </div>
         </header>
         <div className="content__body">

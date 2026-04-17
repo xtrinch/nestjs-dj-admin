@@ -1,5 +1,10 @@
 import { adminFetch, readJson } from '../api.js';
-import type { AdminUser } from '../types.js';
+import type { AdminAuthConfig, AdminUser } from '../types.js';
+
+export async function getAdminAuthConfig(): Promise<AdminAuthConfig> {
+  const response = await adminFetch('/_auth/config');
+  return readJson<AdminAuthConfig>(response);
+}
 
 export async function getCurrentAdminUser(): Promise<AdminUser | null> {
   const response = await adminFetch('/_auth/me');

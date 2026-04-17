@@ -23,6 +23,14 @@ export interface AdminUser {
   email?: string;
 }
 
+export interface AdminAuthConfig {
+  mode: 'session' | 'external';
+  loginEnabled: boolean;
+  logoutEnabled: boolean;
+  loginUrl?: string;
+  loginMessage?: string;
+}
+
 export interface AdminDisplayConfig {
   locale: string;
   dateFormat: Intl.DateTimeFormatOptions;

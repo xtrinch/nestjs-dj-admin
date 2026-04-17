@@ -19,7 +19,7 @@ It gives you:
 - built-in admin audit log support
 - bundled admin UI assets
 - `TypeORM`, `MikroORM`, `Prisma`, and `in-memory` adapter support
-- runnable demo apps for `TypeORM`, `MikroORM`, `Prisma`, and `in-memory` setups
+- runnable demo apps for `TypeORM`, `MikroORM`, `Prisma`, `in-memory`, and external-auth setups
 
 ## Screenshots
 
@@ -29,8 +29,6 @@ It gives you:
   <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="24%" />
   <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="24%" />
 </p>
-
-The example apps use a small Northwind-style back-office dataset. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific models and thin `*.admin.ts` wrappers.
 
 ## Quickstart
 
@@ -217,16 +215,19 @@ Current adapter coverage across the first-class ORMs includes:
 - many-to-many relation editing
 - lookup endpoints used by relation pickers
 
-The repository keeps runnable demo apps for each supported ORM:
+The repository keeps runnable demo apps for each supported ORM plus an external-auth integration example:
 
 - [examples/typeorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/README.md)
 - [examples/mikroorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app/README.md)
 - [examples/prisma-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/README.md)
 - [examples/in-memory-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/in-memory-demo-app/README.md)
+- [examples/external-auth-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/external-auth-demo-app/README.md)
+
+The example apps use a small Northwind-style back-office dataset. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific models and thin `*.admin.ts` wrappers.
 
 ## Example Apps
 
-The repo ships four example apps that exercise the same admin feature set through different persistence layers.
+The repo ships runnable examples for the supported persistence layers plus a host-auth integration demo.
 
 TypeORM example:
 
@@ -256,6 +257,12 @@ In-memory example:
 
 ```bash
 npm run dev:inmemory-example
+```
+
+External auth example:
+
+```bash
+npm run dev:external-auth-example
 ```
 
 The PostgreSQL-backed demos use separate databases by default so they can run side by side:
@@ -320,12 +327,36 @@ AdminModule.forRoot({
 
 Auth options currently include:
 
-- `cookieName`
-- `rememberMeMaxAgeMs`
-- `sessionTtlMs`
-- `sessionStore`
-- `cookie`
-- `authenticate(credentials, request)`
+- session mode:
+  - `cookieName`
+  - `rememberMeMaxAgeMs`
+  - `sessionTtlMs`
+  - `sessionStore`
+  - `cookie`
+  - `authenticate(credentials, request)`
+- external mode:
+  - `guards`
+  - `resolveUser(request)`
+  - `loginUrl`
+  - `loginMessage`
+  - `logout(request, response)`
+
+External auth mode is meant for apps that already have their own auth/session stack. In that mode the admin can reuse host guards and map the already-authenticated principal from `request.user`.
+
+Example:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    mode: 'external',
+    guards: [AppSessionGuard],
+    resolveUser: (request) => request.user ?? null,
+    loginUrl: '/app/login?next=/admin',
+    loginMessage: 'Sign in through the host application.',
+  },
+});
+```
 
 ## Default Configuration
 
@@ -375,7 +406,7 @@ The library supports a few basic branding tweaks without turning them into a ful
 - `branding.siteTitle`
 - `branding.indexTitle`
 - `branding.accentColor`
-- `pages`
+- `extensions`
 
 Example:
 
@@ -392,6 +423,8 @@ AdminModule.forRoot({
 ```
 
 These control the sidebar header, browser title suffix, dashboard title, and the main accent color used across the admin chrome.
+
+## Extensions
 
 `extensions` lets you register non-CRUD admin capabilities through a public extension API. Built-in helpers can be composed, for example `embedPageExtension(...)` for the page itself and `dashboardLinkWidgetExtension(...)` for dashboard promotion.
 

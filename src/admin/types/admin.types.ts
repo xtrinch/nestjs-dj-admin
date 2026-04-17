@@ -1,5 +1,5 @@
-import type { Provider, Type } from '@nestjs/common';
-import type { Request } from 'express';
+import type { CanActivate, Provider, Type } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import type {
   AdminPageSchema,
   AdminNavItemSchema,
@@ -331,7 +331,8 @@ export interface AdminAuthCookieOptions {
   domain?: string;
 }
 
-export interface AdminAuthOptions {
+export interface AdminSessionAuthOptions {
+  mode?: 'session';
   cookieName?: string;
   rememberMeMaxAgeMs?: number;
   sessionTtlMs?: number;
@@ -341,6 +342,25 @@ export interface AdminAuthOptions {
     credentials: AdminAuthCredentials,
     request: Request,
   ) => Promise<AdminRequestUser | null>;
+}
+
+export interface AdminExternalAuthOptions {
+  mode: 'external';
+  resolveUser: (request: Request) => Promise<AdminRequestUser | null> | AdminRequestUser | null;
+  guards?: Array<CanActivate | Type<CanActivate>>;
+  loginUrl?: string;
+  loginMessage?: string;
+  logout?: (request: Request, response: Response) => Promise<void> | void;
+}
+
+export type AdminAuthOptions = AdminSessionAuthOptions | AdminExternalAuthOptions;
+
+export interface AdminAuthConfigSchema {
+  mode: 'session' | 'external';
+  loginEnabled: boolean;
+  logoutEnabled: boolean;
+  loginUrl?: string;
+  loginMessage?: string;
 }
 
 export interface AdminAuditOptions {
