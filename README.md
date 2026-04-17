@@ -387,7 +387,12 @@ Resource and extension visibility is role-based.
 
 The permission model uses application-defined role strings. The library does not require fixed role names like `admin`, `editor`, or `viewer`; those are just demo roles.
 
-Today, `AdminRequestUser` has a single `role: string`, so permissions are evaluated against one role per user.
+`AdminRequestUser` supports either:
+
+- `role: string`
+- `roles: string[]`
+
+Internally the admin normalizes users to a primary `role` plus a `roles[]` array, and permission checks match against any of the user’s roles.
 
 If you omit permissions, the library falls back to the configured admin superuser check:
 
@@ -395,16 +400,16 @@ If you omit permissions, the library falls back to the configured admin superuse
 AdminModule.forRoot({
   path: '/admin',
   auth: {
-    isSuperuser: (user) => user.role === 'platform-owner',
+    isSuperuser: (user) => user.roles?.includes('platform-owner') === true,
     authenticate: async ({ email, password }) => {
       // ...
-      return { id: '1', email, role: 'platform-owner' };
+      return { id: '1', email, roles: ['platform-owner', 'ops'] };
     },
   },
 });
 ```
 
-If `auth.isSuperuser` is not provided, the built-in fallback remains `user.role === 'admin'`.
+If `auth.isSuperuser` is not provided, the built-in fallback remains “does the user have the `admin` role?”.
 
 Resources support:
 
@@ -446,7 +451,7 @@ AdminModule.forRoot({
     mode: 'external',
     guards: [AppSessionGuard],
     resolveUser: (request) => {
-      const user = request.user as { id: string; email?: string; role: string } | undefined;
+      const user = request.user as { id: string; email?: string; roles: string[] } | undefined;
       if (!user) {
         return null;
       }
@@ -454,7 +459,7 @@ AdminModule.forRoot({
       return {
         id: String(user.id),
         email: user.email,
-        role: user.role,
+        roles: user.roles,
       };
     },
   },

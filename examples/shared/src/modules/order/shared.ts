@@ -119,7 +119,7 @@ export const orderAdminOptions = {
   readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin', 'editor'],
-    write: ['admin'],
+    write: ['admin', 'editor'],
   },
   schema: adminSchemaFromClassValidator({
     createDto: CreateOrderDto,

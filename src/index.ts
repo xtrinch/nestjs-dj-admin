@@ -38,6 +38,7 @@ export type {
   AdminAuthConfigSchema,
   AdminAuthCookieOptions,
   AdminAuthCredentials,
+  AdminAuthUser,
   AdminExternalAuthOptions,
   AdminAuthOptions,
   AdminAdapterResource,

@@ -44,7 +44,7 @@ describe('AdminAuditService', () => {
     const audit = await service.list(
       { page: 1, pageSize: 20 },
       {
-        user: { id: '2', role: 'editor', email: 'grace@example.com' },
+        user: { id: '2', role: 'editor', roles: ['editor'], email: 'grace@example.com' },
         canReadResource: (resourceName) => resourceName === 'orders',
       },
     );
@@ -97,7 +97,13 @@ describe('AdminAuditService', () => {
     const audit = await service.list(
       { page: 1, pageSize: 20 },
       {
-        user: { id: '1', role: 'platform-owner', email: 'ada@example.com', isSuperuser: true },
+        user: {
+          id: '1',
+          role: 'platform-owner',
+          roles: ['platform-owner'],
+          email: 'ada@example.com',
+          isSuperuser: true,
+        },
         canReadResource: () => true,
       },
     );

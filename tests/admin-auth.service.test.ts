@@ -6,8 +6,8 @@ import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { AdminAuditService } from '../src/admin/services/admin-audit.service.js';
 import { AdminAuthService } from '../src/admin/services/admin-auth.service.js';
 import type {
+  AdminAuthUser,
   AdminModuleOptions,
-  AdminRequestUser,
   AdminSessionRecord,
   AdminSessionStore,
 } from '../src/admin/types/admin.types.js';
@@ -92,7 +92,7 @@ describe('AdminAuthService', () => {
       path: 'admin',
       auth: {
         mode: 'external',
-        isSuperuser: (user) => user.role === 'platform-owner',
+        isSuperuser: (user) => user.roles?.includes('platform-owner') === true,
         resolveUser: (request) => {
           return request.user ?? null;
         },
@@ -112,6 +112,7 @@ describe('AdminAuthService', () => {
     const user = await service.requireUser(request);
     assert.equal(user.email, 'ada@example.com');
     assert.equal(user.isSuperuser, true);
+    assert.deepEqual(user.roles, ['platform-owner']);
     assert.deepEqual(service.getAuthConfig(), {
       mode: 'external',
       loginEnabled: false,
@@ -131,10 +132,10 @@ describe('AdminAuthService', () => {
     const service = createService({
       path: 'admin',
       auth: {
-        isSuperuser: (user) => user.role === 'ops-admin',
+        isSuperuser: (user) => user.roles?.includes('ops-admin') === true,
         authenticate: async () => ({
           id: '1',
-          role: 'ops-admin',
+          roles: ['ops-admin', 'finance'],
           email: 'ada@example.com',
         }),
       },
@@ -145,7 +146,30 @@ describe('AdminAuthService', () => {
     const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
 
     assert.equal(user.isSuperuser, true);
+    assert.equal(user.role, 'ops-admin');
+    assert.deepEqual(user.roles, ['ops-admin', 'finance']);
     assert.equal(request.user?.isSuperuser, true);
+  });
+
+  it('normalizes a user returned with only roles[]', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        authenticate: async () => ({
+          id: '1',
+          roles: ['admin', 'support'],
+          email: 'ada@example.com',
+        }),
+      },
+    });
+
+    const response = createResponse();
+    const request = createRequest({});
+    const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
+
+    assert.equal(user.role, 'admin');
+    assert.deepEqual(user.roles, ['admin', 'support']);
+    assert.equal(user.isSuperuser, true);
   });
 
   it('rejects built-in login when auth is external', async () => {
@@ -181,7 +205,7 @@ function createService(options: AdminModuleOptions): AdminAuthService {
 function createRequest(input: {
   headers?: Record<string, string>;
   secure?: boolean;
-  user?: AdminRequestUser;
+  user?: AdminAuthUser;
 }): Request {
   return {
     user: input.user,

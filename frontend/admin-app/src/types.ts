@@ -19,7 +19,8 @@ export interface ResourceField {
 
 export interface AdminUser {
   id: string;
-  role: string;
+  role?: string;
+  roles?: string[];
   email?: string;
   isSuperuser?: boolean;
 }
@@ -108,6 +109,7 @@ export interface AdminAuditEntry {
   actor: {
     id: string;
     role: string;
+    roles?: string[];
     email?: string;
   };
   summary: string;

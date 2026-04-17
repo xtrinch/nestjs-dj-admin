@@ -7,6 +7,7 @@ import type {
   AdminRequestUser,
   AdminResourceSchema,
 } from '../types/admin.types.js';
+import { describeUserRoles, getUserRoles } from '../utils/user-roles.js';
 import type {
   AdminNavItemSchema,
   AdminPageSchema,
@@ -49,7 +50,7 @@ export class AdminPermissionService {
 
   assertCanReadAuditLog(user: AdminRequestUser, auditLog: AdminAuditOptions | undefined): void {
     if (!this.canReadAuditLog(user, auditLog)) {
-      throw new ForbiddenException(`Missing read permission for audit log for role "${user.role}"`);
+      throw new ForbiddenException(`Missing read permission for audit log for roles "${describeUserRoles(user)}"`);
     }
   }
 
@@ -59,7 +60,7 @@ export class AdminPermissionService {
     permission: 'read' | 'write',
   ): void {
     if (!this.hasPermission(user, roles)) {
-      throw new ForbiddenException(`Missing ${permission} permission for role "${user.role}"`);
+      throw new ForbiddenException(`Missing ${permission} permission for roles "${describeUserRoles(user)}"`);
     }
   }
 
@@ -68,6 +69,7 @@ export class AdminPermissionService {
       return user.isSuperuser === true;
     }
 
-    return roles.includes(user.role);
+    const userRoles = getUserRoles(user);
+    return roles.some((role) => userRoles.includes(role));
   }
 }

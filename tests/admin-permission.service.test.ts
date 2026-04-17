@@ -8,10 +8,22 @@ describe('AdminPermissionService', () => {
   const adminUser: AdminRequestUser = {
     id: '1',
     role: 'platform-owner',
+    roles: ['platform-owner'],
     email: 'ada@example.com',
     isSuperuser: true,
   };
-  const editorUser: AdminRequestUser = { id: '2', role: 'editor', email: 'grace@example.com' };
+  const editorUser: AdminRequestUser = {
+    id: '2',
+    role: 'editor',
+    roles: ['editor'],
+    email: 'grace@example.com',
+  };
+  const multiRoleUser: AdminRequestUser = {
+    id: '3',
+    role: 'support',
+    roles: ['support', 'editor'],
+    email: 'pat@example.com',
+  };
 
   it('defaults omitted resource permissions to admin-only', () => {
     const schema = {
@@ -60,5 +72,31 @@ describe('AdminPermissionService', () => {
       }),
       false,
     );
+  });
+
+  it('matches permissions against any configured user role', () => {
+    const schema = {
+      resourceName: 'orders',
+      label: 'Orders',
+      category: 'Sales',
+      list: [],
+      sortable: [],
+      listDisplayLinks: [],
+      search: [],
+      filters: [],
+      readonly: [],
+      permissions: {
+        read: ['support'],
+        write: ['editor'],
+      },
+      actions: [],
+      bulkActions: [],
+      fields: [],
+      createFields: [],
+      updateFields: [],
+    } satisfies AdminResourceSchema;
+
+    assert.equal(service.canReadResource(multiRoleUser, schema), true);
+    assert.doesNotThrow(() => service.assertCanWrite(multiRoleUser, schema));
   });
 });

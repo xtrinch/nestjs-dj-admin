@@ -137,6 +137,23 @@ describe('external auth demo', { timeout: 120_000 }, () => {
     assert.equal(editorMeta.body.pages.length, 0);
     assert.equal(editorMeta.body.auditLog.enabled, true);
 
+    const editorCreatedOrder = await request(adminBaseUrl, '/orders', {
+      method: 'POST',
+      cookie: editorCookie,
+      body: {
+        number: 'ORD-1004',
+        orderDate: '2026-04-16T09:00:00.000Z',
+        deliveryTime: '10:00',
+        fulfillmentAt: '2026-04-16T10:30:00.000Z',
+        userId: 2,
+        status: 'pending',
+        total: 54.2,
+        internalNote: 'Created by Grace',
+      },
+    });
+    assert.equal(editorCreatedOrder.response.status, 201);
+    assert.equal(editorCreatedOrder.body.number, 'ORD-1004');
+
     const editorAudit = await request(adminBaseUrl, '/_audit?page=1&pageSize=20', {
       cookie: editorCookie,
     });
@@ -152,7 +169,7 @@ describe('external auth demo', { timeout: 120_000 }, () => {
         (entry: { action: string; resourceName?: string; objectLabel?: string }) =>
           entry.action === 'create' &&
           entry.resourceName === 'orders' &&
-          entry.objectLabel === 'ORD-9999',
+          (entry.objectLabel === 'ORD-9999' || entry.objectLabel === 'ORD-1004'),
       ),
     );
     assert.ok(

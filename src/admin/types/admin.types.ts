@@ -16,11 +16,17 @@ import type {
 
 export type PermissionRole = string;
 
-export interface AdminRequestUser {
+export interface AdminAuthUser {
   id: string;
-  role: string;
+  role?: string;
+  roles?: string[];
   email?: string;
   isSuperuser?: boolean;
+}
+
+export interface AdminRequestUser extends AdminAuthUser {
+  role: string;
+  roles: string[];
 }
 
 export interface AdminListQuery {
@@ -61,6 +67,7 @@ export type AdminAuditAction =
 export interface AdminAuditActor {
   id: string;
   role: string;
+  roles?: string[];
   email?: string;
 }
 
@@ -357,13 +364,13 @@ export interface AdminSessionAuthOptions {
   authenticate: (
     credentials: AdminAuthCredentials,
     request: Request,
-  ) => Promise<AdminRequestUser | null>;
+  ) => Promise<AdminAuthUser | null>;
 }
 
 export interface AdminExternalAuthOptions {
   mode: 'external';
   isSuperuser?: (user: AdminRequestUser) => boolean;
-  resolveUser: (request: Request) => Promise<AdminRequestUser | null> | AdminRequestUser | null;
+  resolveUser: (request: Request) => Promise<AdminAuthUser | null> | AdminAuthUser | null;
   guards?: Array<CanActivate | Type<CanActivate>>;
   loginUrl?: string;
   loginMessage?: string;

@@ -12,12 +12,12 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import type { AdminRequestUser } from '#src/admin/types/admin.types.js';
+import type { AdminAuthUser } from '#src/admin/types/admin.types.js';
 import { DEMO_IN_MEMORY_ADMIN_STORE } from '#examples-shared/in-memory-demo-store.js';
 import { verifyPassword } from '../../in-memory-demo-app/src/auth/password.js';
 
 const HOST_SESSION_COOKIE = 'host_demo_session';
-const hostSessions = new Map<string, AdminRequestUser>();
+const hostSessions = new Map<string, AdminAuthUser>();
 
 @Injectable()
 export class HostSessionGuard implements CanActivate {
@@ -171,13 +171,13 @@ export function clearHostSession(request: Request, response: Response): void {
   });
 }
 
-function issueHostSession(user: AdminRequestUser): string {
+function issueHostSession(user: AdminAuthUser): string {
   const sessionId = randomUUID();
   hostSessions.set(sessionId, user);
   return sessionId;
 }
 
-function createDemoUserSession(userKey: string): AdminRequestUser | null {
+function createDemoUserSession(userKey: string): AdminAuthUser | null {
   const email =
     userKey === 'ada'
       ? 'ada@example.com'
@@ -205,7 +205,7 @@ function createDemoUserSession(userKey: string): AdminRequestUser | null {
   };
 }
 
-function authenticateDemoUser(email: string, password: string): AdminRequestUser | null {
+function authenticateDemoUser(email: string, password: string): AdminAuthUser | null {
   const record = DEMO_IN_MEMORY_ADMIN_STORE.users.find(
     (candidate) => String(candidate.email ?? '') === email,
   );
@@ -224,7 +224,7 @@ function authenticateDemoUser(email: string, password: string): AdminRequestUser
   };
 }
 
-function resolveHostSessionUser(request: Request): AdminRequestUser | null {
+function resolveHostSessionUser(request: Request): AdminAuthUser | null {
   const sessionId = readCookie(request, HOST_SESSION_COOKIE);
   if (!sessionId) {
     return null;

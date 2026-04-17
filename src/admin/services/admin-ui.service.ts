@@ -33,9 +33,10 @@ export class AdminUiService implements OnApplicationBootstrap {
     const mountPath = normalizeMountPath(this.options.path);
     const http = this.httpAdapterHost.httpAdapter.getInstance();
     const canonicalMountPath = mountPath === '/' ? '/' : `${mountPath}/`;
+    const exactMountPathPattern = new RegExp(`^${escapeRegex(mountPath)}$`);
 
     http.use(mountPath, express.static(frontendDist, { index: false }));
-    http.get(mountPath, (request: Request, response: Response) => {
+    http.get(exactMountPathPattern, (request: Request, response: Response) => {
       if (mountPath !== '/') {
         const queryIndex = request.originalUrl.indexOf('?');
         const query = queryIndex >= 0 ? request.originalUrl.slice(queryIndex) : '';
@@ -59,6 +60,10 @@ function normalizeMountPath(path: string): string {
   }
 
   return path.replace(/\/+$/, '') || '/';
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function resolveAdminUiDist(): string | null {

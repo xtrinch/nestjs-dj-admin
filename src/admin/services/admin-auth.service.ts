@@ -12,7 +12,9 @@ import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-hos
 import type { CookieOptions, Request, Response } from 'express';
 import { ADMIN_OPTIONS } from '../admin.constants.js';
 import { AdminAuditService } from './admin-audit.service.js';
+import { getPrimaryUserRole, getUserRoles } from '../utils/user-roles.js';
 import type {
+  AdminAuthUser,
   AdminAuthConfigSchema,
   AdminAuthCredentials,
   AdminBrandingSchema,
@@ -147,7 +149,7 @@ export class AdminAuthService {
       request.user = this.normalizeUser(record.user);
     }
 
-    return request.user ?? null;
+    return request.user ? this.normalizeUser(request.user) : null;
   }
 
   async requireUser(request: Request): Promise<AdminRequestUser> {
@@ -261,15 +263,27 @@ export class AdminAuthService {
     return this.options.auth;
   }
 
-  private normalizeUser(user: AdminRequestUser): AdminRequestUser {
-    return {
+  private normalizeUser(user: AdminAuthUser): AdminRequestUser {
+    const roles = getUserRoles(user);
+    const role = getPrimaryUserRole(user);
+    if (!role) {
+      throw new UnauthorizedException('Resolved admin user must include at least one role');
+    }
+
+    const normalizedUser: AdminRequestUser = {
       ...user,
-      isSuperuser: user.isSuperuser ?? this.isSuperuser(user),
+      role,
+      roles,
+    };
+
+    return {
+      ...normalizedUser,
+      isSuperuser: normalizedUser.isSuperuser ?? this.isSuperuser(normalizedUser),
     };
   }
 
   private isSuperuser(user: AdminRequestUser): boolean {
-    return this.options.auth?.isSuperuser?.(user) ?? user.role === 'admin';
+    return this.options.auth?.isSuperuser?.(user) ?? getUserRoles(user).includes('admin');
   }
 
   private async runExternalGuards(request: Request): Promise<void> {
