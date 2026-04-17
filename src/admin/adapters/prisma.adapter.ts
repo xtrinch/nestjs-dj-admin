@@ -156,6 +156,31 @@ export class PrismaAdminAdapter implements AdminAdapter {
         continue;
       }
 
+      const relationField = resource.fields.find((candidate) => candidate.name === field);
+      if (relationField?.relation?.kind === 'many-to-many') {
+        const valueField = relationField.relation.option.valueField ?? 'id';
+        clauses.push(
+          Array.isArray(value)
+            ? {
+                [field]: {
+                  some: {
+                    [valueField]: {
+                      in: value.map((entry) => coerceId(String(entry))),
+                    },
+                  },
+                },
+              }
+            : {
+                [field]: {
+                  some: {
+                    [valueField]: coerceId(String(value)),
+                  },
+                },
+              },
+        );
+        continue;
+      }
+
       clauses.push(
         Array.isArray(value)
           ? {

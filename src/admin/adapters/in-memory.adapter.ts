@@ -212,10 +212,21 @@ function matchesFilters(
     }
 
     if (Array.isArray(value)) {
-      return value.includes(String(row[field] ?? ''));
+      const rowValue = row[field];
+      if (Array.isArray(rowValue)) {
+        const rowIds = rowValue.map(String);
+        return value.some((entry) => rowIds.includes(String(entry)));
+      }
+
+      return value.includes(String(rowValue ?? ''));
     }
 
-    return String(row[field] ?? '') === value;
+    const rowValue = row[field];
+    if (Array.isArray(rowValue)) {
+      return rowValue.map(String).includes(String(value));
+    }
+
+    return String(rowValue ?? '') === value;
   });
 }
 

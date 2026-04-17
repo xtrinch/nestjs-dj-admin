@@ -37,6 +37,31 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
         continue;
       }
 
+      const relationField = resource.fields.find((candidate) => candidate.name === field);
+      if (relationField?.relation?.kind === 'many-to-many') {
+        const relation = repository.metadata.findRelationWithPropertyPath(field);
+        if (!relation) {
+          continue;
+        }
+
+        const relationAlias = `${field}_filter`;
+        const alreadyJoined = builder.expressionMap.joinAttributes.some(
+          (join) => join.alias.name === relationAlias,
+        );
+        if (!alreadyJoined) {
+          builder.innerJoin(`${alias}.${relation.propertyPath}`, relationAlias);
+        }
+
+        const valueField = relationField.relation.option.valueField ?? 'id';
+        builder.distinct(true);
+        if (Array.isArray(value)) {
+          builder.andWhere(`${relationAlias}.${valueField} IN (:...${field})`, { [field]: value });
+        } else {
+          builder.andWhere(`${relationAlias}.${valueField} = :${field}`, { [field]: value });
+        }
+        continue;
+      }
+
       if (Array.isArray(value)) {
         builder.andWhere(`${alias}.${field} IN (:...${field})`, { [field]: value });
       } else {

@@ -170,6 +170,27 @@ export class MikroOrmAdminAdapter implements AdminAdapter {
         continue;
       }
 
+      const relationField = resource.fields.find((candidate) => candidate.name === field);
+      if (relationField?.relation?.kind === 'many-to-many') {
+        const valueField = relationField.relation.option.valueField ?? 'id';
+        clauses.push(
+          Array.isArray(value)
+            ? {
+                [field]: {
+                  [valueField]: {
+                    $in: value,
+                  },
+                },
+              }
+            : {
+                [field]: {
+                  [valueField]: value,
+                },
+              },
+        );
+        continue;
+      }
+
       clauses.push(
         Array.isArray(value)
           ? {
