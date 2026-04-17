@@ -349,8 +349,9 @@ Module({
 
           return {
             id: String(user.id),
-            roles: [String(user.role)],
+            permissions: [],
             email: String(user.email),
+            isSuperuser: true,
           };
         },
       },

@@ -67,7 +67,7 @@ export type {
   AdminSoftDeleteSchema,
   AdminWriteTransform,
   AdminWriteTransformContext,
-  PermissionRole,
+  AdminPermissionKey,
 } from './admin/types/admin.types.js';
 
 export type {

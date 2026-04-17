@@ -20,8 +20,9 @@ describe('AdminAuthService', () => {
       auth: {
         authenticate: async () => ({
           id: '1',
-          roles: ['admin'],
+          permissions: [],
           email: 'ada@example.com',
+          isSuperuser: true,
         }),
         sessionStore: store,
         cookie: {
@@ -60,8 +61,9 @@ describe('AdminAuthService', () => {
     store.records.set('expired-session', {
       user: {
         id: '1',
-        roles: ['admin'],
+        permissions: [],
         email: 'ada@example.com',
+        isSuperuser: true,
       },
       expiresAt: Date.now() - 1000,
     });
@@ -92,7 +94,6 @@ describe('AdminAuthService', () => {
       path: 'admin',
       auth: {
         mode: 'external',
-        isSuperuser: (user) => user.roles?.includes('platform-owner') === true,
         resolveUser: (request) => {
           return request.user ?? null;
         },
@@ -105,14 +106,15 @@ describe('AdminAuthService', () => {
       user: {
         id: '1',
         email: 'ada@example.com',
-        roles: ['platform-owner'],
+        permissions: [],
+        isSuperuser: true,
       },
     });
 
     const user = await service.requireUser(request);
     assert.equal(user.email, 'ada@example.com');
     assert.equal(user.isSuperuser, true);
-    assert.deepEqual(user.roles, ['platform-owner']);
+    assert.deepEqual(user.permissions, []);
     assert.deepEqual(service.getAuthConfig(), {
       mode: 'external',
       loginEnabled: false,
@@ -132,11 +134,11 @@ describe('AdminAuthService', () => {
     const service = createService({
       path: 'admin',
       auth: {
-        isSuperuser: (user) => user.roles?.includes('ops-admin') === true,
         authenticate: async () => ({
           id: '1',
-          roles: ['ops-admin', 'finance'],
+          permissions: ['billing.view'],
           email: 'ada@example.com',
+          isSuperuser: true,
         }),
       },
     });
@@ -146,17 +148,17 @@ describe('AdminAuthService', () => {
     const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
 
     assert.equal(user.isSuperuser, true);
-    assert.deepEqual(user.roles, ['ops-admin', 'finance']);
+    assert.deepEqual(user.permissions, ['billing.view']);
     assert.equal(request.user?.isSuperuser, true);
   });
 
-  it('normalizes a user returned with only roles[]', async () => {
+  it('defaults isSuperuser to false when omitted', async () => {
     const service = createService({
       path: 'admin',
       auth: {
         authenticate: async () => ({
           id: '1',
-          roles: ['admin', 'support'],
+          permissions: ['support.access'],
           email: 'ada@example.com',
         }),
       },
@@ -166,8 +168,8 @@ describe('AdminAuthService', () => {
     const request = createRequest({});
     const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
 
-    assert.deepEqual(user.roles, ['admin', 'support']);
-    assert.equal(user.isSuperuser, true);
+    assert.deepEqual(user.permissions, ['support.access']);
+    assert.equal(user.isSuperuser, false);
   });
 
   it('rejects built-in login when auth is external', async () => {

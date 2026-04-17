@@ -7,7 +7,7 @@ import type {
   AdminRequestUser,
   AdminResourceSchema,
 } from '../types/admin.types.js';
-import { describeUserRoles, getUserRoles } from '../utils/user-roles.js';
+import { describeUserPermissions, getUserPermissions } from '../utils/user-permissions.js';
 import type {
   AdminNavItemSchema,
   AdminPageSchema,
@@ -45,31 +45,31 @@ export class AdminPermissionService {
       return false;
     }
 
-    return this.hasPermission(user, auditLog.permissions?.read ?? ['admin']);
+    return this.hasPermission(user, auditLog.permissions?.read);
   }
 
   assertCanReadAuditLog(user: AdminRequestUser, auditLog: AdminAuditOptions | undefined): void {
     if (!this.canReadAuditLog(user, auditLog)) {
-      throw new ForbiddenException(`Missing read permission for audit log for roles "${describeUserRoles(user)}"`);
+      throw new ForbiddenException(`Missing read permission for audit log for permissions "${describeUserPermissions(user)}"`);
     }
   }
 
   private assertPermission(
     user: AdminRequestUser,
-    roles: string[] | undefined,
+    permissions: string[] | undefined,
     permission: 'read' | 'write',
   ): void {
-    if (!this.hasPermission(user, roles)) {
-      throw new ForbiddenException(`Missing ${permission} permission for roles "${describeUserRoles(user)}"`);
+    if (!this.hasPermission(user, permissions)) {
+      throw new ForbiddenException(`Missing ${permission} permission for permissions "${describeUserPermissions(user)}"`);
     }
   }
 
-  private hasPermission(user: AdminRequestUser, roles: string[] | undefined): boolean {
-    if (!roles || roles.length === 0) {
+  private hasPermission(user: AdminRequestUser, permissions: string[] | undefined): boolean {
+    if (!permissions || permissions.length === 0) {
       return user.isSuperuser === true;
     }
 
-    const userRoles = getUserRoles(user);
-    return roles.some((role) => userRoles.includes(role));
+    const userPermissions = getUserPermissions(user);
+    return permissions.some((permission) => userPermissions.includes(permission));
   }
 }

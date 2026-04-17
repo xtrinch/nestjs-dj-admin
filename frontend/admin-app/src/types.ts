@@ -19,7 +19,7 @@ export interface ResourceField {
 
 export interface AdminUser {
   id: string;
-  roles: string[];
+  permissions: string[];
   email?: string;
   isSuperuser?: boolean;
 }
@@ -107,7 +107,7 @@ export interface AdminAuditEntry {
   action: AdminAuditAction;
   actor: {
     id: string;
-    roles: string[];
+    permissions: string[];
     email?: string;
   };
   summary: string;

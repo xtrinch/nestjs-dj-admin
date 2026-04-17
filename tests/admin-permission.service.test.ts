@@ -7,22 +7,22 @@ describe('AdminPermissionService', () => {
   const service = new AdminPermissionService();
   const adminUser: AdminRequestUser = {
     id: '1',
-    roles: ['platform-owner'],
+    permissions: [],
     email: 'ada@example.com',
     isSuperuser: true,
   };
   const editorUser: AdminRequestUser = {
     id: '2',
-    roles: ['editor'],
+    permissions: ['orders.manage'],
     email: 'grace@example.com',
   };
   const multiRoleUser: AdminRequestUser = {
     id: '3',
-    roles: ['support', 'editor'],
+    permissions: ['support.access', 'orders.manage'],
     email: 'pat@example.com',
   };
 
-  it('defaults omitted resource permissions to admin-only', () => {
+  it('defaults omitted resource permissions to superuser-only', () => {
     const schema = {
       resourceName: 'orders',
       label: 'Orders',
@@ -46,7 +46,7 @@ describe('AdminPermissionService', () => {
     assert.throws(() => service.assertCanWrite(editorUser, schema));
   });
 
-  it('defaults omitted extension permissions to admin-only', () => {
+  it('defaults omitted extension permissions to superuser-only', () => {
     assert.equal(
       service.canReadPage(adminUser, {
         slug: 'monitoring',
@@ -71,7 +71,7 @@ describe('AdminPermissionService', () => {
     );
   });
 
-  it('matches permissions against any configured user role', () => {
+  it('matches permissions against any configured user permission', () => {
     const schema = {
       resourceName: 'orders',
       label: 'Orders',
@@ -83,8 +83,8 @@ describe('AdminPermissionService', () => {
       filters: [],
       readonly: [],
       permissions: {
-        read: ['support'],
-        write: ['editor'],
+        read: ['support.access'],
+        write: ['orders.manage'],
       },
       actions: [],
       bulkActions: [],

@@ -12,7 +12,7 @@ import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-hos
 import type { CookieOptions, Request, Response } from 'express';
 import { ADMIN_OPTIONS } from '../admin.constants.js';
 import { AdminAuditService } from './admin-audit.service.js';
-import { getUserRoles } from '../utils/user-roles.js';
+import { getUserPermissions } from '../utils/user-permissions.js';
 import type {
   AdminAuthConfigSchema,
   AdminAuthCredentials,
@@ -263,26 +263,22 @@ export class AdminAuthService {
   }
 
   private normalizeUser(
-    user: { id: string; roles?: string[]; email?: string; isSuperuser?: boolean },
+    user: { id: string; permissions?: string[]; email?: string; isSuperuser?: boolean },
   ): AdminRequestUser {
-    const roles = getUserRoles(user);
-    if (roles.length === 0) {
-      throw new UnauthorizedException('Resolved admin user must include at least one role');
+    const permissions = getUserPermissions(user);
+    if (user.permissions == null) {
+      throw new UnauthorizedException('Resolved admin user must include a permissions array');
     }
 
     const normalizedUser: AdminRequestUser = {
       ...user,
-      roles,
+      permissions,
     };
 
     return {
       ...normalizedUser,
-      isSuperuser: normalizedUser.isSuperuser ?? this.isSuperuser(normalizedUser),
+      isSuperuser: normalizedUser.isSuperuser ?? false,
     };
-  }
-
-  private isSuperuser(user: AdminRequestUser): boolean {
-    return this.options.auth?.isSuperuser?.(user) ?? getUserRoles(user).includes('admin');
   }
 
   private async runExternalGuards(request: Request): Promise<void> {

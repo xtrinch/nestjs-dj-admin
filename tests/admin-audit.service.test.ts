@@ -14,12 +14,12 @@ describe('AdminAuditService', () => {
 
     await service.record({
       action: 'login',
-      actor: { id: '1', roles: ['admin'], email: 'ada@example.com' },
+      actor: { id: '1', permissions: [], email: 'ada@example.com' },
       summary: 'ada@example.com logged in',
     });
     await service.record({
       action: 'create',
-      actor: { id: '1', roles: ['admin'], email: 'ada@example.com' },
+      actor: { id: '1', permissions: [], email: 'ada@example.com' },
       summary: 'Ada created order ORD-9999',
       resourceName: 'orders',
       resourceLabel: 'Orders',
@@ -28,7 +28,7 @@ describe('AdminAuditService', () => {
     });
     await service.record({
       action: 'create',
-      actor: { id: '1', roles: ['admin'], email: 'ada@example.com' },
+      actor: { id: '1', permissions: [], email: 'ada@example.com' },
       summary: 'Ada created category Hidden from editors',
       resourceName: 'categories',
       resourceLabel: 'Categories',
@@ -37,14 +37,18 @@ describe('AdminAuditService', () => {
     });
     await service.record({
       action: 'login',
-      actor: { id: '2', roles: ['editor'], email: 'grace@example.com' },
+      actor: { id: '2', permissions: ['orders.manage'], email: 'grace@example.com' },
       summary: 'grace@example.com logged in',
     });
 
     const audit = await service.list(
       { page: 1, pageSize: 20 },
       {
-        user: { id: '2', roles: ['editor'], email: 'grace@example.com' },
+        user: {
+          id: '2',
+          permissions: ['orders.manage'],
+          email: 'grace@example.com',
+        },
         canReadResource: (resourceName) => resourceName === 'orders',
       },
     );
@@ -85,12 +89,12 @@ describe('AdminAuditService', () => {
 
     await service.record({
       action: 'login',
-      actor: { id: '1', roles: ['admin'], email: 'ada@example.com' },
+      actor: { id: '1', permissions: [], email: 'ada@example.com' },
       summary: 'ada@example.com logged in',
     });
     await service.record({
       action: 'login',
-      actor: { id: '2', roles: ['editor'], email: 'grace@example.com' },
+      actor: { id: '2', permissions: ['orders.manage'], email: 'grace@example.com' },
       summary: 'grace@example.com logged in',
     });
 
@@ -99,7 +103,7 @@ describe('AdminAuditService', () => {
       {
         user: {
           id: '1',
-          roles: ['platform-owner'],
+          permissions: [],
           email: 'ada@example.com',
           isSuperuser: true,
         },

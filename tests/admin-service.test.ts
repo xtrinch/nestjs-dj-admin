@@ -124,6 +124,7 @@ describe('AdminService write error mapping', () => {
 
 const adminUser: AdminRequestUser = {
   id: '1',
-  roles: ['admin'],
+  permissions: [],
   email: 'ada@example.com',
+  isSuperuser: true,
 };

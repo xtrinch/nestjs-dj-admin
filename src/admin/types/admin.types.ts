@@ -14,11 +14,11 @@ import type {
   DjAdminExtension,
 } from '../../extension-api/types.js';
 
-export type PermissionRole = string;
+export type AdminPermissionKey = string;
 
 export interface AdminAuthUser {
   id: string;
-  roles: string[];
+  permissions: string[];
   email?: string;
   isSuperuser?: boolean;
 }
@@ -62,7 +62,7 @@ export type AdminAuditAction =
 
 export interface AdminAuditActor {
   id: string;
-  roles: string[];
+  permissions: string[];
   email?: string;
 }
 
@@ -264,8 +264,8 @@ export interface AdminBulkAction<TModel extends AdminEntity = AdminEntity> {
 }
 
 export interface AdminPermissions {
-  read?: PermissionRole[];
-  write?: PermissionRole[];
+  read?: AdminPermissionKey[];
+  write?: AdminPermissionKey[];
 }
 
 export interface AdminSoftDeleteOptions {
@@ -355,7 +355,6 @@ export interface AdminSessionAuthOptions {
   sessionTtlMs?: number;
   sessionStore?: AdminSessionStore;
   cookie?: AdminAuthCookieOptions;
-  isSuperuser?: (user: AdminRequestUser) => boolean;
   authenticate: (
     credentials: AdminAuthCredentials,
     request: Request,
@@ -364,7 +363,6 @@ export interface AdminSessionAuthOptions {
 
 export interface AdminExternalAuthOptions {
   mode: 'external';
-  isSuperuser?: (user: AdminRequestUser) => boolean;
   resolveUser: (request: Request) => Promise<AdminAuthUser | null> | AdminAuthUser | null;
   guards?: Array<CanActivate | Type<CanActivate>>;
   loginUrl?: string;

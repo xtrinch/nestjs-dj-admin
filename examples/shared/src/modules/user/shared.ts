@@ -99,10 +99,6 @@ export const userAdminOptions = {
   search: ['email', 'phone', 'profileUrl'],
   filters: ['role', 'active'],
   readonly: ['createdAt', 'updatedAt'],
-  permissions: {
-    read: ['admin'],
-    write: ['admin'],
-  },
   schema: adminSchemaFromClassValidator({
     createDto: CreateUserDto,
     updateDto: UpdateUserDto,

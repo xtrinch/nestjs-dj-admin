@@ -326,8 +326,9 @@ AdminModule.forRoot({
 
       return {
         id: String(user.id),
-        roles: [user.role],
+        permissions: ['orders.manage', 'audit.read'],
         email: user.email,
+        isSuperuser: user.role === 'admin',
       };
     },
   },
@@ -383,37 +384,48 @@ See:
 
 ## Permissions
 
-Resource and extension visibility is role-based.
+Resource and extension visibility is permission-based.
 
-The permission model uses application-defined role strings. The library does not require fixed role names like `admin`, `editor`, or `viewer`; those are just demo roles.
+The library user contract is:
 
-The library user contract is `roles: string[]`.
+```ts
+type AdminAuthUser = {
+  id: string;
+  permissions: string[];
+  email?: string;
+  isSuperuser?: boolean;
+};
+```
 
-If your app stores a single role, map it at the auth boundary:
+If your app stores a single role, map it at the auth boundary into the permissions your admin needs, and set `isSuperuser` explicitly when appropriate.
 
-If you omit permissions, the library falls back to the configured admin superuser check:
+The library does not derive `isSuperuser` for you. Your app decides that in `authenticate(...)` or `resolveUser(...)`.
+
+If you omit resource or extension permissions, the library falls back to superuser-only access:
 
 ```ts
 AdminModule.forRoot({
   path: '/admin',
   auth: {
-    isSuperuser: (user) => user.roles?.includes('platform-owner') === true,
     authenticate: async ({ email, password }) => {
       // ...
-      return { id: '1', email, roles: ['platform-owner', 'ops'] };
+      return {
+        id: '1',
+        email,
+        permissions: [],
+        isSuperuser: true,
+      };
     },
   },
 });
 ```
-
-If `auth.isSuperuser` is not provided, the built-in fallback remains “does the user have the `admin` role?”.
 
 Resources support:
 
 - `permissions.read`
 - `permissions.write`
 
-If permissions are omitted, both read and write default to “superuser only” via `auth.isSuperuser(...)`.
+If permissions are omitted, both read and write default to superuser-only.
 
 Example:
 
@@ -422,8 +434,8 @@ Example:
   model: Order,
   resourceName: 'orders',
   permissions: {
-    read: ['ops', 'support'],
-    write: ['ops'],
+    read: ['sales.manage'],
+    write: ['sales.manage'],
   },
   // ...
 })
@@ -435,9 +447,16 @@ Behavior:
 - users with `read` but not `write` access can still open the resource, but the UI falls back to a read-only view
 - create, update, delete, password-change, and custom write actions are still enforced by the backend even if the UI is bypassed
 
-Custom pages, nav items, and dashboard widgets use the same role-string pattern through their own `permissions.read` fields.
+Custom pages, nav items, and dashboard widgets use the same permission-key pattern through their own `permissions.read` fields.
 
 If page/nav/widget permissions are omitted, they also default to “superuser only”.
+
+Typical shapes:
+
+- `orders.manage`
+- `catalog.manage`
+- `users.manage`
+- `audit.read`
 
 External auth integrations typically map the host app principal into the admin user shape in `resolveUser(...)`:
 
@@ -448,7 +467,7 @@ AdminModule.forRoot({
     mode: 'external',
     guards: [AppSessionGuard],
     resolveUser: (request) => {
-      const user = request.user as { id: string; email?: string; roles: string[] } | undefined;
+      const user = request.user as { id: string; email?: string; role: string } | undefined;
       if (!user) {
         return null;
       }
@@ -456,7 +475,8 @@ AdminModule.forRoot({
       return {
         id: String(user.id),
         email: user.email,
-        roles: user.roles,
+        permissions: user.role === 'editor' ? ['orders.manage', 'audit.read'] : [],
+        isSuperuser: user.role === 'admin',
       };
     },
   },
@@ -502,7 +522,7 @@ AdminModule.forRoot({
   auditLog: {
     enabled: true,
     permissions: {
-      read: ['ops', 'compliance'],
+      read: ['audit.read'],
     },
   },
 });
@@ -640,7 +660,12 @@ AdminModule.forRoot({
       }
 
       return passwords.verify(password, user.passwordHash)
-        ? { id: String(user.id), roles: [user.role], email: user.email }
+        ? {
+            id: String(user.id),
+            permissions: [],
+            email: user.email,
+            isSuperuser: user.role === 'admin',
+          }
         : null;
     },
     sessionStore: redisAdminSessionStore,
@@ -1146,7 +1171,7 @@ AdminModule.forRoot({
 
 - `auditLog.maxEntries` controls retention
 - `auditLog.store` lets the host app provide a durable sink
-- `auditLog.permissions.read` controls which roles can access the audit log UI and endpoint
+- `auditLog.permissions.read` controls which permission keys can access the audit log UI and endpoint
 
 Concrete production-style pattern:
 
@@ -1182,7 +1207,7 @@ class PrismaAdminAuditStore implements AdminAuditStore {
         timestamp: new Date(entry.timestamp),
         action: entry.action,
         actorId: entry.actor.id,
-        actorRole: entry.actor.roles[0] ?? '',
+        actorRole: entry.actor.permissions[0] ?? '',
         actorEmail: entry.actor.email ?? null,
         summary: entry.summary,
         resourceName: entry.resourceName ?? null,

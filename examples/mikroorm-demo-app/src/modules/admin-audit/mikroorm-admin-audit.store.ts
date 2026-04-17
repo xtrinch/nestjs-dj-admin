@@ -14,7 +14,7 @@ export class MikroOrmAdminAuditStore implements AdminAuditStore {
       timestamp: new Date(entry.timestamp),
       action: entry.action,
       actorId: entry.actor.id,
-      actorRole: entry.actor.roles[0] ?? '',
+      actorRole: entry.actor.permissions[0] ?? '',
       actorEmail: entry.actor.email ?? null,
       summary: entry.summary,
       resourceName: entry.resourceName ?? null,
@@ -55,7 +55,7 @@ export class MikroOrmAdminAuditStore implements AdminAuditStore {
         action: row.action as AdminAuditEntry['action'],
         actor: {
           id: row.actorId,
-          roles: [row.actorRole],
+          permissions: [row.actorRole],
           email: row.actorEmail ?? undefined,
         },
         summary: row.summary,

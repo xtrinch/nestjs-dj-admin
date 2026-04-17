@@ -1,19 +1,19 @@
 import type { AdminUser, ResourceSchema } from './types.js';
 
-function getUserRoles(user: AdminUser): string[] {
-  const normalizedRoles = (user.roles ?? []).filter(
-    (role): role is string => Boolean(role),
+function getUserPermissions(user: AdminUser): string[] {
+  const normalizedPermissions = (user.permissions ?? []).filter(
+    (permission): permission is string => Boolean(permission),
   );
 
-  return Array.from(new Set(normalizedRoles));
+  return Array.from(new Set(normalizedPermissions));
 }
 
 export function canWriteResource(resource: ResourceSchema, user: AdminUser): boolean {
-  const allowedRoles = resource.permissions?.write;
-  if (!allowedRoles || allowedRoles.length === 0) {
+  const allowedPermissions = resource.permissions?.write;
+  if (!allowedPermissions || allowedPermissions.length === 0) {
     return user.isSuperuser === true;
   }
 
-  const userRoles = getUserRoles(user);
-  return allowedRoles.some((role) => userRoles.includes(role));
+  const userPermissions = getUserPermissions(user);
+  return allowedPermissions.some((permission) => userPermissions.includes(permission));
 }

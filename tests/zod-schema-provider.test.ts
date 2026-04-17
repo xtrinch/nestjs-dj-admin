@@ -186,6 +186,7 @@ describe('adminSchemaFromZod', () => {
 
 const adminUser: AdminRequestUser = {
   id: '1',
-  roles: ['admin'],
+  permissions: [],
   email: 'ada@example.com',
+  isSuperuser: true,
 };

@@ -90,10 +90,6 @@ export const orderDetailAdminOptions = {
   search: [],
   filters: ['orderId', 'productId'],
   readonly: ['createdAt', 'updatedAt'],
-  permissions: {
-    read: ['admin'],
-    write: ['admin'],
-  },
   schema: adminSchemaFromClassValidator({
     createDto: CreateOrderDetailDto,
     updateDto: UpdateOrderDetailDto,

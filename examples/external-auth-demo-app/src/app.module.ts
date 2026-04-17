@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InMemoryAdminAdapter } from '#src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { DEMO_PERMISSIONS } from '#examples-shared/admin-permissions.js';
 import { DEMO_IN_MEMORY_ADMIN_STORE } from '#examples-shared/in-memory-demo-store.js';
 import { CategoryModule } from '../../in-memory-demo-app/src/modules/category/category.module.js';
 import { OrderDetailModule } from '../../in-memory-demo-app/src/modules/order-detail/order-detail.module.js';
@@ -48,21 +49,21 @@ const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externa
       auditLog: {
         enabled: true,
         permissions: {
-          read: ['admin', 'editor'],
+          read: [DEMO_PERMISSIONS.audit.read],
         },
       },
       auth: {
         mode: 'external',
         guards: [HostSessionGuard, AdminAccessGuard],
         resolveUser: (request) => {
-          if (!request.user?.roles || request.user.roles.length === 0) {
+          if (!request.user?.permissions) {
             return null;
           }
 
           return {
             id: request.user.id,
             email: request.user.email,
-            roles: request.user.roles,
+            permissions: request.user.permissions,
             isSuperuser: request.user.isSuperuser,
           };
         },

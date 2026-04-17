@@ -98,10 +98,6 @@ export const productAdminOptions = {
   search: ['sku', 'name'],
   filters: ['discontinued'],
   readonly: ['createdAt', 'updatedAt', 'deletedAt'],
-  permissions: {
-    read: ['admin'],
-    write: ['admin'],
-  },
   softDelete: {},
   schema: adminSchemaFromClassValidator({
     createDto: CreateProductDto,

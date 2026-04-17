@@ -33,10 +33,6 @@ export const categoryAdminOptions = {
   search: ['name', 'description'],
   filters: ['name'],
   readonly: ['createdAt', 'updatedAt'],
-  permissions: {
-    read: ['admin'],
-    write: ['admin'],
-  },
   schema: adminSchemaFromClassValidator({
     createDto: CreateCategoryDto,
     updateDto: UpdateCategoryDto,

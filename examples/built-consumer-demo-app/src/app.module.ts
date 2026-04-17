@@ -138,8 +138,9 @@ class BuiltConsumerUserAdmin {}
 
           return {
             id: '1',
-            roles: ['admin'],
+            permissions: [],
             email,
+            isSuperuser: true,
           };
         },
       },

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InMemoryAdminAdapter } from '#src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { permissionsForDemoRole } from '#examples-shared/admin-permissions.js';
 import { DEMO_IN_MEMORY_ADMIN_STORE } from '#examples-shared/in-memory-demo-store.js';
 import { verifyPassword } from './auth/password.js';
 import { CategoryModule } from './modules/category/category.module.js';
@@ -61,8 +62,9 @@ import { UserModule } from './modules/user/user.module.js';
 
           return {
             id: String(user.id),
-            roles: [String(user.role)],
+            permissions: permissionsForDemoRole(String(user.role)),
             email: String(user.email),
+            isSuperuser: String(user.role) === 'admin',
           };
         },
       },

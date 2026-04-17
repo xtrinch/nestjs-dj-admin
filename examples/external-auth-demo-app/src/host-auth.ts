@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { AdminAuthUser } from '#src/admin/types/admin.types.js';
+import { permissionsForDemoRole } from '#examples-shared/admin-permissions.js';
 import { DEMO_IN_MEMORY_ADMIN_STORE } from '#examples-shared/in-memory-demo-store.js';
 import { verifyPassword } from '../../in-memory-demo-app/src/auth/password.js';
 
@@ -37,7 +38,7 @@ export class HostSessionGuard implements CanActivate {
 export class AdminAccessGuard implements CanActivate {
   canActivate(context: Parameters<CanActivate['canActivate']>[0]): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    return !request.user?.roles?.includes('viewer');
+    return request.user?.isSuperuser === true || (request.user?.permissions?.length ?? 0) > 0;
   }
 }
 
@@ -200,8 +201,9 @@ function createDemoUserSession(userKey: string): AdminAuthUser | null {
 
   return {
     id: String(record.id),
-    roles: [String(record.role)],
+    permissions: permissionsForDemoRole(String(record.role)),
     email: String(record.email),
+    isSuperuser: String(record.role) === 'admin',
   };
 }
 
@@ -219,8 +221,9 @@ function authenticateDemoUser(email: string, password: string): AdminAuthUser | 
 
   return {
     id: String(record.id),
-    roles: [String(record.role)],
+    permissions: permissionsForDemoRole(String(record.role)),
     email: String(record.email),
+    isSuperuser: String(record.role) === 'admin',
   };
 }
 
