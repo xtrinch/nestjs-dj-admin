@@ -1,5 +1,12 @@
-import type { Provider, Type } from '@nestjs/common';
-import type { Request } from 'express';
+import type {
+  CanActivate,
+  ClassProvider,
+  ExistingProvider,
+  FactoryProvider,
+  Type,
+  ValueProvider,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import type {
   AdminPageSchema,
   AdminNavItemSchema,
@@ -7,13 +14,16 @@ import type {
   DjAdminExtension,
 } from '../../extension-api/types.js';
 
-export type PermissionRole = string;
+export type AdminPermissionKey = string;
 
-export interface AdminRequestUser {
+export interface AdminAuthUser {
   id: string;
-  role: string;
+  permissions: string[];
   email?: string;
+  isSuperuser?: boolean;
 }
+
+export type AdminRequestUser = AdminAuthUser;
 
 export interface AdminListQuery {
   page: number;
@@ -52,7 +62,7 @@ export type AdminAuditAction =
 
 export interface AdminAuditActor {
   id: string;
-  role: string;
+  permissions: string[];
   email?: string;
 }
 
@@ -254,8 +264,8 @@ export interface AdminBulkAction<TModel extends AdminEntity = AdminEntity> {
 }
 
 export interface AdminPermissions {
-  read?: PermissionRole[];
-  write?: PermissionRole[];
+  read?: AdminPermissionKey[];
+  write?: AdminPermissionKey[];
 }
 
 export interface AdminSoftDeleteOptions {
@@ -298,13 +308,20 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
 
 export interface AdminModuleOptions {
   path: string;
-  adapter?: Type<AdminAdapter> | Provider<AdminAdapter>;
+  adapter?: AdminAdapterProvider;
   auth?: AdminAuthOptions;
   display?: AdminDisplayOptions;
   branding?: AdminBrandingOptions;
   auditLog?: AdminAuditOptions;
   extensions?: DjAdminExtension[];
 }
+
+export type AdminAdapterProvider =
+  | Type<AdminAdapter>
+  | Omit<ClassProvider<AdminAdapter>, 'provide'>
+  | Omit<ExistingProvider<AdminAdapter>, 'provide'>
+  | Omit<FactoryProvider<AdminAdapter>, 'provide'>
+  | Omit<ValueProvider<AdminAdapter>, 'provide'>;
 
 export interface AdminAuthCredentials {
   email: string;
@@ -331,7 +348,8 @@ export interface AdminAuthCookieOptions {
   domain?: string;
 }
 
-export interface AdminAuthOptions {
+export interface AdminSessionAuthOptions {
+  mode?: 'session';
   cookieName?: string;
   rememberMeMaxAgeMs?: number;
   sessionTtlMs?: number;
@@ -340,7 +358,27 @@ export interface AdminAuthOptions {
   authenticate: (
     credentials: AdminAuthCredentials,
     request: Request,
-  ) => Promise<AdminRequestUser | null>;
+  ) => Promise<AdminAuthUser | null>;
+}
+
+export interface AdminExternalAuthOptions {
+  mode: 'external';
+  resolveUser: (request: Request) => Promise<AdminAuthUser | null> | AdminAuthUser | null;
+  guards?: Array<CanActivate | Type<CanActivate>>;
+  loginUrl?: string;
+  loginMessage?: string;
+  logout?: (request: Request, response: Response) => Promise<void> | void;
+}
+
+export type AdminAuthOptions = AdminSessionAuthOptions | AdminExternalAuthOptions;
+
+export interface AdminAuthConfigSchema {
+  mode: 'session' | 'external';
+  loginEnabled: boolean;
+  logoutEnabled: boolean;
+  loginUrl?: string;
+  loginMessage?: string;
+  branding: AdminBrandingSchema;
 }
 
 export interface AdminAuditOptions {
@@ -348,6 +386,7 @@ export interface AdminAuditOptions {
   maxEntries?: number;
   filePath?: string;
   store?: AdminAuditStore;
+  permissions?: AdminPermissions;
 }
 
 export interface AdminFieldSchema {

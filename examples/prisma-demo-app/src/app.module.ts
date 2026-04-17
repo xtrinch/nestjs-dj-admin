@@ -15,6 +15,7 @@ import { OrderModule } from './modules/order/order.module.js';
 import { ProductModule } from './modules/product/product.module.js';
 import { Role } from './modules/user/user.entity.js';
 import { UserModule } from './modules/user/user.module.js';
+import { DEMO_PERMISSIONS, permissionsForDemoRole } from '../../shared/src/admin-permissions.js';
 
 const connectionString = process.env['DATABASE_URL'] ?? DEFAULT_PRISMA_DATABASE_URL;
 const prisma = new PrismaClient({
@@ -57,7 +58,7 @@ const prisma = new PrismaClient({
             where: { email },
           });
 
-          if (!user || !user.active || user.role !== Role.ADMIN) {
+          if (!user || !user.active) {
             return null;
           }
 
@@ -67,13 +68,17 @@ const prisma = new PrismaClient({
 
           return {
             id: String(user.id),
-            role: user.role,
+            permissions: permissionsForDemoRole(user.role),
             email: user.email,
+            isSuperuser: user.role === Role.ADMIN,
           };
         },
       },
       auditLog: {
         enabled: true,
+        permissions: {
+          read: [DEMO_PERMISSIONS.audit.read],
+        },
         store: new PrismaAdminAuditStore(prisma),
       },
     }),

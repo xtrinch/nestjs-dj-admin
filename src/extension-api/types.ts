@@ -1,7 +1,7 @@
-import type { PermissionRole } from '../admin/types/admin.types.js';
+import type { AdminPermissionKey } from '../admin/types/admin.types.js';
 
 export interface AdminExtensionReadPermissions {
-  read?: PermissionRole[];
+  read?: AdminPermissionKey[];
 }
 
 export interface AdminPageDefinitionBase {

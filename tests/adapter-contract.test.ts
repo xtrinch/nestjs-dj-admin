@@ -12,7 +12,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { MikroOrmAdminAdapter, PrismaAdminAdapter, TypeOrmAdminAdapter } from '../src/index.js';
 import type { AdminAdapter, AdminAdapterResource } from '../src/index.js';
-import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../src/admin/adapters/in-memory.adapter.js';
+import { InMemoryAdminAdapter, createInMemoryAdminStore } from '../src/admin/adapters/in-memory.adapter.js';
 import { Order as PrismaOrder } from '../examples/prisma-demo-app/src/modules/order/order.entity.js';
 import { User as PrismaUser } from '../examples/prisma-demo-app/src/modules/user/user.entity.js';
 
@@ -418,7 +418,8 @@ async function runAdapterContractSuite(harness: AdapterHarness) {
 }
 
 async function createInMemoryHarness(): Promise<AdapterHarness> {
-  const adapter = new InMemoryAdminAdapter();
+  const store = createInMemoryAdminStore();
+  const adapter = new InMemoryAdminAdapter(store);
   adapter.onModuleInit();
 
   return {
@@ -426,14 +427,14 @@ async function createInMemoryHarness(): Promise<AdapterHarness> {
     resource: createUserResource(PlainUserModel),
     orderResource: createOrderResource(PlainOrderModel),
     async reset() {
-      IN_MEMORY_ADMIN_STORE.users = TEST_USERS.map((user, index) => ({
+      store.users = TEST_USERS.map((user, index) => ({
         id: String(index + 1),
         ...user,
         createdAt: `2026-04-0${index + 1}T08:00:00.000Z`,
         updatedAt: `2026-04-1${index}T08:00:00.000Z`,
       }));
-      const userIds = Object.fromEntries(IN_MEMORY_ADMIN_STORE.users.map((user) => [String(user.email), String(user.id)]));
-      IN_MEMORY_ADMIN_STORE.orders = TEST_ORDERS.map((order, index) => ({
+      const userIds = Object.fromEntries(store.users.map((user) => [String(user.email), String(user.id)]));
+      store.orders = TEST_ORDERS.map((order, index) => ({
         id: String(index + 101),
         number: order.number,
         orderDate: order.orderDate,
@@ -449,7 +450,7 @@ async function createInMemoryHarness(): Promise<AdapterHarness> {
     },
     async dispose() {},
     async getIdByEmail(email: string) {
-      const record = IN_MEMORY_ADMIN_STORE.users.find((user) => String(user.email) === email);
+      const record = store.users.find((user) => String(user.email) === email);
       assert.ok(record, `Expected to find seeded in-memory user ${email}`);
       return String(record.id);
     },

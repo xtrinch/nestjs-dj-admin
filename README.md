@@ -19,7 +19,7 @@ It gives you:
 - built-in admin audit log support
 - bundled admin UI assets
 - `TypeORM`, `MikroORM`, `Prisma`, and `in-memory` adapter support
-- runnable demo apps for `TypeORM`, `MikroORM`, `Prisma`, and `in-memory` setups
+- runnable demo apps for `TypeORM`, `MikroORM`, `Prisma`, `in-memory`, and external-auth setups
 
 ## Screenshots
 
@@ -29,8 +29,6 @@ It gives you:
   <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="24%" />
   <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="24%" />
 </p>
-
-The example apps use a small Northwind-style back-office dataset. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific models and thin `*.admin.ts` wrappers.
 
 ## Quickstart
 
@@ -217,16 +215,19 @@ Current adapter coverage across the first-class ORMs includes:
 - many-to-many relation editing
 - lookup endpoints used by relation pickers
 
-The repository keeps runnable demo apps for each supported ORM:
+The repository keeps runnable demo apps for each supported ORM plus an external-auth integration example:
 
 - [examples/typeorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/README.md)
 - [examples/mikroorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app/README.md)
 - [examples/prisma-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/README.md)
 - [examples/in-memory-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/in-memory-demo-app/README.md)
+- [examples/external-auth-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/external-auth-demo-app/README.md)
+
+The example apps use a small Northwind-style back-office dataset. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific models and thin `*.admin.ts` wrappers.
 
 ## Example Apps
 
-The repo ships four example apps that exercise the same admin feature set through different persistence layers.
+The repo ships runnable examples for the supported persistence layers plus a host-auth integration demo.
 
 TypeORM example:
 
@@ -258,6 +259,12 @@ In-memory example:
 npm run dev:inmemory-example
 ```
 
+External auth example:
+
+```bash
+npm run dev:external-auth-example
+```
+
 The PostgreSQL-backed demos use separate databases by default so they can run side by side:
 
 - TypeORM: `nestjs_dj_admin_demo`
@@ -285,7 +292,16 @@ The complete barrel lives in [`src/index.ts`](https://github.com/xtrinch/nestjs-
 
 ## Auth Integration
 
-`nestjs-dj-admin` does not implement your real user model or password policy. You provide an `authenticate` function, and the admin module manages the session cookie around it.
+`nestjs-dj-admin` supports two auth modes:
+
+- session auth managed by the admin module
+- external auth managed by the host application
+
+`nestjs-dj-admin` does not implement your real user model or password policy. You either provide an `authenticate` function for built-in session auth, or you reuse your host app’s auth stack and map the already-authenticated principal into the admin user shape.
+
+### Session Auth
+
+In session mode, you provide `authenticate(credentials, request)` and the admin module manages the admin session cookie around it.
 
 ```ts
 AdminModule.forRoot({
@@ -310,22 +326,214 @@ AdminModule.forRoot({
 
       return {
         id: String(user.id),
-        role: user.role,
+        permissions: ['orders.read', 'orders.write', 'audit.read'],
         email: user.email,
+        isSuperuser: user.role === 'admin',
       };
     },
   },
 });
 ```
 
-Auth options currently include:
+Session auth options:
 
-- `cookieName`
-- `rememberMeMaxAgeMs`
-- `sessionTtlMs`
-- `sessionStore`
-- `cookie`
-- `authenticate(credentials, request)`
+- session mode:
+  - `cookieName`
+  - `rememberMeMaxAgeMs`
+  - `sessionTtlMs`
+  - `sessionStore`
+  - `cookie`
+  - `authenticate(credentials, request)`
+
+### External Auth
+
+External auth mode is meant for apps that already have their own auth/session stack. In that mode the admin can reuse host guards and map the already-authenticated principal from `request.user`.
+
+External auth options:
+
+- `guards`
+- `resolveUser(request)`
+- `loginUrl`
+- `loginMessage`
+- `logout(request, response)`
+
+Example:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    mode: 'external',
+    guards: [AppSessionGuard],
+    resolveUser: (request) => request.user ?? null,
+    loginUrl: '/app/login?next=/admin',
+    loginMessage: 'Sign in through the host application.',
+  },
+});
+```
+
+This is the right path when your app already has:
+
+- cookie/session auth handled by the host app
+- Nest guards that authenticate requests before they reach `/admin`
+- `request.user` populated by your existing auth layer
+
+See:
+
+- [examples/external-auth-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/external-auth-demo-app/README.md)
+
+## Permissions
+
+Resource and extension visibility is permission-based.
+
+The library user contract is:
+
+```ts
+type AdminAuthUser = {
+  id: string;
+  permissions: string[];
+  email?: string;
+  isSuperuser?: boolean;
+};
+```
+
+If your app stores a single role, map it at the auth boundary into the permissions your admin needs, and set `isSuperuser` explicitly when appropriate.
+
+The library does not derive `isSuperuser` for you. Your app decides that in `authenticate(...)` or `resolveUser(...)`.
+
+If you omit resource or extension permissions, the library falls back to superuser-only access:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    authenticate: async ({ email, password }) => {
+      // ...
+      return {
+        id: '1',
+        email,
+        permissions: [],
+        isSuperuser: true,
+      };
+    },
+  },
+});
+```
+
+By default, a resource named `orders` implies:
+
+- `orders.read`
+- `orders.write`
+
+So you grant those keys to users, rather than configuring a `permissions` block on every resource.
+
+Example:
+
+```ts
+return {
+  id: String(user.id),
+  email: user.email,
+  permissions: ['orders.read', 'orders.write', 'audit.read'],
+  isSuperuser: user.role === 'admin',
+};
+```
+
+Behavior:
+
+- users without the resource's implied read permission, such as `orders.read`, do not see it in admin metadata or navigation
+- users with `read` but not `write` access can still open the resource, but the UI falls back to a read-only view
+- create, update, delete, password-change, and custom write actions are still enforced by the backend even if the UI is bypassed
+
+Custom pages, nav items, and dashboard widgets use the same permission-key pattern through their own `permissions.read` fields.
+
+If page/nav/widget permissions are omitted, they also default to “superuser only”.
+
+Typical shapes:
+
+- `orders.read`
+- `orders.write`
+- `products.read`
+- `products.write`
+- `users.read`
+- `users.write`
+- `audit.read`
+
+External auth integrations typically map the host app principal into the admin user shape in `resolveUser(...)`:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    mode: 'external',
+    guards: [AppSessionGuard],
+    resolveUser: (request) => {
+      const user = request.user as { id: string; email?: string; role: string } | undefined;
+      if (!user) {
+        return null;
+      }
+
+      return {
+        id: String(user.id),
+        email: user.email,
+        permissions: user.role === 'editor' ? ['orders.read', 'orders.write', 'audit.read'] : [],
+        isSuperuser: user.role === 'admin',
+      };
+    },
+  },
+});
+```
+
+## Controlling Admin Access
+
+Permissions control what an already-admitted admin user can see or change.
+
+If you want to stop someone from entering the admin area at all, do that in auth:
+
+- in `session` auth mode, return `null` from `authenticate(...)` for users who should not get an admin session
+- in `external` auth mode, block them with your admin guard(s) before the request reaches the admin controller
+
+Typical split:
+
+- auth decides who may enter `/admin` at all
+- permissions decide which resources, pages, widgets, and audit entries that admitted user may see
+
+Example external-auth setup:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    mode: 'external',
+    guards: [AppSessionGuard, AdminAccessGuard],
+    resolveUser: (request) => request.user ?? null,
+  },
+});
+```
+
+## Audit Log Permissions
+
+Audit log access is configured separately from resource access.
+
+Example:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auditLog: {
+    enabled: true,
+    permissions: {
+      read: ['audit.read'],
+    },
+  },
+});
+```
+
+Behavior:
+
+- if `auditLog.permissions` is omitted, audit log access defaults to `['admin']`
+- users without audit-log read access do not see the `Audit Log` section
+- users with audit-log access only see entries for resources they can read
+- non-resource auth/system events are scoped to the current user unless the reader has full admin visibility
 
 ## Default Configuration
 
@@ -375,7 +583,7 @@ The library supports a few basic branding tweaks without turning them into a ful
 - `branding.siteTitle`
 - `branding.indexTitle`
 - `branding.accentColor`
-- `pages`
+- `extensions`
 
 Example:
 
@@ -392,6 +600,8 @@ AdminModule.forRoot({
 ```
 
 These control the sidebar header, browser title suffix, dashboard title, and the main accent color used across the admin chrome.
+
+## Extensions
 
 `extensions` lets you register non-CRUD admin capabilities through a public extension API. Built-in helpers can be composed, for example `embedPageExtension(...)` for the page itself and `dashboardLinkWidgetExtension(...)` for dashboard promotion.
 
@@ -450,7 +660,12 @@ AdminModule.forRoot({
       }
 
       return passwords.verify(password, user.passwordHash)
-        ? { id: String(user.id), role: user.role, email: user.email }
+        ? {
+            id: String(user.id),
+            permissions: [],
+            email: user.email,
+            isSuperuser: user.role === 'admin',
+          }
         : null;
     },
     sessionStore: redisAdminSessionStore,
@@ -942,6 +1157,7 @@ Current behavior:
 - the core library falls back to an in-memory store unless you provide `auditLog.store`
 - the TypeORM and Prisma example apps wire the audit log into their database
 - newest entries are shown first
+- audit visibility is permissioned separately through `auditLog.permissions`
 - the feature is disabled by default and can be enabled with:
 
 ```ts
@@ -955,6 +1171,7 @@ AdminModule.forRoot({
 
 - `auditLog.maxEntries` controls retention
 - `auditLog.store` lets the host app provide a durable sink
+- `auditLog.permissions.read` controls which permission keys can access the audit log UI and endpoint
 
 Concrete production-style pattern:
 
@@ -990,7 +1207,7 @@ class PrismaAdminAuditStore implements AdminAuditStore {
         timestamp: new Date(entry.timestamp),
         action: entry.action,
         actorId: entry.actor.id,
-        actorRole: entry.actor.role,
+        actorRole: entry.actor.permissions[0] ?? '',
         actorEmail: entry.actor.email ?? null,
         summary: entry.summary,
         resourceName: entry.resourceName ?? null,
@@ -1121,11 +1338,14 @@ See:
 
 All three example apps serve the admin backend on `http://127.0.0.1:3000/admin`.
 
-Shared seeded admin login:
+Shared seeded demo logins:
 
 ```text
 email: ada@example.com
 password: admin123
+
+email: grace@example.com
+password: editor123
 ```
 
 Shared seeded baseline:
@@ -1136,7 +1356,7 @@ Shared seeded baseline:
 - products
 - order details
 
-The `ada@example.com` account is the seeded admin user. The other seeded users are present as demo data, but they are not valid admin logins.
+The `ada@example.com` account is the seeded superuser. `grace@example.com` is the seeded editor user with scoped permissions. `linus@example.com` remains demo-only and is not admitted to admin.
 
 ### TypeORM Setup
 

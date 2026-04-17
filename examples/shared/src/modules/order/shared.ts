@@ -117,10 +117,6 @@ export const orderAdminOptions = {
   search: ['number', { path: 'userId.email', label: 'User email' }],
   filters: ['status', 'userId'],
   readonly: ['createdAt', 'updatedAt'],
-  permissions: {
-    read: ['admin'],
-    write: ['admin'],
-  },
   schema: adminSchemaFromClassValidator({
     createDto: CreateOrderDto,
     updateDto: UpdateOrderDto,

@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "../..",
+    "paths": {
+      "#src/*": ["../../src/*"],
+      "#examples-shared/*": ["../../examples/shared/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "../in-memory-demo-app/src/**/*.ts",
+    "../../src/**/*.ts",
+    "../../src/**/*.d.ts"
+  ]
+}

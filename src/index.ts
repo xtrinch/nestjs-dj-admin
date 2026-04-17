@@ -22,8 +22,9 @@ export type { DashboardLinkWidgetExtensionOptions } from './extensions/dashboard
 
 export { PrismaAdminAdapter } from './admin/adapters/prisma.adapter.js';
 export { TypeOrmAdminAdapter } from './admin/adapters/typeorm.adapter.js';
-export { InMemoryAdminAdapter } from './admin/adapters/in-memory.adapter.js';
+export { InMemoryAdminAdapter, createInMemoryAdminStore } from './admin/adapters/in-memory.adapter.js';
 export { MikroOrmAdminAdapter } from './admin/adapters/mikroorm.adapter.js';
+export type { InMemoryAdminStore } from './admin/adapters/in-memory.adapter.js';
 
 export type {
   AdminAction,
@@ -34,8 +35,11 @@ export type {
   AdminAuditOptions,
   AdminAuditResult,
   AdminAuditStore,
+  AdminAuthConfigSchema,
   AdminAuthCookieOptions,
   AdminAuthCredentials,
+  AdminAuthUser,
+  AdminExternalAuthOptions,
   AdminAuthOptions,
   AdminAdapterResource,
   AdminActionContext,
@@ -56,13 +60,14 @@ export type {
   AdminResourceSchema,
   AdminSchemaBuildContext,
   AdminSchemaProvider,
+  AdminSessionAuthOptions,
   AdminSessionRecord,
   AdminSessionStore,
   AdminSoftDeleteOptions,
   AdminSoftDeleteSchema,
   AdminWriteTransform,
   AdminWriteTransformContext,
-  PermissionRole,
+  AdminPermissionKey,
 } from './admin/types/admin.types.js';
 
 export type {

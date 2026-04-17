@@ -8,11 +8,14 @@ import { AuditLogPage } from './pages/AuditLogPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { CustomPage } from './pages/CustomPage.js';
 import { LoginPage } from './pages/LoginPage.js';
-import { getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
+import { ExternalAuthPage } from './pages/ExternalAuthPage.js';
+import { canWriteResource } from './permissions.js';
+import { getAdminAuthConfig, getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
 import { consumeToast, onToast } from './services/toast.service.js';
 import type { AdminToast } from './services/toast.service.js';
 import type {
+  AdminAuthConfig,
   AdminMetaResponse,
   AdminUser,
   CustomPageSchema,
@@ -54,13 +57,14 @@ type AppRoute =
       kind: 'resource';
       resource: ResourceSchema;
       resourceName: string;
-      mode: 'list' | 'edit' | 'password' | 'delete';
+      mode: 'list' | 'edit' | 'view' | 'password' | 'delete';
       id?: string;
       deleteIds: string[];
     };
 
 export function App() {
   const [meta, setMeta] = useState<AdminMetaResponse | null>(null);
+  const [authConfig, setAuthConfig] = useState<AdminAuthConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>(
@@ -142,6 +146,8 @@ export function App() {
 
   async function loadAdmin() {
     try {
+      const nextAuthConfig = await getAdminAuthConfig();
+      setAuthConfig(nextAuthConfig);
       const currentUser = await getCurrentAdminUser();
       if (!currentUser) {
         setAuthState('unauthenticated');
@@ -176,6 +182,10 @@ export function App() {
   }
 
   if (authState === 'unauthenticated') {
+    if (authConfig?.mode === 'external') {
+      return <ExternalAuthPage config={authConfig} />;
+    }
+
     return <LoginPage onAuthenticated={loadAdmin} />;
   }
 
@@ -183,12 +193,8 @@ export function App() {
     return <div className="shell">Loading admin resources…</div>;
   }
 
-  if (meta.resources.length === 0 && meta.pages.length === 0) {
-    return <div className="shell">No admin resources or extension pages are registered.</div>;
-  }
-
   const activeRoute = route;
-  if (!activeRoute) {
+  if (!activeRoute && (meta.resources.length > 0 || meta.pages.length > 0)) {
     return <div className="shell">Loading admin resources…</div>;
   }
 
@@ -197,7 +203,15 @@ export function App() {
       {toast ? (
         <div className="toast-layer" aria-live="polite">
           <div className={`toast toast--${toast.variant ?? 'success'}`} role="status">
-            {toast.message}
+            <span className="toast__message">{toast.message}</span>
+            <button
+              aria-label="Dismiss notification"
+              className="toast__close"
+              type="button"
+              onClick={() => setToast(null)}
+            >
+              ×
+            </button>
           </div>
         </div>
       ) : null}
@@ -219,13 +233,15 @@ export function App() {
           <div className="topbar__spacer" />
           <div className="session-bar">
             <span className="session-bar__label">Welcome, {user.email ?? user.id}</span>
-            <button className="session-bar__link" type="button" onClick={() => void logout()}>
-              Log out
-            </button>
+            {authConfig?.logoutEnabled !== false ? (
+              <button className="session-bar__link" type="button" onClick={() => void logout()}>
+                Log out
+              </button>
+            ) : null}
           </div>
         </header>
         <div className="content__body">
-          {routeUi && activeRoute.kind !== 'home' ? (
+          {routeUi && activeRoute && activeRoute.kind !== 'home' ? (
             <Breadcrumbs
               category={routeUi.category}
               resourceHref={routeUi.resourceHref}
@@ -233,16 +249,23 @@ export function App() {
               pageLabel={routeUi.pageLabel}
             />
           ) : null}
-          <RouteContent
-            auditLogEnabled={meta.auditLog?.enabled === true}
-            branding={meta.branding}
-            navigation={navigation}
-            pages={meta.pages}
-            widgets={meta.widgets}
-            display={meta.display}
-            route={activeRoute}
-            onTitleChange={setPageSubjectLabel}
-          />
+          {meta.resources.length === 0 && meta.pages.length === 0 ? (
+            <div className="panel">No admin resources or extension pages are registered.</div>
+          ) : activeRoute ? (
+            <RouteContent
+              auditLogEnabled={meta.auditLog?.enabled === true}
+              branding={meta.branding}
+              navigation={navigation}
+              pages={meta.pages}
+              widgets={meta.widgets}
+              display={meta.display}
+              route={activeRoute}
+              user={user}
+              onTitleChange={setPageSubjectLabel}
+            />
+          ) : (
+            <div className="shell">Loading admin resources…</div>
+          )}
         </div>
       </main>
     </div>
@@ -345,7 +368,7 @@ function SidebarNav({
   auditLogEnabled,
   navigation,
 }: {
-  activeRoute: AppRoute;
+  activeRoute: AppRoute | null;
   auditLogEnabled: boolean;
   navigation: NavigationGroup[];
 }) {
@@ -353,7 +376,7 @@ function SidebarNav({
     <>
       <section className="nav__group">
         <span className="nav__group-label">Home</span>
-        <a className={activeRoute.kind === 'home' ? 'nav__link active' : 'nav__link'} href="#">
+        <a className={activeRoute?.kind === 'home' ? 'nav__link active' : 'nav__link'} href="#">
           Dashboard
         </a>
       </section>
@@ -363,7 +386,11 @@ function SidebarNav({
           {group.resources.map((resource) => (
             <a
               key={resource.resourceName}
-              className={isActiveResourceRoute(activeRoute, resource.resourceName) ? 'nav__link active' : 'nav__link'}
+              className={
+                activeRoute && isActiveResourceRoute(activeRoute, resource.resourceName)
+                  ? 'nav__link active'
+                  : 'nav__link'
+              }
               href={`#/${resource.resourceName}`}
             >
               {resource.label}
@@ -372,7 +399,11 @@ function SidebarNav({
           {group.navItems.map((navItem) => (
             <a
               key={navItem.key}
-              className={isActiveNavItemRoute(activeRoute, navItem) ? 'nav__link active' : 'nav__link'}
+              className={
+                activeRoute && isActiveNavItemRoute(activeRoute, navItem)
+                  ? 'nav__link active'
+                  : 'nav__link'
+              }
               href={navItem.kind === 'page' ? `#/pages/${navItem.pageSlug}` : navItem.href}
             >
               {navItem.label}
@@ -383,7 +414,7 @@ function SidebarNav({
       {auditLogEnabled ? (
         <section className="nav__group">
           <span className="nav__group-label">System</span>
-          <a className={activeRoute.kind === 'audit' ? 'nav__link active' : 'nav__link'} href="#/audit-log">
+          <a className={activeRoute?.kind === 'audit' ? 'nav__link active' : 'nav__link'} href="#/audit-log">
             Audit Log
           </a>
         </section>
@@ -400,6 +431,7 @@ function RouteContent({
   widgets,
   display,
   route,
+  user,
   onTitleChange,
 }: {
   auditLogEnabled: boolean;
@@ -409,6 +441,7 @@ function RouteContent({
   widgets: WidgetSchema[];
   display: AdminMetaResponse['display'];
   route: AppRoute;
+  user: AdminUser;
   onTitleChange: (label: string | null) => void;
 }) {
   if (route.kind === 'home') {
@@ -421,6 +454,7 @@ function RouteContent({
         pages={pages}
         widgets={widgets}
         display={display}
+        user={user}
         onTitleChange={onTitleChange}
       />
     );
@@ -438,7 +472,8 @@ function RouteContent({
     return (
       <ListPage
         key={`list:${route.resourceName}`}
-        resourceName={route.resourceName}
+        resource={route.resource}
+        user={user}
         onTitleChange={onTitleChange}
       />
     );
@@ -471,6 +506,7 @@ function RouteContent({
       key={`edit:${route.resourceName}:${route.id ?? 'new'}`}
       resource={route.resource}
       id={route.id}
+      readOnly={route.mode === 'view' || !canWriteResource(route.resource, user)}
       onTitleChange={onTitleChange}
     />
   );
@@ -507,7 +543,13 @@ function describeRoute(route: AppRoute, subjectLabel: string | null) {
 }
 
 function getInitialRouteSubjectLabel(route: AppRoute): string | null {
-  if (route.kind === 'home' || route.kind === 'audit' || route.kind === 'page' || route.mode === 'list') {
+  if (
+    route.kind === 'home' ||
+    route.kind === 'audit' ||
+    route.kind === 'page' ||
+    route.mode === 'list' ||
+    route.mode === 'view'
+  ) {
     return null;
   }
 
@@ -537,6 +579,10 @@ function getRoutePageLabel(route: AppRoute, subjectLabel: string | null): string
 
   if (route.mode === 'edit') {
     return route.id ? `Edit ${subjectLabel ?? route.resource.label}` : `Add ${route.resource.label}`;
+  }
+
+  if (route.mode === 'view') {
+    return subjectLabel ?? route.resource.label;
   }
 
   if (route.mode === 'password') {
@@ -646,8 +692,13 @@ function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPage
     kind: 'resource',
     resource,
     resourceName: resource.resourceName,
-    mode: mode === 'new' || mode === 'edit' ? ('edit' as const) : ('list' as const),
-    id: mode === 'edit' ? id : undefined,
+    mode:
+      mode === 'new' || mode === 'edit'
+        ? ('edit' as const)
+        : mode === 'view'
+          ? ('view' as const)
+          : ('list' as const),
+    id: mode === 'edit' || mode === 'view' ? id : undefined,
     deleteIds: [] as string[],
   };
 }

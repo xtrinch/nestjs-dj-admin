@@ -26,7 +26,7 @@ export class PrismaAdminAuditStore implements AdminAuditStore {
           ${new Date(entry.timestamp)},
           ${entry.action},
           ${entry.actor.id},
-          ${entry.actor.role},
+          ${entry.actor.permissions[0] ?? ''},
           ${entry.actor.email ?? null},
           ${entry.summary},
           ${entry.resourceName ?? null},
@@ -84,7 +84,7 @@ export class PrismaAdminAuditStore implements AdminAuditStore {
         action: row.action as AdminAuditEntry['action'],
         actor: {
           id: row.actorId,
-          role: row.actorRole,
+          permissions: [row.actorRole],
           email: row.actorEmail ?? undefined,
         },
         summary: row.summary,

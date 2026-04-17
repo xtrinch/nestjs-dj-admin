@@ -1,12 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Request, Response } from 'express';
-import { UnauthorizedException } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { AdminAuditService } from '../src/admin/services/admin-audit.service.js';
 import { AdminAuthService } from '../src/admin/services/admin-auth.service.js';
 import type {
+  AdminAuthUser,
   AdminModuleOptions,
-  AdminRequestUser,
   AdminSessionRecord,
   AdminSessionStore,
 } from '../src/admin/types/admin.types.js';
@@ -19,8 +20,9 @@ describe('AdminAuthService', () => {
       auth: {
         authenticate: async () => ({
           id: '1',
-          role: 'admin',
+          permissions: [],
           email: 'ada@example.com',
+          isSuperuser: true,
         }),
         sessionStore: store,
         cookie: {
@@ -59,8 +61,9 @@ describe('AdminAuthService', () => {
     store.records.set('expired-session', {
       user: {
         id: '1',
-        role: 'admin',
+        permissions: [],
         email: 'ada@example.com',
+        isSuperuser: true,
       },
       expiresAt: Date.now() - 1000,
     });
@@ -85,17 +88,124 @@ describe('AdminAuthService', () => {
     );
     assert.deepEqual(store.deleteCalls, ['expired-session']);
   });
+
+  it('supports external auth via resolveUser', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        mode: 'external',
+        resolveUser: (request) => {
+          return request.user ?? null;
+        },
+        loginUrl: '/host-auth/login',
+        loginMessage: 'Use the host app',
+      },
+    });
+
+    const request = createRequest({
+      user: {
+        id: '1',
+        email: 'ada@example.com',
+        permissions: [],
+        isSuperuser: true,
+      },
+    });
+
+    const user = await service.requireUser(request);
+    assert.equal(user.email, 'ada@example.com');
+    assert.equal(user.isSuperuser, true);
+    assert.deepEqual(user.permissions, []);
+    assert.deepEqual(service.getAuthConfig(), {
+      mode: 'external',
+      loginEnabled: false,
+      logoutEnabled: false,
+      loginUrl: '/host-auth/login',
+      loginMessage: 'Use the host app',
+      branding: {
+        siteHeader: 'DJ Admin',
+        siteTitle: 'DJ Admin',
+        indexTitle: 'Site administration',
+        accentColor: '#f59e0b',
+      },
+    });
+  });
+
+  it('normalizes session-auth users with custom superuser logic', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        authenticate: async () => ({
+          id: '1',
+          permissions: ['billing.view'],
+          email: 'ada@example.com',
+          isSuperuser: true,
+        }),
+      },
+    });
+
+    const response = createResponse();
+    const request = createRequest({});
+    const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
+
+    assert.equal(user.isSuperuser, true);
+    assert.deepEqual(user.permissions, ['billing.view']);
+    assert.equal(request.user?.isSuperuser, true);
+  });
+
+  it('defaults isSuperuser to false when omitted', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        authenticate: async () => ({
+          id: '1',
+          permissions: ['support.access'],
+          email: 'ada@example.com',
+        }),
+      },
+    });
+
+    const response = createResponse();
+    const request = createRequest({});
+    const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
+
+    assert.deepEqual(user.permissions, ['support.access']);
+    assert.equal(user.isSuperuser, false);
+  });
+
+  it('rejects built-in login when auth is external', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        mode: 'external',
+        resolveUser: async () => null,
+      },
+    });
+
+    await assert.rejects(
+      service.login(
+        { email: 'ada@example.com', password: 'secret' },
+        createRequest({}),
+        createResponse(),
+      ),
+      (error: unknown) =>
+        error instanceof NotFoundException &&
+        error.message === 'Admin login is managed by the host application',
+    );
+  });
 });
 
 function createService(options: AdminModuleOptions): AdminAuthService {
   const auditService = new AdminAuditService(options);
-  return new AdminAuthService(options, auditService);
+  const moduleRef = {
+    resolve: async (token: unknown) => token,
+  } as ModuleRef;
+  return new AdminAuthService(options, moduleRef, auditService);
 }
 
 function createRequest(input: {
   headers?: Record<string, string>;
   secure?: boolean;
-  user?: AdminRequestUser;
+  user?: AdminAuthUser;
 }): Request {
   return {
     user: input.user,

@@ -19,8 +19,18 @@ export interface ResourceField {
 
 export interface AdminUser {
   id: string;
-  role: string;
+  permissions: string[];
   email?: string;
+  isSuperuser?: boolean;
+}
+
+export interface AdminAuthConfig {
+  mode: 'session' | 'external';
+  loginEnabled: boolean;
+  logoutEnabled: boolean;
+  loginUrl?: string;
+  loginMessage?: string;
+  branding: AdminBrandingConfig;
 }
 
 export interface AdminDisplayConfig {
@@ -97,7 +107,7 @@ export interface AdminAuditEntry {
   action: AdminAuditAction;
   actor: {
     id: string;
-    role: string;
+    permissions: string[];
     email?: string;
   };
   summary: string;
@@ -129,6 +139,10 @@ export interface ResourceSchema {
   search: string[];
   filters: string[];
   readonly: string[];
+  permissions?: {
+    read?: string[];
+    write?: string[];
+  };
   actions: Array<{ name: string; slug: string }>;
   bulkActions: Array<{ name: string; slug: string }>;
   fields: ResourceField[];

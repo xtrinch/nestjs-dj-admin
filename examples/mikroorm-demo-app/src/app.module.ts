@@ -14,6 +14,7 @@ import { OrderModule } from './modules/order/order.module.js';
 import { ProductModule } from './modules/product/product.module.js';
 import { Role, User } from './modules/user/user.entity.js';
 import { UserModule } from './modules/user/user.module.js';
+import { DEMO_PERMISSIONS, permissionsForDemoRole } from '../../shared/src/admin-permissions.js';
 
 @Module({
   imports: [
@@ -50,7 +51,7 @@ import { UserModule } from './modules/user/user.module.js';
           const orm = await initializeDemoOrm();
           const user = await orm.em.fork({ clear: true }).findOne(User, { email });
 
-          if (!user || !user.active || user.role !== Role.ADMIN) {
+          if (!user || !user.active) {
             return null;
           }
 
@@ -60,13 +61,17 @@ import { UserModule } from './modules/user/user.module.js';
 
           return {
             id: String(user.id),
-            role: user.role,
+            permissions: permissionsForDemoRole(user.role),
             email: user.email,
+            isSuperuser: user.role === Role.ADMIN,
           };
         },
       },
       auditLog: {
         enabled: true,
+        permissions: {
+          read: [DEMO_PERMISSIONS.audit.read],
+        },
         store: new MikroOrmAdminAuditStore(() => initializeDemoOrm()),
       },
     }),

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { IN_MEMORY_ADMIN_STORE, InMemoryAdminAdapter } from '#src/admin/adapters/in-memory.adapter.js';
+import { InMemoryAdminAdapter } from '#src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { DEMO_PERMISSIONS, permissionsForDemoRole } from '#examples-shared/admin-permissions.js';
+import { DEMO_IN_MEMORY_ADMIN_STORE } from '#examples-shared/in-memory-demo-store.js';
 import { verifyPassword } from './auth/password.js';
 import { CategoryModule } from './modules/category/category.module.js';
 import { OrderDetailModule } from './modules/order-detail/order-detail.module.js';
@@ -17,7 +19,9 @@ import { UserModule } from './modules/user/user.module.js';
     UserModule,
     AdminModule.forRoot({
       path: '/admin',
-      adapter: InMemoryAdminAdapter,
+      adapter: {
+        useFactory: () => new InMemoryAdminAdapter(DEMO_IN_MEMORY_ADMIN_STORE),
+      },
       branding: {
         siteHeader: 'Northwind Admin',
         siteTitle: 'Northwind Admin',
@@ -41,14 +45,17 @@ import { UserModule } from './modules/user/user.module.js';
       },
       auditLog: {
         enabled: true,
+        permissions: {
+          read: [DEMO_PERMISSIONS.audit.read],
+        },
       },
       auth: {
         authenticate: async ({ email, password }) => {
-          const user = IN_MEMORY_ADMIN_STORE.users.find(
+          const user = DEMO_IN_MEMORY_ADMIN_STORE.users.find(
             (candidate) => String(candidate.email ?? '') === email,
           );
 
-          if (!user || user.active !== true || user.role !== 'admin') {
+          if (!user || user.active !== true) {
             return null;
           }
 
@@ -58,8 +65,9 @@ import { UserModule } from './modules/user/user.module.js';
 
           return {
             id: String(user.id),
-            role: String(user.role),
+            permissions: permissionsForDemoRole(String(user.role)),
             email: String(user.email),
+            isSuperuser: String(user.role) === 'admin',
           };
         },
       },

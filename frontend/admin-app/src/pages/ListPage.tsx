@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BooleanIcon } from '../components/BooleanIcon.js';
 import { formatAdminValue } from '../formatters.js';
+import { canWriteResource } from '../permissions.js';
 import {
   getResourceMeta,
   listResource,
@@ -8,18 +9,21 @@ import {
   runBulkResourceAction,
 } from '../services/resources.service.js';
 import { showToast } from '../services/toast.service.js';
-import type { AdminLookupItem, ResourceField, ResourceMetaResponse } from '../types.js';
+import type { AdminLookupItem, AdminUser, ResourceField, ResourceMetaResponse, ResourceSchema } from '../types.js';
 
 const PAGE_SIZE = 20;
 const RELATION_FILTER_LOOKUP_PAGE_SIZE = 20;
 
 export function ListPage({
-  resourceName,
+  resource,
+  user,
   onTitleChange,
 }: {
-  resourceName: string;
+  resource: ResourceSchema;
+  user: AdminUser;
   onTitleChange?: (label: string | null) => void;
 }) {
+  const resourceName = resource.resourceName;
   const [meta, setMeta] = useState<ResourceMetaResponse | null>(null);
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -169,6 +173,7 @@ export function ListPage({
     return <section>Loading {resourceName}…</section>;
   }
 
+  const canWrite = canWriteResource(meta.resource, user);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const allVisibleSelected =
     items.length > 0 && items.every((item) => selectedIds.includes(String(item.id)));
@@ -242,9 +247,11 @@ export function ListPage({
             ) : null}
           </div>
         </div>
-        <a className="button button--primary" href={`#/${resourceName}/new`}>
-          New {meta.resource.label}
-        </a>
+        {canWrite ? (
+          <a className="button button--primary" href={`#/${resourceName}/new`}>
+            New {meta.resource.label}
+          </a>
+        ) : null}
       </header>
 
       <div className="changelist">
@@ -258,37 +265,39 @@ export function ListPage({
             />
           </div>
 
-          <div className="toolbar toolbar--actions">
-            <div className="toolbar__bulk-actions">
-              <select
-                className="input toolbar__action-select"
-                value={selectedBulkAction}
-                onChange={(event) => setSelectedBulkAction(event.target.value)}
-              >
-                <option value="">Bulk actions</option>
-                <option value="delete_selected">
-                  {meta.resource.softDelete?.enabled ? 'Archive selected' : 'Delete selected'}
-                </option>
-                {meta.resource.bulkActions.map((action) => (
-                  <option key={action.slug} value={action.slug}>
-                    {action.name}
+          {canWrite ? (
+            <div className="toolbar toolbar--actions">
+              <div className="toolbar__bulk-actions">
+                <select
+                  className="input toolbar__action-select"
+                  value={selectedBulkAction}
+                  onChange={(event) => setSelectedBulkAction(event.target.value)}
+                >
+                  <option value="">Bulk actions</option>
+                  <option value="delete_selected">
+                    {meta.resource.softDelete?.enabled ? 'Archive selected' : 'Delete selected'}
                   </option>
-                ))}
-              </select>
-              <button
-                className={selectedBulkAction === 'delete_selected' ? 'button button--danger' : 'button'}
-                disabled={selectedIds.length === 0 || !selectedBulkAction}
-                type="button"
-                onClick={() => void runBulkAction()}
-              >
-                Go
-              </button>
-            </div>
+                  {meta.resource.bulkActions.map((action) => (
+                    <option key={action.slug} value={action.slug}>
+                      {action.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className={selectedBulkAction === 'delete_selected' ? 'button button--danger' : 'button'}
+                  disabled={selectedIds.length === 0 || !selectedBulkAction}
+                  type="button"
+                  onClick={() => void runBulkAction()}
+                >
+                  Go
+                </button>
+              </div>
 
-            <div className="selection-banner selection-banner--inline">
-              {selectionContent}
+              <div className="selection-banner selection-banner--inline">
+                {selectionContent}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <table className="table">
         <thead>
@@ -380,7 +389,7 @@ export function ListPage({
                 return (
                   <td key={field}>
                     {meta.resource.listDisplayLinks.includes(field) ? (
-                      <a className="table__link" href={`#/${resourceName}/edit/${String(item.id)}`}>
+                      <a className="table__link" href={`#/${resourceName}/${canWrite ? 'edit' : 'view'}/${String(item.id)}`}>
                         {value}
                       </a>
                     ) : (
@@ -531,11 +540,15 @@ async function loadRelationLabels(
         return [field.name, {}] as const;
       }
 
-      const data = await lookupResource(field.relation!.option.resource, { ids, pageSize: ids.length });
+      try {
+        const data = await lookupResource(field.relation!.option.resource, { ids, pageSize: ids.length });
 
-      const labels = Object.fromEntries(data.items.map((item) => [item.value, item.label]));
+        const labels = Object.fromEntries(data.items.map((item) => [item.value, item.label]));
 
-      return [field.name, labels] as const;
+        return [field.name, labels] as const;
+      } catch {
+        return [field.name, {}] as const;
+      }
     }),
   );
 
@@ -673,6 +686,9 @@ function RelationFilterControl({
         ...current,
         ...Object.fromEntries(response.items.map((item) => [item.value, item])),
       }));
+    } catch {
+      setOptions([]);
+      setLoaded(true);
     } finally {
       setLoading(false);
     }
@@ -683,16 +699,20 @@ function RelationFilterControl({
       return;
     }
 
-    const response = await lookupResource(field.relation.option.resource, {
-      ids: [id],
-      page: 1,
-      pageSize: 1,
-    });
+    try {
+      const response = await lookupResource(field.relation.option.resource, {
+        ids: [id],
+        page: 1,
+        pageSize: 1,
+      });
 
-    setSelectedCache((current) => ({
-      ...current,
-      ...Object.fromEntries(response.items.map((item) => [item.value, item])),
-    }));
+      setSelectedCache((current) => ({
+        ...current,
+        ...Object.fromEntries(response.items.map((item) => [item.value, item])),
+      }));
+    } catch {
+      // Leave the raw relation id visible when the related resource is not readable.
+    }
   }
 
   return (

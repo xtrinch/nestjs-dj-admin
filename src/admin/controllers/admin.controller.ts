@@ -22,7 +22,6 @@ import type {
   AdminDisplaySchema,
   AdminListQuery,
   AdminModuleOptions,
-  AdminRequestUser,
 } from '../types/admin.types.js';
 import { Inject } from '@nestjs/common';
 
@@ -35,6 +34,11 @@ export class AdminController {
     private readonly adminAuditService: AdminAuditService,
     private readonly adminPermissionService: AdminPermissionService,
   ) {}
+
+  @Get('_auth/config')
+  getAuthConfig() {
+    return this.adminAuthService.getAuthConfig();
+  }
 
   @Get('_auth/me')
   async me(@Req() request: Request) {
@@ -67,14 +71,14 @@ export class AdminController {
     return {
       resources: this.adminService
         .getResources()
-        .filter((resource) => canReadResource(resource, user)),
+        .filter((resource) => this.adminPermissionService.canReadResource(user, resource)),
       pages: extensions.pages.filter((page) => this.adminPermissionService.canReadPage(user, page)),
       navItems: extensions.navItems.filter((navItem) => this.adminPermissionService.canReadNavItem(user, navItem)),
       widgets: extensions.widgets.filter((widget) => this.adminPermissionService.canReadWidget(user, widget)),
       display: resolveDisplay(this.adminOptions),
       branding: resolveBranding(this.adminOptions),
       auditLog: {
-        enabled: this.adminAuditService.enabled,
+        enabled: this.adminPermissionService.canReadAuditLog(user, this.adminOptions.auditLog),
       },
     };
   }
@@ -85,11 +89,25 @@ export class AdminController {
     @Query('pageSize') pageSizeParam: string | undefined,
     @Req() request: Request,
   ) {
-    await this.adminAuthService.requireUser(request);
-    return this.adminAuditService.list({
-      page: Number(pageParam ?? 1),
-      pageSize: Number(pageSizeParam ?? 50),
-    });
+    const user = await this.adminAuthService.requireUser(request);
+    this.adminPermissionService.assertCanReadAuditLog(user, this.adminOptions.auditLog);
+
+    return this.adminAuditService.list(
+      {
+        page: Number(pageParam ?? 1),
+        pageSize: Number(pageSizeParam ?? 50),
+      },
+      {
+        user,
+        canReadResource: (resourceName) => {
+          const resource = this.adminService
+            .getResources()
+            .find((candidate) => candidate.resourceName === resourceName);
+
+          return resource ? this.adminPermissionService.canReadResource(user, resource) : false;
+        },
+      },
+    );
   }
 
   @Get('_meta/:resource')
@@ -262,11 +280,6 @@ function parseIds(value: string | string[] | undefined): string[] {
 
   const ids = Array.isArray(value) ? value : value.split(',');
   return ids.map((item) => String(item).trim()).filter(Boolean);
-}
-
-function canReadResource(resource: { permissions?: { read?: string[] } }, user: AdminRequestUser) {
-  const allowed = resource.permissions?.read;
-  return !allowed || allowed.length === 0 || allowed.includes(user.role);
 }
 
 function resolveDisplay(options: AdminModuleOptions): AdminDisplaySchema {

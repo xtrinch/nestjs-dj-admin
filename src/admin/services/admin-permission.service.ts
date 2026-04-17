@@ -3,9 +3,11 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type {
+  AdminAuditOptions,
   AdminRequestUser,
   AdminResourceSchema,
 } from '../types/admin.types.js';
+import { describeUserPermissions, getUserPermissions } from '../utils/user-permissions.js';
 import type {
   AdminNavItemSchema,
   AdminPageSchema,
@@ -14,12 +16,16 @@ import type {
 
 @Injectable()
 export class AdminPermissionService {
+  canReadResource(user: AdminRequestUser, schema: AdminResourceSchema): boolean {
+    return this.hasPermission(user, this.getResourcePermissions(schema, 'read'));
+  }
+
   assertCanRead(user: AdminRequestUser, schema: AdminResourceSchema): void {
-    this.assertPermission(user, schema.permissions?.read, 'read');
+    this.assertPermission(user, this.getResourcePermissions(schema, 'read'), 'read');
   }
 
   assertCanWrite(user: AdminRequestUser, schema: AdminResourceSchema): void {
-    this.assertPermission(user, schema.permissions?.write, 'write');
+    this.assertPermission(user, this.getResourcePermissions(schema, 'write'), 'write');
   }
 
   canReadPage(user: AdminRequestUser, page: AdminPageSchema): boolean {
@@ -34,21 +40,47 @@ export class AdminPermissionService {
     return this.hasPermission(user, widget.permissions?.read);
   }
 
-  private assertPermission(
-    user: AdminRequestUser,
-    roles: string[] | undefined,
-    permission: 'read' | 'write',
-  ): void {
-    if (!this.hasPermission(user, roles)) {
-      throw new ForbiddenException(`Missing ${permission} permission for role "${user.role}"`);
+  canReadAuditLog(user: AdminRequestUser, auditLog: AdminAuditOptions | undefined): boolean {
+    if (auditLog?.enabled !== true) {
+      return false;
+    }
+
+    return this.hasPermission(user, auditLog.permissions?.read);
+  }
+
+  assertCanReadAuditLog(user: AdminRequestUser, auditLog: AdminAuditOptions | undefined): void {
+    if (!this.canReadAuditLog(user, auditLog)) {
+      throw new ForbiddenException(`Missing read permission for audit log for permissions "${describeUserPermissions(user)}"`);
     }
   }
 
-  private hasPermission(user: AdminRequestUser, roles: string[] | undefined): boolean {
-    if (!roles || roles.length === 0) {
+  private assertPermission(
+    user: AdminRequestUser,
+    permissions: string[] | undefined,
+    permission: 'read' | 'write',
+  ): void {
+    if (!this.hasPermission(user, permissions)) {
+      throw new ForbiddenException(`Missing ${permission} permission for permissions "${describeUserPermissions(user)}"`);
+    }
+  }
+
+  private hasPermission(user: AdminRequestUser, permissions: string[] | undefined): boolean {
+    if (user.isSuperuser === true) {
       return true;
     }
 
-    return roles.includes(user.role);
+    if (!permissions || permissions.length === 0) {
+      return false;
+    }
+
+    const userPermissions = getUserPermissions(user);
+    return permissions.some((permission) => userPermissions.includes(permission));
+  }
+
+  private getResourcePermissions(
+    schema: AdminResourceSchema,
+    permission: 'read' | 'write',
+  ): string[] {
+    return [`${schema.resourceName}.${permission}`];
   }
 }
