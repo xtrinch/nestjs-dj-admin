@@ -14,5 +14,10 @@
       "#examples-shared/*": ["examples/shared/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "../../src/**/*.ts", "../../src/**/*.d.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../../src/**/*.ts",
+    "../../src/**/*.d.ts",
+    "../../examples/shared/src/**/*.ts"
+  ]
 }

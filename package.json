@@ -40,6 +40,15 @@
     }
   },
   "imports": {
+    "#src/index.js": "./exports/internal/src/index.js",
+    "#src/admin/decorators/admin-field.decorator.js": "./exports/internal/src/admin/decorators/admin-field.decorator.js",
+    "#src/admin/decorators/admin-resource.decorator.js": "./exports/internal/src/admin/decorators/admin-resource.decorator.js",
+    "#examples-shared/auth/password.js": "./exports/internal/examples-shared/auth/password.js",
+    "#examples-shared/modules/category/shared.js": "./exports/internal/examples-shared/modules/category/shared.js",
+    "#examples-shared/modules/order/shared.js": "./exports/internal/examples-shared/modules/order/shared.js",
+    "#examples-shared/modules/order-detail/shared.js": "./exports/internal/examples-shared/modules/order-detail/shared.js",
+    "#examples-shared/modules/product/shared.js": "./exports/internal/examples-shared/modules/product/shared.js",
+    "#examples-shared/modules/user/shared.js": "./exports/internal/examples-shared/modules/user/shared.js",
     "#src/*": "./src/*",
     "#examples-shared/*": "./examples/shared/src/*"
   },
