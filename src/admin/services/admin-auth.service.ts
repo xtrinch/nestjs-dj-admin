@@ -12,9 +12,8 @@ import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-hos
 import type { CookieOptions, Request, Response } from 'express';
 import { ADMIN_OPTIONS } from '../admin.constants.js';
 import { AdminAuditService } from './admin-audit.service.js';
-import { getPrimaryUserRole, getUserRoles } from '../utils/user-roles.js';
+import { getUserRoles } from '../utils/user-roles.js';
 import type {
-  AdminAuthUser,
   AdminAuthConfigSchema,
   AdminAuthCredentials,
   AdminBrandingSchema,
@@ -263,16 +262,16 @@ export class AdminAuthService {
     return this.options.auth;
   }
 
-  private normalizeUser(user: AdminAuthUser): AdminRequestUser {
+  private normalizeUser(
+    user: { id: string; roles?: string[]; email?: string; isSuperuser?: boolean },
+  ): AdminRequestUser {
     const roles = getUserRoles(user);
-    const role = getPrimaryUserRole(user);
-    if (!role) {
+    if (roles.length === 0) {
       throw new UnauthorizedException('Resolved admin user must include at least one role');
     }
 
     const normalizedUser: AdminRequestUser = {
       ...user,
-      role,
       roles,
     };
 

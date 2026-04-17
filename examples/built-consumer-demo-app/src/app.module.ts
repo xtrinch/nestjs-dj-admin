@@ -138,7 +138,7 @@ class BuiltConsumerUserAdmin {}
 
           return {
             id: '1',
-            role: 'admin',
+            roles: ['admin'],
             email,
           };
         },

@@ -20,7 +20,7 @@ describe('AdminAuthService', () => {
       auth: {
         authenticate: async () => ({
           id: '1',
-          role: 'admin',
+          roles: ['admin'],
           email: 'ada@example.com',
         }),
         sessionStore: store,
@@ -60,7 +60,7 @@ describe('AdminAuthService', () => {
     store.records.set('expired-session', {
       user: {
         id: '1',
-        role: 'admin',
+        roles: ['admin'],
         email: 'ada@example.com',
       },
       expiresAt: Date.now() - 1000,
@@ -104,8 +104,8 @@ describe('AdminAuthService', () => {
     const request = createRequest({
       user: {
         id: '1',
-        role: 'platform-owner',
         email: 'ada@example.com',
+        roles: ['platform-owner'],
       },
     });
 
@@ -146,7 +146,6 @@ describe('AdminAuthService', () => {
     const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
 
     assert.equal(user.isSuperuser, true);
-    assert.equal(user.role, 'ops-admin');
     assert.deepEqual(user.roles, ['ops-admin', 'finance']);
     assert.equal(request.user?.isSuperuser, true);
   });
@@ -167,7 +166,6 @@ describe('AdminAuthService', () => {
     const request = createRequest({});
     const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
 
-    assert.equal(user.role, 'admin');
     assert.deepEqual(user.roles, ['admin', 'support']);
     assert.equal(user.isSuperuser, true);
   });

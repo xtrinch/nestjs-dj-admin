@@ -14,7 +14,7 @@ export class TypeOrmAdminAuditStore implements AdminAuditStore {
       timestamp: new Date(entry.timestamp),
       action: entry.action,
       actorId: entry.actor.id,
-      actorRole: entry.actor.role,
+      actorRole: entry.actor.roles[0] ?? '',
       actorEmail: entry.actor.email ?? null,
       summary: entry.summary,
       resourceName: entry.resourceName ?? null,
@@ -54,7 +54,7 @@ export class TypeOrmAdminAuditStore implements AdminAuditStore {
         action: entryAction(row.action),
         actor: {
           id: row.actorId,
-          role: row.actorRole,
+          roles: [row.actorRole],
           email: row.actorEmail ?? undefined,
         },
         summary: row.summary,

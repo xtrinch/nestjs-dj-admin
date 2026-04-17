@@ -326,7 +326,7 @@ AdminModule.forRoot({
 
       return {
         id: String(user.id),
-        role: user.role,
+        roles: [user.role],
         email: user.email,
       };
     },
@@ -387,12 +387,9 @@ Resource and extension visibility is role-based.
 
 The permission model uses application-defined role strings. The library does not require fixed role names like `admin`, `editor`, or `viewer`; those are just demo roles.
 
-`AdminRequestUser` supports either:
+The library user contract is `roles: string[]`.
 
-- `role: string`
-- `roles: string[]`
-
-Internally the admin normalizes users to a primary `role` plus a `roles[]` array, and permission checks match against any of the user’s roles.
+If your app stores a single role, map it at the auth boundary:
 
 If you omit permissions, the library falls back to the configured admin superuser check:
 
@@ -643,7 +640,7 @@ AdminModule.forRoot({
       }
 
       return passwords.verify(password, user.passwordHash)
-        ? { id: String(user.id), role: user.role, email: user.email }
+        ? { id: String(user.id), roles: [user.role], email: user.email }
         : null;
     },
     sessionStore: redisAdminSessionStore,
@@ -1185,7 +1182,7 @@ class PrismaAdminAuditStore implements AdminAuditStore {
         timestamp: new Date(entry.timestamp),
         action: entry.action,
         actorId: entry.actor.id,
-        actorRole: entry.actor.role,
+        actorRole: entry.actor.roles[0] ?? '',
         actorEmail: entry.actor.email ?? null,
         summary: entry.summary,
         resourceName: entry.resourceName ?? null,

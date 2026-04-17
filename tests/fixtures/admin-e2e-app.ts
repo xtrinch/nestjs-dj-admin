@@ -349,7 +349,7 @@ Module({
 
           return {
             id: String(user.id),
-            role: String(user.role),
+            roles: [String(user.role)],
             email: String(user.email),
           };
         },

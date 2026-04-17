@@ -7,20 +7,17 @@ describe('AdminPermissionService', () => {
   const service = new AdminPermissionService();
   const adminUser: AdminRequestUser = {
     id: '1',
-    role: 'platform-owner',
     roles: ['platform-owner'],
     email: 'ada@example.com',
     isSuperuser: true,
   };
   const editorUser: AdminRequestUser = {
     id: '2',
-    role: 'editor',
     roles: ['editor'],
     email: 'grace@example.com',
   };
   const multiRoleUser: AdminRequestUser = {
     id: '3',
-    role: 'support',
     roles: ['support', 'editor'],
     email: 'pat@example.com',
   };

@@ -37,7 +37,7 @@ export class HostSessionGuard implements CanActivate {
 export class AdminAccessGuard implements CanActivate {
   canActivate(context: Parameters<CanActivate['canActivate']>[0]): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    return request.user?.role !== 'viewer';
+    return !request.user?.roles?.includes('viewer');
   }
 }
 
@@ -200,7 +200,7 @@ function createDemoUserSession(userKey: string): AdminAuthUser | null {
 
   return {
     id: String(record.id),
-    role: String(record.role),
+    roles: [String(record.role)],
     email: String(record.email),
   };
 }
@@ -219,7 +219,7 @@ function authenticateDemoUser(email: string, password: string): AdminAuthUser | 
 
   return {
     id: String(record.id),
-    role: String(record.role),
+    roles: [String(record.role)],
     email: String(record.email),
   };
 }

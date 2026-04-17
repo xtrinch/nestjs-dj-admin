@@ -88,7 +88,7 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
 
           return {
             id: String(user.id),
-            role: user.role,
+            roles: [user.role],
             email: user.email,
           };
         },

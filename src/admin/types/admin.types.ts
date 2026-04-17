@@ -18,16 +18,12 @@ export type PermissionRole = string;
 
 export interface AdminAuthUser {
   id: string;
-  role?: string;
-  roles?: string[];
+  roles: string[];
   email?: string;
   isSuperuser?: boolean;
 }
 
-export interface AdminRequestUser extends AdminAuthUser {
-  role: string;
-  roles: string[];
-}
+export type AdminRequestUser = AdminAuthUser;
 
 export interface AdminListQuery {
   page: number;
@@ -66,8 +62,7 @@ export type AdminAuditAction =
 
 export interface AdminAuditActor {
   id: string;
-  role: string;
-  roles?: string[];
+  roles: string[];
   email?: string;
 }
 

@@ -54,7 +54,18 @@ const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externa
       auth: {
         mode: 'external',
         guards: [HostSessionGuard, AdminAccessGuard],
-        resolveUser: (request) => request.user ?? null,
+        resolveUser: (request) => {
+          if (!request.user?.roles || request.user.roles.length === 0) {
+            return null;
+          }
+
+          return {
+            id: request.user.id,
+            email: request.user.email,
+            roles: request.user.roles,
+            isSuperuser: request.user.isSuperuser,
+          };
+        },
         loginUrl: externalAuthLoginUrl,
         loginMessage: 'Use the host application session to enter the admin.',
         logout: (request, response) => {

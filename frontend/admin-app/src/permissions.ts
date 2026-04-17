@@ -1,7 +1,7 @@
 import type { AdminUser, ResourceSchema } from './types.js';
 
 function getUserRoles(user: AdminUser): string[] {
-  const normalizedRoles = [user.role, ...(user.roles ?? [])].filter(
+  const normalizedRoles = (user.roles ?? []).filter(
     (role): role is string => Boolean(role),
   );
 

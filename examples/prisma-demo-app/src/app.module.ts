@@ -67,7 +67,7 @@ const prisma = new PrismaClient({
 
           return {
             id: String(user.id),
-            role: user.role,
+            roles: [user.role],
             email: user.email,
           };
         },
