@@ -40,6 +40,9 @@ jobs:
       - name: Build package and UI
         run: npm run build
 
+      - name: Built consumer smoke test
+        run: npm run test:smoke:built-consumer
+
   backend-tests:
     name: Backend Tests (In-Memory)
     runs-on: ubuntu-latest
@@ -149,9 +152,6 @@ jobs:
 
       - name: Build examples
         run: npm run build:examples
-
-      - name: Built TypeORM demo smoke test
-        run: npm run test:smoke:typeorm-built
 
       - name: ORM demo end-to-end tests
         run: npm run test:e2e:demos

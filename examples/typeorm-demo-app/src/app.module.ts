@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ADMIN_ADAPTER, AdminModule, TypeOrmAdminAdapter } from 'nestjs-dj-admin';
-import { dashboardLinkWidgetExtension } from 'nestjs-dj-admin/dashboard-link-widget-extension';
-import { embedPageExtension } from 'nestjs-dj-admin/embed-page-extension';
+import { ADMIN_ADAPTER } from '#src/admin/admin.constants.js';
+import { TypeOrmAdminAdapter } from '#src/admin/adapters/typeorm.adapter.js';
+import { AdminModule } from '#src/admin/admin.module.js';
+import { dashboardLinkWidgetExtension } from '#src/extensions/dashboard-link-widget/index.js';
+import { embedPageExtension } from '#src/extensions/embed/index.js';
 import { verifyPassword } from './auth/password.js';
 import { DataSource } from 'typeorm';
 import { initializeDemoDataSource } from './database/demo-data.source.js';

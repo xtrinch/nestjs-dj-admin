@@ -3,21 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "../..",
-    "baseUrl": "../..",
     "paths": {
-      "nestjs-dj-admin": ["src/index.ts"],
-      "nestjs-dj-admin/embed-page-extension": ["src/extensions/embed/index.ts"],
-      "nestjs-dj-admin/dashboard-link-widget-extension": [
-        "src/extensions/dashboard-link-widget/index.ts"
-      ],
-      "#src/*": ["src/*"],
-      "#examples-shared/*": ["examples/shared/src/*"]
+      "#src/*": ["../../src/*"],
+      "#examples-shared/*": ["../../examples/shared/src/*"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "../../src/**/*.ts",
-    "../../src/**/*.d.ts",
-    "../../examples/shared/src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts", "../../src/**/*.ts", "../../src/**/*.d.ts"]
 }
