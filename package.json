@@ -45,7 +45,9 @@
   },
   "files": [
     "dist",
+    "embed-page-extension.d.ts",
     "embed-page-extension.js",
+    "dashboard-link-widget-extension.d.ts",
     "dashboard-link-widget-extension.js",
     "README.md",
     "CHANGELOG.md",
