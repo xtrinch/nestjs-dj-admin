@@ -6,7 +6,7 @@ import { OrderDetailModule } from '../../in-memory-demo-app/src/modules/order-de
 import { OrderModule } from '../../in-memory-demo-app/src/modules/order/order.module.js';
 import { ProductModule } from '../../in-memory-demo-app/src/modules/product/product.module.js';
 import { UserModule } from '../../in-memory-demo-app/src/modules/user/user.module.js';
-import { HostAuthController, HostSessionGuard, clearHostSession } from './host-auth.js';
+import { AdminAccessGuard, HostAuthController, HostSessionGuard, clearHostSession } from './host-auth.js';
 
 const externalAuthReturnUrl = process.env['EXTERNAL_AUTH_RETURN_URL'] ?? 'http://localhost:5173/admin/';
 const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externalAuthReturnUrl)}`;
@@ -47,7 +47,7 @@ const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externa
       },
       auth: {
         mode: 'external',
-        guards: [HostSessionGuard],
+        guards: [HostSessionGuard, AdminAccessGuard],
         resolveUser: (request) => request.user ?? null,
         loginUrl: externalAuthLoginUrl,
         loginMessage: 'Use the host application session to enter the admin.',
@@ -58,6 +58,6 @@ const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externa
     }),
   ],
   controllers: [HostAuthController],
-  providers: [HostSessionGuard],
+  providers: [HostSessionGuard, AdminAccessGuard],
 })
 export class AppModule {}

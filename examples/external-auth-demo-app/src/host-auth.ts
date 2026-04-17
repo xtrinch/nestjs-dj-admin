@@ -33,6 +33,14 @@ export class HostSessionGuard implements CanActivate {
   }
 }
 
+@Injectable()
+export class AdminAccessGuard implements CanActivate {
+  canActivate(context: Parameters<CanActivate['canActivate']>[0]): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+    return request.user?.role === 'admin';
+  }
+}
+
 @Controller('host-auth')
 export class HostAuthController {
   @Get('login')
@@ -91,7 +99,7 @@ export class HostAuthController {
       </p>
       <div class="actions">
         <a class="button" href="/host-auth/login/ada?next=${encodeURIComponent(next)}">Sign in as Ada Admin</a>
-        <a class="button" href="/host-auth/login/grace?next=${encodeURIComponent(next)}">Sign in as Grace Editor</a>
+        <a class="button" href="/host-auth/login/grace?next=${encodeURIComponent(next)}">Sign in as Grace Editor (blocked from admin)</a>
       </div>
     </main>
   </body>

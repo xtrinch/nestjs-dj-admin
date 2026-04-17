@@ -5,7 +5,7 @@ This demo shows `nestjs-dj-admin` running in `external` auth mode.
 What it demonstrates:
 
 - the host application owns the session cookie
-- the admin reuses a Nest guard to authenticate `/admin` requests
+- the admin reuses Nest guards to authenticate and authorize `/admin` requests
 - `resolveUser(request)` reads the already-authenticated principal from `request.user`
 
 Run it with:
@@ -35,5 +35,5 @@ EXTERNAL_AUTH_RETURN_URL=http://localhost:5173/admin/
 
 Demo users:
 
-- `ada@example.com` / `admin123`
-- `grace@example.com` / `editor123`
+- `ada@example.com` / `admin123` - allowed into admin
+- `grace@example.com` / `editor123` - authenticates in the host app but is blocked from admin by the admin access guard
