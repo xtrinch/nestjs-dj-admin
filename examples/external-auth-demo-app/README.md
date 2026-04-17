@@ -17,7 +17,7 @@ npm run dev:ui
 
 Open:
 
-- `http://localhost:5173/admin`
+- `http://localhost:5173/admin/`
 
 The admin login screen will send you to:
 
@@ -25,12 +25,12 @@ The admin login screen will send you to:
 
 From there you can create a host app session and return to the admin.
 
-By default the demo sends the host-auth flow back to `http://localhost:5173/admin`.
+By default the demo sends the host-auth flow back to `http://localhost:5173/admin/`.
 
 If you want a different return target, set:
 
 ```bash
-EXTERNAL_AUTH_RETURN_URL=http://localhost:5173/admin
+EXTERNAL_AUTH_RETURN_URL=http://localhost:5173/admin/
 ```
 
 Demo users:
