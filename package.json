@@ -32,11 +32,11 @@
     },
     "./embed-page-extension": {
       "types": "./dist/extensions/embed/index.d.ts",
-      "import": "./embed-page-extension.js"
+      "import": "./exports/embed-page-extension.js"
     },
     "./dashboard-link-widget-extension": {
       "types": "./dist/extensions/dashboard-link-widget/index.d.ts",
-      "import": "./dashboard-link-widget-extension.js"
+      "import": "./exports/dashboard-link-widget-extension.js"
     }
   },
   "imports": {
@@ -45,10 +45,7 @@
   },
   "files": [
     "dist",
-    "embed-page-extension.d.ts",
-    "embed-page-extension.js",
-    "dashboard-link-widget-extension.d.ts",
-    "dashboard-link-widget-extension.js",
+    "exports",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
