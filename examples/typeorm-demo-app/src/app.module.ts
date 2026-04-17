@@ -16,6 +16,7 @@ import { OrderModule } from './modules/order/order.module.js';
 import { ProductModule } from './modules/product/product.module.js';
 import { Role, User } from './modules/user/user.entity.js';
 import { UserModule } from './modules/user/user.module.js';
+import { DEMO_PERMISSIONS, permissionsForDemoRole } from '../../shared/src/admin-permissions.js';
 
 const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:3001/d-solo/dj-admin-overview/dj-admin-overview?orgId=1&from=now-6h&to=now&theme=dark&panelId=1';
 
@@ -78,7 +79,7 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
             where: { email },
           });
 
-          if (!user || !user.active || user.role !== Role.ADMIN) {
+          if (!user || !user.active) {
             return null;
           }
 
@@ -88,14 +89,17 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
 
           return {
             id: String(user.id),
-            permissions: [],
+            permissions: permissionsForDemoRole(user.role),
             email: user.email,
-            isSuperuser: true,
+            isSuperuser: user.role === Role.ADMIN,
           };
         },
       },
       auditLog: {
         enabled: true,
+        permissions: {
+          read: [DEMO_PERMISSIONS.audit.read],
+        },
         store: new TypeOrmAdminAuditStore(() => initializeDemoDataSource()),
       },
     }),
