@@ -92,6 +92,7 @@ describe('AdminAuthService', () => {
       path: 'admin',
       auth: {
         mode: 'external',
+        isSuperuser: (user) => user.role === 'platform-owner',
         resolveUser: (request) => {
           return request.user ?? null;
         },
@@ -103,20 +104,48 @@ describe('AdminAuthService', () => {
     const request = createRequest({
       user: {
         id: '1',
-        role: 'admin',
+        role: 'platform-owner',
         email: 'ada@example.com',
       },
     });
 
     const user = await service.requireUser(request);
     assert.equal(user.email, 'ada@example.com');
+    assert.equal(user.isSuperuser, true);
     assert.deepEqual(service.getAuthConfig(), {
       mode: 'external',
       loginEnabled: false,
       logoutEnabled: false,
       loginUrl: '/host-auth/login',
       loginMessage: 'Use the host app',
+      branding: {
+        siteHeader: 'DJ Admin',
+        siteTitle: 'DJ Admin',
+        indexTitle: 'Site administration',
+        accentColor: '#f59e0b',
+      },
     });
+  });
+
+  it('normalizes session-auth users with custom superuser logic', async () => {
+    const service = createService({
+      path: 'admin',
+      auth: {
+        isSuperuser: (user) => user.role === 'ops-admin',
+        authenticate: async () => ({
+          id: '1',
+          role: 'ops-admin',
+          email: 'ada@example.com',
+        }),
+      },
+    });
+
+    const response = createResponse();
+    const request = createRequest({});
+    const user = await service.login({ email: 'ada@example.com', password: 'secret' }, request, response);
+
+    assert.equal(user.isSuperuser, true);
+    assert.equal(request.user?.isSuperuser, true);
   });
 
   it('rejects built-in login when auth is external', async () => {

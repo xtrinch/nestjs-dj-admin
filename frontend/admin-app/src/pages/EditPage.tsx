@@ -18,10 +18,12 @@ type SaveIntent = 'list' | 'continue' | 'add-another';
 export function EditPage({
   resource,
   id,
+  readOnly = false,
   onTitleChange,
 }: {
   resource: ResourceSchema;
   id?: string;
+  readOnly?: boolean;
   onTitleChange?: (label: string | null) => void;
 }) {
   const [fields, setFields] = useState<ResourceField[]>(id ? resource.updateFields : resource.createFields);
@@ -56,7 +58,7 @@ export function EditPage({
   }
 
   async function runAction(action: { name: string; slug: string }) {
-    if (!id) {
+    if (!id || readOnly) {
       return;
     }
 
@@ -78,6 +80,9 @@ export function EditPage({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnly) {
+      return;
+    }
     const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
     const intent = getSaveIntent(submitter);
     const payload = normalizeValues(fields, values);
@@ -137,16 +142,21 @@ export function EditPage({
     <section className="panel">
       <header className="panel__header">
         <div>
-          <span className="panel__eyebrow">{id ? `Edit ${resource.label}` : `Add ${resource.label}`}</span>
+          <span className="panel__eyebrow">
+            {readOnly ? `${resource.label} details` : id ? `Edit ${resource.label}` : `Add ${resource.label}`}
+          </span>
           <div className="panel__title-row">
-            <h2>{id ? (entityLabel ?? resource.label) : `Add ${resource.label}`}</h2>
+            <h2>
+              {readOnly ? (entityLabel ?? resource.label) : id ? (entityLabel ?? resource.label) : `Add ${resource.label}`}
+            </h2>
             {resource.softDelete?.enabled ? (
               <span className="resource-pill">Soft delete</span>
             ) : null}
+            {readOnly ? <span className="resource-pill">Read only</span> : null}
           </div>
         </div>
         <div className="panel__actions">
-          {id
+          {id && !readOnly
             ? resource.actions.map((action) => (
                 <button
                   key={action.slug}
@@ -159,7 +169,7 @@ export function EditPage({
                 </button>
               ))
             : null}
-          {id ? (
+          {id && !readOnly ? (
             <a className="button button--danger" href={`#/${resource.resourceName}/delete/${id}`}>
               {resource.softDelete?.enabled ? `Archive this ${resource.label}` : `Delete this ${resource.label}`}
             </a>
@@ -170,10 +180,11 @@ export function EditPage({
         </div>
       </header>
 
+      {readOnly ? <p className="field__hint">You can view this record, but your role does not have write access.</p> : null}
       {actionError ? <p className="field__error">{actionError}</p> : null}
 
       <form className="form" onSubmit={submit}>
-        {id && resource.password?.enabled ? (
+        {id && resource.password?.enabled && !readOnly ? (
           <div className="field">
             <span className="field__label">Password</span>
             <div className="readonly-field">
@@ -190,22 +201,24 @@ export function EditPage({
         {fields.map((field) => (
           <label className={`field${field.input === 'checkbox' ? ' field--checkbox' : ''}`} key={field.name}>
             <span className="field__label">{field.label}</span>
-            <FieldInput field={field} values={values} setValues={setValues} display={display} />
+            <FieldInput field={field} values={values} setValues={setValues} display={display} readOnly={readOnly} />
             {field.helpText ? <small className="field__hint">{field.helpText}</small> : null}
             {errors[field.name] ? <small className="field__error">{errors[field.name]}</small> : null}
           </label>
         ))}
-        <div className="form__actions">
-          <button className="button button--primary" name="intent" type="submit" value="list">
-            Save
-          </button>
-          <button className="button" name="intent" type="submit" value="continue">
-            Save and continue editing
-          </button>
-          <button className="button" name="intent" type="submit" value="add-another">
-            Save and add another
-          </button>
-        </div>
+        {!readOnly ? (
+          <div className="form__actions">
+            <button className="button button--primary" name="intent" type="submit" value="list">
+              Save
+            </button>
+            <button className="button" name="intent" type="submit" value="continue">
+              Save and continue editing
+            </button>
+            <button className="button" name="intent" type="submit" value="add-another">
+              Save and add another
+            </button>
+          </div>
+        ) : null}
       </form>
     </section>
   );
@@ -296,13 +309,15 @@ function FieldInput({
   values,
   setValues,
   display,
+  readOnly = false,
 }: {
   field: ResourceField;
   values: Record<string, unknown>;
   setValues: Dispatch<SetStateAction<Record<string, unknown>>>;
   display: AdminDisplayConfig | null;
+  readOnly?: boolean;
 }) {
-  if (field.readOnly) {
+  if (field.readOnly || readOnly) {
     return (
       <div className="readonly-field">
         <span className="readonly-field__value">

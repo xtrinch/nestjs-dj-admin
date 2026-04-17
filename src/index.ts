@@ -22,8 +22,9 @@ export type { DashboardLinkWidgetExtensionOptions } from './extensions/dashboard
 
 export { PrismaAdminAdapter } from './admin/adapters/prisma.adapter.js';
 export { TypeOrmAdminAdapter } from './admin/adapters/typeorm.adapter.js';
-export { InMemoryAdminAdapter } from './admin/adapters/in-memory.adapter.js';
+export { InMemoryAdminAdapter, createInMemoryAdminStore } from './admin/adapters/in-memory.adapter.js';
 export { MikroOrmAdminAdapter } from './admin/adapters/mikroorm.adapter.js';
+export type { InMemoryAdminStore } from './admin/adapters/in-memory.adapter.js';
 
 export type {
   AdminAction,

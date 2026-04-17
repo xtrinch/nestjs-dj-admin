@@ -21,6 +21,7 @@ export interface AdminUser {
   id: string;
   role: string;
   email?: string;
+  isSuperuser?: boolean;
 }
 
 export interface AdminAuthConfig {
@@ -29,6 +30,7 @@ export interface AdminAuthConfig {
   logoutEnabled: boolean;
   loginUrl?: string;
   loginMessage?: string;
+  branding: AdminBrandingConfig;
 }
 
 export interface AdminDisplayConfig {
@@ -137,6 +139,10 @@ export interface ResourceSchema {
   search: string[];
   filters: string[];
   readonly: string[];
+  permissions?: {
+    read?: string[];
+    write?: string[];
+  };
   actions: Array<{ name: string; slug: string }>;
   bulkActions: Array<{ name: string; slug: string }>;
   fields: ResourceField[];

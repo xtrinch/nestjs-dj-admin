@@ -118,7 +118,7 @@ export const orderAdminOptions = {
   filters: ['status', 'userId'],
   readonly: ['createdAt', 'updatedAt'],
   permissions: {
-    read: ['admin'],
+    read: ['admin', 'editor'],
     write: ['admin'],
   },
   schema: adminSchemaFromClassValidator({

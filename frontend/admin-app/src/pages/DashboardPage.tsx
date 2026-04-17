@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { formatAdminValue } from '../formatters.js';
+import { canWriteResource } from '../permissions.js';
 import { getAuditLog, listResource } from '../services/resources.service.js';
 import { showToast } from '../services/toast.service.js';
 import type {
   AdminAuditEntry,
   AdminBrandingConfig,
   AdminDisplayConfig,
+  AdminUser,
   CustomPageSchema,
   NavItemSchema,
   ResourceSchema,
@@ -27,6 +29,7 @@ export function DashboardPage({
   display,
   auditLogEnabled,
   branding,
+  user,
   onTitleChange,
 }: {
   navigation: NavigationGroup[];
@@ -35,6 +38,7 @@ export function DashboardPage({
   display: AdminDisplayConfig;
   auditLogEnabled: boolean;
   branding: AdminBrandingConfig;
+  user: AdminUser;
   onTitleChange?: (label: string | null) => void;
 }) {
   const [counts, setCounts] = useState<DashboardCounts>({});
@@ -123,9 +127,11 @@ export function DashboardPage({
                         <a className="button" href={`#/${resource.resourceName}`}>
                           View {resource.label}
                         </a>
-                        <a className="button button--primary" href={`#/${resource.resourceName}/new`}>
-                          Add {resource.label}
-                        </a>
+                        {canWriteResource(resource, user) ? (
+                          <a className="button button--primary" href={`#/${resource.resourceName}/new`}>
+                            Add {resource.label}
+                          </a>
+                        ) : null}
                       </div>
                     </article>
                   ))}

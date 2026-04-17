@@ -12,8 +12,8 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { IN_MEMORY_ADMIN_STORE } from '#src/admin/adapters/in-memory.adapter.js';
 import type { AdminRequestUser } from '#src/admin/types/admin.types.js';
+import { DEMO_IN_MEMORY_ADMIN_STORE } from '#examples-shared/in-memory-demo-store.js';
 import { verifyPassword } from '../../in-memory-demo-app/src/auth/password.js';
 
 const HOST_SESSION_COOKIE = 'host_demo_session';
@@ -191,7 +191,9 @@ function createDemoUserSession(userKey: string): AdminRequestUser | null {
     return null;
   }
 
-  const record = IN_MEMORY_ADMIN_STORE.users.find((candidate) => String(candidate.email ?? '') === email);
+  const record = DEMO_IN_MEMORY_ADMIN_STORE.users.find(
+    (candidate) => String(candidate.email ?? '') === email,
+  );
   if (!record) {
     return null;
   }
@@ -204,7 +206,9 @@ function createDemoUserSession(userKey: string): AdminRequestUser | null {
 }
 
 function authenticateDemoUser(email: string, password: string): AdminRequestUser | null {
-  const record = IN_MEMORY_ADMIN_STORE.users.find((candidate) => String(candidate.email ?? '') === email);
+  const record = DEMO_IN_MEMORY_ADMIN_STORE.users.find(
+    (candidate) => String(candidate.email ?? '') === email,
+  );
   if (!record) {
     return null;
   }

@@ -6,7 +6,7 @@ import { categoryAdminOptions } from '#examples-shared/modules/category/shared.j
 import { orderAdminOptions } from '#examples-shared/modules/order/shared.js';
 import { productAdminOptions } from '#examples-shared/modules/product/shared.js';
 import { userAdminOptions } from '#examples-shared/modules/user/shared.js';
-import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../../src/admin/adapters/in-memory.adapter.js';
+import { InMemoryAdminAdapter, createInMemoryAdminStore } from '../../src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '../../src/admin/admin.module.js';
 import { AdminResource } from '../../src/admin/decorators/admin-resource.decorator.js';
 import { dashboardLinkWidgetExtension } from '../../src/extensions/dashboard-link-widget/index.js';
@@ -222,6 +222,8 @@ const SEEDED_ORDERS = [
   },
 ] as const;
 
+const TEST_ADMIN_STORE = createInMemoryAdminStore();
+
 class User {}
 class Category {}
 class Product {}
@@ -305,7 +307,9 @@ Module({
   imports: [
     AdminModule.forRoot({
       path: '/admin',
-      adapter: InMemoryAdminAdapter,
+      adapter: {
+        useFactory: () => new InMemoryAdminAdapter(TEST_ADMIN_STORE),
+      },
       extensions: [
         embedPageExtension({
           id: 'test-grafana-page',
@@ -334,7 +338,7 @@ Module({
       },
       auth: {
         authenticate: async ({ email, password }) => {
-          const user = IN_MEMORY_ADMIN_STORE.users.find((candidate) => String(candidate.email) === email);
+          const user = TEST_ADMIN_STORE.users.find((candidate) => String(candidate.email) === email);
           if (!user || user.active !== true) {
             return null;
           }
@@ -375,11 +379,11 @@ async function bootstrap(): Promise<void> {
 }
 
 function resetStore() {
-  IN_MEMORY_ADMIN_STORE.users = SEEDED_USERS.map((user) => ({ ...user }));
-  IN_MEMORY_ADMIN_STORE.categories = SEEDED_CATEGORIES.map((category) => ({ ...category }));
-  IN_MEMORY_ADMIN_STORE.orders = SEEDED_ORDERS.map((order) => ({ ...order }));
-  IN_MEMORY_ADMIN_STORE.products = SEEDED_PRODUCTS.map((product) => ({ ...product }));
-  IN_MEMORY_ADMIN_STORE['order-details'] = [];
+  TEST_ADMIN_STORE.users = SEEDED_USERS.map((user) => ({ ...user }));
+  TEST_ADMIN_STORE.categories = SEEDED_CATEGORIES.map((category) => ({ ...category }));
+  TEST_ADMIN_STORE.orders = SEEDED_ORDERS.map((order) => ({ ...order }));
+  TEST_ADMIN_STORE.products = SEEDED_PRODUCTS.map((product) => ({ ...product }));
+  TEST_ADMIN_STORE['order-details'] = [];
 }
 
 await bootstrap().catch((error) => {

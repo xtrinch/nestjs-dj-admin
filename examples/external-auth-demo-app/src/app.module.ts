@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InMemoryAdminAdapter } from '#src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { DEMO_IN_MEMORY_ADMIN_STORE } from '#examples-shared/in-memory-demo-store.js';
 import { CategoryModule } from '../../in-memory-demo-app/src/modules/category/category.module.js';
 import { OrderDetailModule } from '../../in-memory-demo-app/src/modules/order-detail/order-detail.module.js';
 import { OrderModule } from '../../in-memory-demo-app/src/modules/order/order.module.js';
@@ -20,7 +21,9 @@ const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externa
     UserModule,
     AdminModule.forRoot({
       path: '/admin',
-      adapter: InMemoryAdminAdapter,
+      adapter: {
+        useFactory: () => new InMemoryAdminAdapter(DEMO_IN_MEMORY_ADMIN_STORE),
+      },
       branding: {
         siteHeader: 'Northwind Admin',
         siteTitle: 'Northwind Admin',
@@ -44,6 +47,9 @@ const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externa
       },
       auditLog: {
         enabled: true,
+        permissions: {
+          read: ['admin', 'editor'],
+        },
       },
       auth: {
         mode: 'external',

@@ -32,12 +32,20 @@ export class AdminUiService implements OnApplicationBootstrap {
 
     const mountPath = normalizeMountPath(this.options.path);
     const http = this.httpAdapterHost.httpAdapter.getInstance();
+    const canonicalMountPath = mountPath === '/' ? '/' : `${mountPath}/`;
 
     http.use(mountPath, express.static(frontendDist, { index: false }));
-    http.get(mountPath, (_request: Request, response: Response) => {
+    http.get(mountPath, (request: Request, response: Response) => {
+      if (mountPath !== '/') {
+        const queryIndex = request.originalUrl.indexOf('?');
+        const query = queryIndex >= 0 ? request.originalUrl.slice(queryIndex) : '';
+        response.redirect(308, `${canonicalMountPath}${query}`);
+        return;
+      }
+
       response.sendFile(join(frontendDist, INDEX_FILE));
     });
-    http.get(`${mountPath}/`, (_request: Request, response: Response) => {
+    http.get(canonicalMountPath, (_request: Request, response: Response) => {
       response.sendFile(join(frontendDist, INDEX_FILE));
     });
 

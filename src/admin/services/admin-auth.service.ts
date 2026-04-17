@@ -15,6 +15,7 @@ import { AdminAuditService } from './admin-audit.service.js';
 import type {
   AdminAuthConfigSchema,
   AdminAuthCredentials,
+  AdminBrandingSchema,
   AdminExternalAuthOptions,
   AdminModuleOptions,
   AdminRequestUser,
@@ -48,7 +49,8 @@ export class AdminAuthService {
       throw new NotFoundException('Admin authentication is not configured');
     }
 
-    const user = await authenticate(credentials, request);
+    const authenticatedUser = await authenticate(credentials, request);
+    const user = authenticatedUser ? this.normalizeUser(authenticatedUser) : null;
     if (!user) {
       throw new UnauthorizedException('Invalid admin credentials');
     }
@@ -105,18 +107,21 @@ export class AdminAuthService {
   }
 
   getCurrentUser(request: Request): AdminRequestUser | null {
-    return request.user ?? null;
+    return request.user ? this.normalizeUser(request.user) : null;
   }
 
   async getCurrentUserAsync(request: Request): Promise<AdminRequestUser | null> {
     if (request.user) {
-      return request.user;
+      const normalizedUser = this.normalizeUser(request.user);
+      request.user = normalizedUser;
+      return normalizedUser;
     }
 
     if (this.isExternalAuth()) {
       await this.runExternalGuards(request);
       const externalAuth = this.externalAuthOptions();
-      const user = externalAuth ? await externalAuth.resolveUser(request) : null;
+      const resolvedUser = externalAuth ? await externalAuth.resolveUser(request) : null;
+      const user = resolvedUser ? this.normalizeUser(resolvedUser) : null;
       if (user) {
         request.user = user;
       }
@@ -139,10 +144,10 @@ export class AdminAuthService {
     }
 
     if (record.user) {
-      request.user = record.user;
+      request.user = this.normalizeUser(record.user);
     }
 
-    return record.user;
+    return request.user ?? null;
   }
 
   async requireUser(request: Request): Promise<AdminRequestUser> {
@@ -163,6 +168,7 @@ export class AdminAuthService {
         logoutEnabled: typeof externalAuth.logout === 'function',
         loginUrl: externalAuth.loginUrl,
         loginMessage: externalAuth.loginMessage,
+        branding: this.resolveBranding(),
       };
     }
 
@@ -170,6 +176,16 @@ export class AdminAuthService {
       mode: 'session',
       loginEnabled: true,
       logoutEnabled: true,
+      branding: this.resolveBranding(),
+    };
+  }
+
+  private resolveBranding(): AdminBrandingSchema {
+    return {
+      siteHeader: this.options.branding?.siteHeader ?? 'DJ Admin',
+      siteTitle: this.options.branding?.siteTitle ?? 'DJ Admin',
+      indexTitle: this.options.branding?.indexTitle ?? 'Site administration',
+      accentColor: this.options.branding?.accentColor ?? '#f59e0b',
     };
   }
 
@@ -243,6 +259,17 @@ export class AdminAuthService {
     }
 
     return this.options.auth;
+  }
+
+  private normalizeUser(user: AdminRequestUser): AdminRequestUser {
+    return {
+      ...user,
+      isSuperuser: user.isSuperuser ?? this.isSuperuser(user),
+    };
+  }
+
+  private isSuperuser(user: AdminRequestUser): boolean {
+    return this.options.auth?.isSuperuser?.(user) ?? user.role === 'admin';
   }
 
   private async runExternalGuards(request: Request): Promise<void> {

@@ -381,6 +381,138 @@ See:
 
 - [examples/external-auth-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/external-auth-demo-app/README.md)
 
+## Permissions
+
+Resource and extension visibility is role-based.
+
+The permission model uses application-defined role strings. The library does not require fixed role names like `admin`, `editor`, or `viewer`; those are just demo roles.
+
+Today, `AdminRequestUser` has a single `role: string`, so permissions are evaluated against one role per user.
+
+If you omit permissions, the library falls back to the configured admin superuser check:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    isSuperuser: (user) => user.role === 'platform-owner',
+    authenticate: async ({ email, password }) => {
+      // ...
+      return { id: '1', email, role: 'platform-owner' };
+    },
+  },
+});
+```
+
+If `auth.isSuperuser` is not provided, the built-in fallback remains `user.role === 'admin'`.
+
+Resources support:
+
+- `permissions.read`
+- `permissions.write`
+
+If permissions are omitted, both read and write default to “superuser only” via `auth.isSuperuser(...)`.
+
+Example:
+
+```ts
+@AdminResource({
+  model: Order,
+  resourceName: 'orders',
+  permissions: {
+    read: ['ops', 'support'],
+    write: ['ops'],
+  },
+  // ...
+})
+```
+
+Behavior:
+
+- users without `read` access do not see the resource in admin metadata or navigation
+- users with `read` but not `write` access can still open the resource, but the UI falls back to a read-only view
+- create, update, delete, password-change, and custom write actions are still enforced by the backend even if the UI is bypassed
+
+Custom pages, nav items, and dashboard widgets use the same role-string pattern through their own `permissions.read` fields.
+
+If page/nav/widget permissions are omitted, they also default to “superuser only”.
+
+External auth integrations typically map the host app principal into the admin user shape in `resolveUser(...)`:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    mode: 'external',
+    guards: [AppSessionGuard],
+    resolveUser: (request) => {
+      const user = request.user as { id: string; email?: string; role: string } | undefined;
+      if (!user) {
+        return null;
+      }
+
+      return {
+        id: String(user.id),
+        email: user.email,
+        role: user.role,
+      };
+    },
+  },
+});
+```
+
+## Controlling Admin Access
+
+Permissions control what an already-admitted admin user can see or change.
+
+If you want to stop someone from entering the admin area at all, do that in auth:
+
+- in `session` auth mode, return `null` from `authenticate(...)` for users who should not get an admin session
+- in `external` auth mode, block them with your admin guard(s) before the request reaches the admin controller
+
+Typical split:
+
+- auth decides who may enter `/admin` at all
+- permissions decide which resources, pages, widgets, and audit entries that admitted user may see
+
+Example external-auth setup:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auth: {
+    mode: 'external',
+    guards: [AppSessionGuard, AdminAccessGuard],
+    resolveUser: (request) => request.user ?? null,
+  },
+});
+```
+
+## Audit Log Permissions
+
+Audit log access is configured separately from resource access.
+
+Example:
+
+```ts
+AdminModule.forRoot({
+  path: '/admin',
+  auditLog: {
+    enabled: true,
+    permissions: {
+      read: ['ops', 'compliance'],
+    },
+  },
+});
+```
+
+Behavior:
+
+- if `auditLog.permissions` is omitted, audit log access defaults to `['admin']`
+- users without audit-log read access do not see the `Audit Log` section
+- users with audit-log access only see entries for resources they can read
+- non-resource auth/system events are scoped to the current user unless the reader has full admin visibility
+
 ## Default Configuration
 
 The current `0.1.0` defaults are:
@@ -998,6 +1130,7 @@ Current behavior:
 - the core library falls back to an in-memory store unless you provide `auditLog.store`
 - the TypeORM and Prisma example apps wire the audit log into their database
 - newest entries are shown first
+- audit visibility is permissioned separately through `auditLog.permissions`
 - the feature is disabled by default and can be enabled with:
 
 ```ts
@@ -1011,6 +1144,7 @@ AdminModule.forRoot({
 
 - `auditLog.maxEntries` controls retention
 - `auditLog.store` lets the host app provide a durable sink
+- `auditLog.permissions.read` controls which roles can access the audit log UI and endpoint
 
 Concrete production-style pattern:
 

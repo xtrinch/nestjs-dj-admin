@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage.js';
 import { CustomPage } from './pages/CustomPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { ExternalAuthPage } from './pages/ExternalAuthPage.js';
+import { canWriteResource } from './permissions.js';
 import { getAdminAuthConfig, getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
 import { consumeToast, onToast } from './services/toast.service.js';
@@ -56,7 +57,7 @@ type AppRoute =
       kind: 'resource';
       resource: ResourceSchema;
       resourceName: string;
-      mode: 'list' | 'edit' | 'password' | 'delete';
+      mode: 'list' | 'edit' | 'view' | 'password' | 'delete';
       id?: string;
       deleteIds: string[];
     };
@@ -259,6 +260,7 @@ export function App() {
               widgets={meta.widgets}
               display={meta.display}
               route={activeRoute}
+              user={user}
               onTitleChange={setPageSubjectLabel}
             />
           ) : (
@@ -429,6 +431,7 @@ function RouteContent({
   widgets,
   display,
   route,
+  user,
   onTitleChange,
 }: {
   auditLogEnabled: boolean;
@@ -438,6 +441,7 @@ function RouteContent({
   widgets: WidgetSchema[];
   display: AdminMetaResponse['display'];
   route: AppRoute;
+  user: AdminUser;
   onTitleChange: (label: string | null) => void;
 }) {
   if (route.kind === 'home') {
@@ -450,6 +454,7 @@ function RouteContent({
         pages={pages}
         widgets={widgets}
         display={display}
+        user={user}
         onTitleChange={onTitleChange}
       />
     );
@@ -467,7 +472,8 @@ function RouteContent({
     return (
       <ListPage
         key={`list:${route.resourceName}`}
-        resourceName={route.resourceName}
+        resource={route.resource}
+        user={user}
         onTitleChange={onTitleChange}
       />
     );
@@ -500,6 +506,7 @@ function RouteContent({
       key={`edit:${route.resourceName}:${route.id ?? 'new'}`}
       resource={route.resource}
       id={route.id}
+      readOnly={route.mode === 'view' || !canWriteResource(route.resource, user)}
       onTitleChange={onTitleChange}
     />
   );
@@ -536,7 +543,13 @@ function describeRoute(route: AppRoute, subjectLabel: string | null) {
 }
 
 function getInitialRouteSubjectLabel(route: AppRoute): string | null {
-  if (route.kind === 'home' || route.kind === 'audit' || route.kind === 'page' || route.mode === 'list') {
+  if (
+    route.kind === 'home' ||
+    route.kind === 'audit' ||
+    route.kind === 'page' ||
+    route.mode === 'list' ||
+    route.mode === 'view'
+  ) {
     return null;
   }
 
@@ -566,6 +579,10 @@ function getRoutePageLabel(route: AppRoute, subjectLabel: string | null): string
 
   if (route.mode === 'edit') {
     return route.id ? `Edit ${subjectLabel ?? route.resource.label}` : `Add ${route.resource.label}`;
+  }
+
+  if (route.mode === 'view') {
+    return subjectLabel ?? route.resource.label;
   }
 
   if (route.mode === 'password') {
@@ -675,8 +692,13 @@ function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPage
     kind: 'resource',
     resource,
     resourceName: resource.resourceName,
-    mode: mode === 'new' || mode === 'edit' ? ('edit' as const) : ('list' as const),
-    id: mode === 'edit' ? id : undefined,
+    mode:
+      mode === 'new' || mode === 'edit'
+        ? ('edit' as const)
+        : mode === 'view'
+          ? ('view' as const)
+          : ('list' as const),
+    id: mode === 'edit' || mode === 'view' ? id : undefined,
     deleteIds: [] as string[],
   };
 }

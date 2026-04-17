@@ -1,4 +1,11 @@
-import type { CanActivate, Provider, Type } from '@nestjs/common';
+import type {
+  CanActivate,
+  ClassProvider,
+  ExistingProvider,
+  FactoryProvider,
+  Type,
+  ValueProvider,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type {
   AdminPageSchema,
@@ -13,6 +20,7 @@ export interface AdminRequestUser {
   id: string;
   role: string;
   email?: string;
+  isSuperuser?: boolean;
 }
 
 export interface AdminListQuery {
@@ -298,13 +306,20 @@ export interface AdminResourceOptions<TModel extends AdminEntity = AdminEntity> 
 
 export interface AdminModuleOptions {
   path: string;
-  adapter?: Type<AdminAdapter> | Provider<AdminAdapter>;
+  adapter?: AdminAdapterProvider;
   auth?: AdminAuthOptions;
   display?: AdminDisplayOptions;
   branding?: AdminBrandingOptions;
   auditLog?: AdminAuditOptions;
   extensions?: DjAdminExtension[];
 }
+
+export type AdminAdapterProvider =
+  | Type<AdminAdapter>
+  | Omit<ClassProvider<AdminAdapter>, 'provide'>
+  | Omit<ExistingProvider<AdminAdapter>, 'provide'>
+  | Omit<FactoryProvider<AdminAdapter>, 'provide'>
+  | Omit<ValueProvider<AdminAdapter>, 'provide'>;
 
 export interface AdminAuthCredentials {
   email: string;
@@ -338,6 +353,7 @@ export interface AdminSessionAuthOptions {
   sessionTtlMs?: number;
   sessionStore?: AdminSessionStore;
   cookie?: AdminAuthCookieOptions;
+  isSuperuser?: (user: AdminRequestUser) => boolean;
   authenticate: (
     credentials: AdminAuthCredentials,
     request: Request,
@@ -346,6 +362,7 @@ export interface AdminSessionAuthOptions {
 
 export interface AdminExternalAuthOptions {
   mode: 'external';
+  isSuperuser?: (user: AdminRequestUser) => boolean;
   resolveUser: (request: Request) => Promise<AdminRequestUser | null> | AdminRequestUser | null;
   guards?: Array<CanActivate | Type<CanActivate>>;
   loginUrl?: string;
@@ -361,6 +378,7 @@ export interface AdminAuthConfigSchema {
   logoutEnabled: boolean;
   loginUrl?: string;
   loginMessage?: string;
+  branding: AdminBrandingSchema;
 }
 
 export interface AdminAuditOptions {
@@ -368,6 +386,7 @@ export interface AdminAuditOptions {
   maxEntries?: number;
   filePath?: string;
   store?: AdminAuditStore;
+  permissions?: AdminPermissions;
 }
 
 export interface AdminFieldSchema {

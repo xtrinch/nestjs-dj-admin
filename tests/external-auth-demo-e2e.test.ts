@@ -47,6 +47,8 @@ describe('external auth demo', { timeout: 120_000 }, () => {
     assert.equal(authConfig.response.status, 200);
     assert.equal(authConfig.body.mode, 'external');
     assert.equal(authConfig.body.loginEnabled, false);
+    assert.equal(authConfig.body.branding.siteHeader, 'Northwind Admin');
+    assert.equal(authConfig.body.branding.siteTitle, 'Northwind Admin');
     assert.equal(
       authConfig.body.loginUrl,
       '/host-auth/login?next=http%3A%2F%2Flocalhost%3A5173%2Fadmin%2F',
@@ -79,6 +81,32 @@ describe('external auth demo', { timeout: 120_000 }, () => {
     assert.equal(meta.response.status, 200);
     assert.ok(meta.body.resources.some((resource: { resourceName: string }) => resource.resourceName === 'users'));
 
+    const createdCategory = await request(adminBaseUrl, '/categories', {
+      method: 'POST',
+      cookie,
+      body: {
+        name: 'Hidden from editors',
+        description: 'Should not appear in the editor audit log',
+      },
+    });
+    assert.equal(createdCategory.response.status, 201);
+
+    const createdOrder = await request(adminBaseUrl, '/orders', {
+      method: 'POST',
+      cookie,
+      body: {
+        number: 'ORD-9999',
+        orderDate: '2026-04-15T12:00:00.000Z',
+        deliveryTime: '13:00',
+        fulfillmentAt: '2026-04-15T13:15:00.000Z',
+        userId: 2,
+        status: 'pending',
+        total: 88.5,
+        internalNote: 'Visible to editors through audit filtering',
+      },
+    });
+    assert.equal(createdOrder.response.status, 201);
+
     const me = await request(adminBaseUrl, '/_auth/me', { cookie });
     assert.equal(me.response.status, 200);
     assert.equal(me.body.user.email, 'ada@example.com');
@@ -102,8 +130,39 @@ describe('external auth demo', { timeout: 120_000 }, () => {
 
     const editorMeta = await request(adminBaseUrl, '/_meta', { cookie: editorCookie });
     assert.equal(editorMeta.response.status, 200);
-    assert.equal(editorMeta.body.resources.length, 0);
+    assert.deepEqual(
+      editorMeta.body.resources.map((resource: { resourceName: string }) => resource.resourceName),
+      ['orders'],
+    );
     assert.equal(editorMeta.body.pages.length, 0);
+    assert.equal(editorMeta.body.auditLog.enabled, true);
+
+    const editorAudit = await request(adminBaseUrl, '/_audit?page=1&pageSize=20', {
+      cookie: editorCookie,
+    });
+    assert.equal(editorAudit.response.status, 200);
+    assert.ok(
+      editorAudit.body.items.some(
+        (entry: { action: string; actor: { email?: string }; resourceName?: string }) =>
+          entry.action === 'login' && entry.actor.email === 'grace@example.com' && !entry.resourceName,
+      ),
+    );
+    assert.ok(
+      editorAudit.body.items.some(
+        (entry: { action: string; resourceName?: string; objectLabel?: string }) =>
+          entry.action === 'create' &&
+          entry.resourceName === 'orders' &&
+          entry.objectLabel === 'ORD-9999',
+      ),
+    );
+    assert.ok(
+      editorAudit.body.items.every(
+        (entry: { resourceName?: string; actor: { email?: string } }) =>
+          !entry.resourceName ||
+          entry.resourceName === 'orders' ||
+          entry.actor.email === 'grace@example.com',
+      ),
+    );
 
     const blockedLogin = await request(baseUrl, '/host-auth/login', {
       method: 'POST',
