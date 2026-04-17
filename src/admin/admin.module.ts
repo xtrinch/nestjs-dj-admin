@@ -3,6 +3,7 @@ import { DiscoveryModule, MetadataScanner } from '@nestjs/core';
 import { AdminRegistry } from './admin.registry.js';
 import { ADMIN_ADAPTER, ADMIN_OPTIONS } from './admin.constants.js';
 import { AdminController } from './controllers/admin.controller.js';
+import { AdminExtensionRegistry } from '../extension-api/extension.registry.js';
 import { AdminAuthService } from './services/admin-auth.service.js';
 import { AdminAuditService } from './services/admin-audit.service.js';
 import { DtoIntrospectorService } from './services/dto-introspector.service.js';
@@ -17,6 +18,7 @@ import type { AdminModuleOptions } from './types/admin.types.js';
   providers: [
     MetadataScanner,
     AdminRegistry,
+    AdminExtensionRegistry,
     AdminAuthService,
     AdminAuditService,
     DtoIntrospectorService,
@@ -24,7 +26,7 @@ import type { AdminModuleOptions } from './types/admin.types.js';
     AdminService,
     AdminUiService,
   ],
-  exports: [AdminRegistry, AdminService, AdminAuthService, AdminAuditService],
+  exports: [AdminRegistry, AdminExtensionRegistry, AdminService, AdminAuthService, AdminAuditService],
 })
 export class AdminModule {
   static forRoot(options: AdminModuleOptions): DynamicModule {

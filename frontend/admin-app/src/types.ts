@@ -145,8 +145,71 @@ export interface ResourceSchema {
   };
 }
 
+export interface CustomPageSchemaBase {
+  slug: string;
+  label: string;
+  category: string;
+}
+
+export interface EmbedPageSchema extends CustomPageSchemaBase {
+  kind: 'embed';
+  url: string;
+  title?: string;
+  description?: string;
+  height: number;
+  allow?: string;
+  referrerPolicy?: HTMLIFrameElement['referrerPolicy'];
+}
+
+export type CustomPageSchema = EmbedPageSchema;
+
+export interface NavItemSchemaBase {
+  key: string;
+  label: string;
+  category: string;
+  order: number;
+}
+
+export interface PageNavItemSchema extends NavItemSchemaBase {
+  kind: 'page';
+  pageSlug: string;
+}
+
+export interface HrefNavItemSchema extends NavItemSchemaBase {
+  kind: 'href';
+  href: string;
+}
+
+export type NavItemSchema = PageNavItemSchema | HrefNavItemSchema;
+
+export interface WidgetSchemaBase {
+  key: string;
+  title: string;
+  slot: 'dashboard-main' | 'dashboard-side';
+  order: number;
+}
+
+export interface PageLinkWidgetSchema extends WidgetSchemaBase {
+  kind: 'page-link';
+  pageSlug: string;
+  description?: string;
+  ctaLabel?: string;
+}
+
+export interface HrefWidgetSchema extends WidgetSchemaBase {
+  kind: 'href';
+  href: string;
+  description?: string;
+  ctaLabel?: string;
+}
+
+export type WidgetSchema = PageLinkWidgetSchema | HrefWidgetSchema;
+
 export interface AdminMetaResponse {
   resources: ResourceSchema[];
+  pages: CustomPageSchema[];
+  navItems: NavItemSchema[];
+  widgets: WidgetSchema[];
   display: AdminDisplayConfig;
   branding: AdminBrandingConfig;
   auditLog?: {

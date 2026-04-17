@@ -1,5 +1,11 @@
 import type { Provider, Type } from '@nestjs/common';
 import type { Request } from 'express';
+import type {
+  AdminPageSchema,
+  AdminNavItemSchema,
+  AdminWidgetSchema,
+  DjAdminExtension,
+} from '../../extension-api/types.js';
 
 export type PermissionRole = string;
 
@@ -297,6 +303,7 @@ export interface AdminModuleOptions {
   display?: AdminDisplayOptions;
   branding?: AdminBrandingOptions;
   auditLog?: AdminAuditOptions;
+  extensions?: DjAdminExtension[];
 }
 
 export interface AdminAuthCredentials {
@@ -417,4 +424,10 @@ export interface AdminBrandingSchema {
   siteTitle: string;
   indexTitle: string;
   accentColor: string;
+}
+
+export interface AdminExtensionsSchema {
+  pages: AdminPageSchema[];
+  navItems: AdminNavItemSchema[];
+  widgets: AdminWidgetSchema[];
 }

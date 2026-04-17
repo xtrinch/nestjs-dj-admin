@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ADMIN_ADAPTER } from '#src/admin/admin.constants.js';
 import { TypeOrmAdminAdapter } from '#src/admin/adapters/typeorm.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { dashboardLinkWidgetExtension } from '#src/extensions/dashboard-link-widget/index.js';
+import { embedPageExtension } from '#src/extensions/embed/index.js';
 import { verifyPassword } from './auth/password.js';
 import { DataSource } from 'typeorm';
 import { initializeDemoDataSource } from './database/demo-data.source.js';
@@ -15,6 +17,8 @@ import { ProductModule } from './modules/product/product.module.js';
 import { Role, User } from './modules/user/user.entity.js';
 import { UserModule } from './modules/user/user.module.js';
 
+const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:3001/d-solo/dj-admin-overview/dj-admin-overview?orgId=1&from=now-6h&to=now&theme=dark&panelId=1';
+
 @Module({
   imports: [
     CategoryModule,
@@ -24,6 +28,27 @@ import { UserModule } from './modules/user/user.module.js';
     UserModule,
     AdminModule.forRoot({
       path: '/admin',
+      extensions: [
+        embedPageExtension({
+          id: 'grafana-page',
+          page: {
+            slug: 'grafana-overview',
+            label: 'Grafana overview',
+            category: 'Monitoring',
+            title: 'Grafana Overview',
+            description: 'Local Grafana dashboard running from the demo Docker stack.',
+            url: grafanaEmbedUrl,
+            height: 520,
+          },
+        }),
+        dashboardLinkWidgetExtension({
+          id: 'grafana-widget',
+          title: 'Grafana overview',
+          description: 'Open the embedded monitoring dashboard from the admin home screen.',
+          ctaLabel: 'Open Grafana overview',
+          pageSlug: 'grafana-overview',
+        }),
+      ],
       branding: {
         siteHeader: 'Northwind Admin',
         siteTitle: 'Northwind Admin',

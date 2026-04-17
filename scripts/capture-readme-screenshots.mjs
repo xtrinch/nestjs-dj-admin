@@ -68,6 +68,14 @@ try {
     path: fileURLToPath(new URL('user-edit.png', outputDir)),
   });
 
+  console.log('Capturing custom page');
+  await page.goto(`${baseUrl}/admin#/pages/grafana-overview`);
+  await page.getByRole('heading', { name: 'Grafana Overview' }).waitFor({ timeout: 10000 });
+  await page.locator('iframe[title="Grafana Overview"]').waitFor({ timeout: 10000 });
+  await page.screenshot({
+    path: fileURLToPath(new URL('grafana-overview.png', outputDir)),
+  });
+
   console.log('Done');
   await browser.close();
 } finally {

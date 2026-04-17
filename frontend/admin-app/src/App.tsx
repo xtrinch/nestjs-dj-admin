@@ -6,12 +6,26 @@ import { PasswordPage } from './pages/PasswordPage.js';
 import { DeleteConfirmPage } from './pages/DeleteConfirmPage.js';
 import { AuditLogPage } from './pages/AuditLogPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
+import { CustomPage } from './pages/CustomPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
 import { consumeToast, onToast } from './services/toast.service.js';
 import type { AdminToast } from './services/toast.service.js';
-import type { AdminMetaResponse, AdminUser, ResourceSchema } from './types.js';
+import type {
+  AdminMetaResponse,
+  AdminUser,
+  CustomPageSchema,
+  NavItemSchema,
+  ResourceSchema,
+  WidgetSchema,
+} from './types.js';
+
+type NavigationGroup = {
+  category: string;
+  resources: ResourceSchema[];
+  navItems: NavItemSchema[];
+};
 
 type AppRoute =
   | {
@@ -26,6 +40,14 @@ type AppRoute =
       category: 'System';
       resourceName: 'audit-log';
       resourceLabel: 'Audit Log';
+      pageLabel: null;
+    }
+  | {
+      kind: 'page';
+      page: CustomPageSchema;
+      category: string;
+      resourceName: string;
+      resourceLabel: string;
       pageLabel: null;
     }
   | {
@@ -93,8 +115,8 @@ export function App() {
     };
   }, [toast]);
 
-  const route = meta?.resources.length ? parseRoute(hash, meta.resources) : null;
-  const categories = meta ? groupResources(meta.resources) : [];
+  const route = meta ? parseRoute(hash, meta.resources, meta.pages) : null;
+  const navigation = meta ? groupNavigation(meta.resources, meta.navItems) : [];
   const routeUi = route ? describeRoute(route, pageSubjectLabel) : null;
   const brandStyle = useMemo(() => buildBrandStyle(meta?.branding.accentColor), [meta?.branding.accentColor]);
 
@@ -161,8 +183,8 @@ export function App() {
     return <div className="shell">Loading admin resources…</div>;
   }
 
-  if (meta.resources.length === 0) {
-    return <div className="shell">No admin resources are registered.</div>;
+  if (meta.resources.length === 0 && meta.pages.length === 0) {
+    return <div className="shell">No admin resources or extension pages are registered.</div>;
   }
 
   const activeRoute = route;
@@ -188,7 +210,7 @@ export function App() {
           <SidebarNav
             activeRoute={activeRoute}
             auditLogEnabled={meta.auditLog?.enabled === true}
-            categories={categories}
+            navigation={navigation}
           />
         </nav>
       </aside>
@@ -206,7 +228,7 @@ export function App() {
           {routeUi && activeRoute.kind !== 'home' ? (
             <Breadcrumbs
               category={routeUi.category}
-              resourceName={routeUi.resourceName}
+              resourceHref={routeUi.resourceHref}
               resourceLabel={routeUi.resourceLabel}
               pageLabel={routeUi.pageLabel}
             />
@@ -214,7 +236,9 @@ export function App() {
           <RouteContent
             auditLogEnabled={meta.auditLog?.enabled === true}
             branding={meta.branding}
-            categories={categories}
+            navigation={navigation}
+            pages={meta.pages}
+            widgets={meta.widgets}
             display={meta.display}
             route={activeRoute}
             onTitleChange={setPageSubjectLabel}
@@ -319,11 +343,11 @@ function shadeHexColor(hex: string, amount: number): string {
 function SidebarNav({
   activeRoute,
   auditLogEnabled,
-  categories,
+  navigation,
 }: {
   activeRoute: AppRoute;
   auditLogEnabled: boolean;
-  categories: Array<[string, ResourceSchema[]]>;
+  navigation: NavigationGroup[];
 }) {
   return (
     <>
@@ -333,16 +357,25 @@ function SidebarNav({
           Dashboard
         </a>
       </section>
-      {categories.map(([category, resources]) => (
-        <section key={category} className="nav__group">
-          <span className="nav__group-label">{category}</span>
-          {resources.map((resource) => (
+      {navigation.map((group) => (
+        <section key={group.category} className="nav__group">
+          <span className="nav__group-label">{group.category}</span>
+          {group.resources.map((resource) => (
             <a
               key={resource.resourceName}
               className={isActiveResourceRoute(activeRoute, resource.resourceName) ? 'nav__link active' : 'nav__link'}
               href={`#/${resource.resourceName}`}
             >
               {resource.label}
+            </a>
+          ))}
+          {group.navItems.map((navItem) => (
+            <a
+              key={navItem.key}
+              className={isActiveNavItemRoute(activeRoute, navItem) ? 'nav__link active' : 'nav__link'}
+              href={navItem.kind === 'page' ? `#/pages/${navItem.pageSlug}` : navItem.href}
+            >
+              {navItem.label}
             </a>
           ))}
         </section>
@@ -362,14 +395,18 @@ function SidebarNav({
 function RouteContent({
   auditLogEnabled,
   branding,
-  categories,
+  navigation,
+  pages,
+  widgets,
   display,
   route,
   onTitleChange,
 }: {
   auditLogEnabled: boolean;
   branding: AdminMetaResponse['branding'];
-  categories: Array<[string, ResourceSchema[]]>;
+  navigation: NavigationGroup[];
+  pages: CustomPageSchema[];
+  widgets: WidgetSchema[];
   display: AdminMetaResponse['display'];
   route: AppRoute;
   onTitleChange: (label: string | null) => void;
@@ -380,7 +417,9 @@ function RouteContent({
         key="dashboard"
         auditLogEnabled={auditLogEnabled}
         branding={branding}
-        categories={categories}
+        navigation={navigation}
+        pages={pages}
+        widgets={widgets}
         display={display}
         onTitleChange={onTitleChange}
       />
@@ -389,6 +428,10 @@ function RouteContent({
 
   if (route.kind === 'audit') {
     return <AuditLogPage key="audit-log" display={display} onTitleChange={onTitleChange} />;
+  }
+
+  if (route.kind === 'page') {
+    return <CustomPage key={`page:${route.page.slug}`} page={route.page} onTitleChange={onTitleChange} />;
   }
 
   if (route.mode === 'list') {
@@ -433,30 +476,38 @@ function RouteContent({
   );
 }
 
-function groupResources(resources: ResourceSchema[]) {
-  const groups = new Map<string, ResourceSchema[]>();
+function groupNavigation(resources: ResourceSchema[], navItems: NavItemSchema[]): NavigationGroup[] {
+  const groups = new Map<string, NavigationGroup>();
 
   for (const resource of resources) {
     const category = resource.category || 'General';
-    const group = groups.get(category) ?? [];
-    group.push(resource);
+    const group = groups.get(category) ?? { category, resources: [], navItems: [] };
+    group.resources.push(resource);
     groups.set(category, group);
   }
 
-  return [...groups.entries()];
+  for (const navItem of navItems) {
+    const category = navItem.category || 'General';
+    const group = groups.get(category) ?? { category, resources: [], navItems: [] };
+    group.navItems.push(navItem);
+    groups.set(category, group);
+  }
+
+  return [...groups.values()];
 }
 
 function describeRoute(route: AppRoute, subjectLabel: string | null) {
   return {
     category: route.kind === 'resource' ? route.resource.category : route.category,
     resourceName: route.resourceName,
+    resourceHref: route.kind === 'page' ? `#/pages/${route.page.slug}` : `#/${route.resourceName}`,
     resourceLabel: route.kind === 'resource' ? route.resource.label : route.resourceLabel,
     pageLabel: getRoutePageLabel(route, subjectLabel),
   };
 }
 
 function getInitialRouteSubjectLabel(route: AppRoute): string | null {
-  if (route.kind === 'home' || route.kind === 'audit' || route.mode === 'list') {
+  if (route.kind === 'home' || route.kind === 'audit' || route.kind === 'page' || route.mode === 'list') {
     return null;
   }
 
@@ -473,6 +524,10 @@ function getRoutePageLabel(route: AppRoute, subjectLabel: string | null): string
   }
 
   if (route.kind === 'audit') {
+    return null;
+  }
+
+  if (route.kind === 'page') {
     return null;
   }
 
@@ -495,7 +550,11 @@ function isActiveResourceRoute(route: AppRoute, resourceName: string): boolean {
   return route.kind === 'resource' && route.resourceName === resourceName;
 }
 
-function parseRoute(hash: string, resources: ResourceSchema[]): AppRoute {
+function isActiveNavItemRoute(route: AppRoute, navItem: NavItemSchema): boolean {
+  return navItem.kind === 'page' && route.kind === 'page' && route.page.slug === navItem.pageSlug;
+}
+
+function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPageSchema[]): AppRoute {
   const normalized = hash.replace(/^#\/?/, '');
 
   if (normalized === '' || normalized === 'home') {
@@ -518,8 +577,47 @@ function parseRoute(hash: string, resources: ResourceSchema[]): AppRoute {
     };
   }
 
-  const [resourceName, mode, id, extra] = normalized.split('/');
+  const segments = normalized.split('/');
+  if (segments[0] === 'pages') {
+    const resourceName = segments[1];
+    const fallbackPage = pages[0];
+    if (fallbackPage) {
+      const page = pages.find((item) => item.slug === resourceName) ?? fallbackPage;
+      return {
+        kind: 'page',
+        page,
+        category: page.category,
+        resourceName: page.slug,
+        resourceLabel: page.label,
+        pageLabel: null,
+      };
+    }
+  }
+
+  const [resourceName, mode, id, extra] = segments;
   const fallback = resources[0];
+  if (!fallback) {
+    const fallbackPage = pages[0];
+    if (!fallbackPage) {
+      return {
+        kind: 'home',
+        category: 'Home',
+        resourceName: 'dashboard',
+        resourceLabel: 'Dashboard',
+        pageLabel: null,
+      };
+    }
+
+    return {
+      kind: 'page',
+      page: fallbackPage,
+      category: fallbackPage.category,
+      resourceName: fallbackPage.slug,
+      resourceLabel: fallbackPage.label,
+      pageLabel: null,
+    };
+  }
+
   const resource = resources.find((item) => item.resourceName === resourceName) ?? fallback;
 
   if (mode === 'delete' && id) {

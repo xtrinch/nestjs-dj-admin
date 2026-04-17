@@ -9,6 +9,20 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - dj-admin-postgres:/var/lib/postgresql/data
+  grafana:
+    image: grafana/grafana-oss:11.6.0
+    ports:
+      - '3001:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ALLOW_EMBEDDING: 'true'
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+    volumes:
+      - ./examples/typeorm-demo-app/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./examples/typeorm-demo-app/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
 
 volumes:
   dj-admin-postgres:

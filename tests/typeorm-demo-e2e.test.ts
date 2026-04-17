@@ -8,4 +8,5 @@ defineDemoAdminE2ETests({
   env: {
     DB_NAME: 'nestjs_dj_admin_demo_e2e',
   },
+  expectedPageSlug: 'grafana-overview',
 });

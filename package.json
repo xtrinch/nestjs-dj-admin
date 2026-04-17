@@ -23,12 +23,20 @@
     "url": "https://github.com/xtrinch/nestjs-dj-admin/issues"
   },
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./embed-page-extension": {
+      "types": "./dist/src/extensions/embed/index.d.ts",
+      "import": "./dist/src/extensions/embed/index.js"
+    },
+    "./dashboard-link-widget-extension": {
+      "types": "./dist/src/extensions/dashboard-link-widget/index.d.ts",
+      "import": "./dist/src/extensions/dashboard-link-widget/index.js"
     }
   },
   "imports": {
@@ -51,6 +59,7 @@
     "dev:inmemory-example": "npm run clean:shadow && nodemon --watch src --watch examples/shared/src --watch examples/in-memory-demo-app/src --ext ts --exec \"TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm examples/in-memory-demo-app/src/main.ts\"",
     "dev:prisma-example": "npm run prisma:generate:example && npm run clean:shadow && nodemon --watch src --watch examples/shared/src --watch examples/prisma-demo-app/src --watch examples/prisma-demo-app/prisma --ext ts,prisma --exec \"TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm examples/prisma-demo-app/src/main.ts\"",
     "dev:mikroorm-example": "npm run mikroorm:setup:example && npm run clean:shadow && nodemon --watch src --watch examples/shared/src --watch examples/mikroorm-demo-app/src --ext ts --exec \"TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm examples/mikroorm-demo-app/src/main.ts\"",
+    "dev:built-consumer-example": "npm run build:lib && TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm examples/built-consumer-demo-app/src/main.ts",
     "dev:example": "npm run dev:typeorm-example",
     "dev:ui": "vite --config frontend/admin-app/vite.config.ts",
     "dev": "concurrently \"npm run dev:typeorm-example\" \"npm run dev:ui\"",
@@ -61,11 +70,13 @@
     "start:inmemory-example": "node examples/in-memory-demo-app/dist/examples/in-memory-demo-app/src/main.js",
     "start:prisma-example": "node examples/prisma-demo-app/dist/examples/prisma-demo-app/src/main.js",
     "start:mikroorm-example": "node examples/mikroorm-demo-app/dist/examples/mikroorm-demo-app/src/main.js",
+    "start:built-consumer-example": "node examples/built-consumer-demo-app/dist/examples/built-consumer-demo-app/src/main.js",
     "start:example": "npm run start:typeorm-example",
     "build:typeorm-example": "npm run clean && npm run build:lib && tsc -p examples/typeorm-demo-app/tsconfig.json",
     "build:inmemory-example": "npm run clean && npm run build:lib && tsc -p examples/in-memory-demo-app/tsconfig.json",
     "build:prisma-example": "npm run prisma:generate:example && npm run clean && npm run build:lib && tsc -p examples/prisma-demo-app/tsconfig.json",
     "build:mikroorm-example": "npm run mikroorm:setup:example && npm run clean && npm run build:lib && tsc -p examples/mikroorm-demo-app/tsconfig.json",
+    "build:built-consumer-example": "npm run clean && npm run build:lib && tsc -p examples/built-consumer-demo-app/tsconfig.json",
     "build:example": "npm run build:typeorm-example",
     "build:examples": "npm run prisma:generate:example && npm run mikroorm:setup:example && npm run clean && npm run build:lib && tsc -p examples/typeorm-demo-app/tsconfig.json && tsc -p examples/in-memory-demo-app/tsconfig.json && tsc -p examples/prisma-demo-app/tsconfig.json && tsc -p examples/mikroorm-demo-app/tsconfig.json",
     "typeorm:setup:example": "node scripts/setup-typeorm-example.mjs",
@@ -79,6 +90,8 @@
     "test:adapters": "node --import tsx --test tests/adapter-contract.test.ts",
     "test:e2e": "node --import tsx --test tests/admin-e2e.test.ts",
     "test:e2e:typeorm-demo": "node --import tsx --test tests/typeorm-demo-e2e.test.ts",
+    "test:smoke:built-consumer": "node --import tsx --test tests/built-consumer-demo-smoke.test.ts",
+    "test:smoke:npm-pack-consumer": "node --import tsx --test tests/npm-pack-consumer-smoke.test.ts",
     "test:e2e:prisma-demo": "node --import tsx --test tests/prisma-demo-e2e.test.ts",
     "test:e2e:mikroorm-demo": "node --import tsx --test tests/mikroorm-demo-e2e.test.ts",
     "test:e2e:demos": "node --import tsx --test tests/typeorm-demo-e2e.test.ts tests/prisma-demo-e2e.test.ts tests/mikroorm-demo-e2e.test.ts",

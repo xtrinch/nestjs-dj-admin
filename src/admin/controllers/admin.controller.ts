@@ -14,6 +14,7 @@ import type { Request, Response } from 'express';
 import { AdminAuthService } from '../services/admin-auth.service.js';
 import { AdminAuditService } from '../services/admin-audit.service.js';
 import { AdminService } from '../services/admin.service.js';
+import { AdminPermissionService } from '../services/admin-permission.service.js';
 import { ADMIN_OPTIONS } from '../admin.constants.js';
 import type {
   AdminBrandingSchema,
@@ -32,6 +33,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly adminAuthService: AdminAuthService,
     private readonly adminAuditService: AdminAuditService,
+    private readonly adminPermissionService: AdminPermissionService,
   ) {}
 
   @Get('_auth/me')
@@ -61,10 +63,14 @@ export class AdminController {
   @Get('_meta')
   async getResources(@Req() request: Request) {
     const user = await this.adminAuthService.requireUser(request);
+    const extensions = this.adminService.getExtensionsSchema();
     return {
       resources: this.adminService
         .getResources()
         .filter((resource) => canReadResource(resource, user)),
+      pages: extensions.pages.filter((page) => this.adminPermissionService.canReadPage(user, page)),
+      navItems: extensions.navItems.filter((navItem) => this.adminPermissionService.canReadNavItem(user, navItem)),
+      widgets: extensions.widgets.filter((widget) => this.adminPermissionService.canReadWidget(user, widget)),
       display: resolveDisplay(this.adminOptions),
       branding: resolveBranding(this.adminOptions),
       auditLog: {

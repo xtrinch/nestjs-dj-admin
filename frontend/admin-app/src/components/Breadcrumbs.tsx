@@ -1,11 +1,11 @@
 export function Breadcrumbs({
   category,
-  resourceName,
+  resourceHref,
   resourceLabel,
   pageLabel,
 }: {
   category: string;
-  resourceName: string;
+  resourceHref: string;
   resourceLabel: string;
   pageLabel: string | null;
 }) {
@@ -15,7 +15,7 @@ export function Breadcrumbs({
       <span className="breadcrumbs__sep">›</span>
       <span>{category}</span>
       <span className="breadcrumbs__sep">›</span>
-      <a className="breadcrumbs__link" href={`#/${resourceName}`}>
+      <a className="breadcrumbs__link" href={resourceHref}>
         {resourceLabel}
       </a>
       {pageLabel ? (
