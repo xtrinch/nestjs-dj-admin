@@ -5,7 +5,8 @@ export const DEMO_PERMISSIONS = {
     read: 'audit.read',
   },
   orders: {
-    manage: 'orders.manage',
+    read: 'orders.read',
+    write: 'orders.write',
   },
 } as const;
 
@@ -14,7 +15,8 @@ export function permissionsForDemoRole(role: Role | string): string[] {
     case Role.EDITOR:
       return [
         DEMO_PERMISSIONS.audit.read,
-        DEMO_PERMISSIONS.orders.manage,
+        DEMO_PERMISSIONS.orders.read,
+        DEMO_PERMISSIONS.orders.write,
       ];
     default:
       return [];

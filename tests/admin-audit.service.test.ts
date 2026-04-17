@@ -37,7 +37,7 @@ describe('AdminAuditService', () => {
     });
     await service.record({
       action: 'login',
-      actor: { id: '2', permissions: ['orders.manage'], email: 'grace@example.com' },
+      actor: { id: '2', permissions: ['orders.read', 'orders.write'], email: 'grace@example.com' },
       summary: 'grace@example.com logged in',
     });
 
@@ -46,7 +46,7 @@ describe('AdminAuditService', () => {
       {
         user: {
           id: '2',
-          permissions: ['orders.manage'],
+          permissions: ['orders.read', 'orders.write'],
           email: 'grace@example.com',
         },
         canReadResource: (resourceName) => resourceName === 'orders',
@@ -94,7 +94,7 @@ describe('AdminAuditService', () => {
     });
     await service.record({
       action: 'login',
-      actor: { id: '2', permissions: ['orders.manage'], email: 'grace@example.com' },
+      actor: { id: '2', permissions: ['orders.read', 'orders.write'], email: 'grace@example.com' },
       summary: 'grace@example.com logged in',
     });
 

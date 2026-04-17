@@ -3,7 +3,6 @@ import { AdminField } from '#src/admin/decorators/admin-field.decorator.js';
 import type { AdminResourceOptions } from '#src/admin/types/admin.types.js';
 import { Type } from 'class-transformer';
 import { IsDate, IsEnum, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
-import { DEMO_PERMISSIONS } from '../../admin-permissions.js';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -118,10 +117,6 @@ export const orderAdminOptions = {
   search: ['number', { path: 'userId.email', label: 'User email' }],
   filters: ['status', 'userId'],
   readonly: ['createdAt', 'updatedAt'],
-  permissions: {
-    read: [DEMO_PERMISSIONS.orders.manage],
-    write: [DEMO_PERMISSIONS.orders.manage],
-  },
   schema: adminSchemaFromClassValidator({
     createDto: CreateOrderDto,
     updateDto: UpdateOrderDto,

@@ -326,7 +326,7 @@ AdminModule.forRoot({
 
       return {
         id: String(user.id),
-        permissions: ['orders.manage', 'audit.read'],
+        permissions: ['orders.read', 'orders.write', 'audit.read'],
         email: user.email,
         isSuperuser: user.role === 'admin',
       };
@@ -420,30 +420,27 @@ AdminModule.forRoot({
 });
 ```
 
-Resources support:
+By default, a resource named `orders` implies:
 
-- `permissions.read`
-- `permissions.write`
+- `orders.read`
+- `orders.write`
 
-If permissions are omitted, both read and write default to superuser-only.
+So you grant those keys to users, rather than configuring a `permissions` block on every resource.
 
 Example:
 
 ```ts
-@AdminResource({
-  model: Order,
-  resourceName: 'orders',
-  permissions: {
-    read: ['sales.manage'],
-    write: ['sales.manage'],
-  },
-  // ...
-})
+return {
+  id: String(user.id),
+  email: user.email,
+  permissions: ['orders.read', 'orders.write', 'audit.read'],
+  isSuperuser: user.role === 'admin',
+};
 ```
 
 Behavior:
 
-- users without `read` access do not see the resource in admin metadata or navigation
+- users without the resource's implied read permission, such as `orders.read`, do not see it in admin metadata or navigation
 - users with `read` but not `write` access can still open the resource, but the UI falls back to a read-only view
 - create, update, delete, password-change, and custom write actions are still enforced by the backend even if the UI is bypassed
 
@@ -453,9 +450,12 @@ If page/nav/widget permissions are omitted, they also default to “superuser on
 
 Typical shapes:
 
-- `orders.manage`
-- `catalog.manage`
-- `users.manage`
+- `orders.read`
+- `orders.write`
+- `products.read`
+- `products.write`
+- `users.read`
+- `users.write`
 - `audit.read`
 
 External auth integrations typically map the host app principal into the admin user shape in `resolveUser(...)`:
@@ -475,7 +475,7 @@ AdminModule.forRoot({
       return {
         id: String(user.id),
         email: user.email,
-        permissions: user.role === 'editor' ? ['orders.manage', 'audit.read'] : [],
+        permissions: user.role === 'editor' ? ['orders.read', 'orders.write', 'audit.read'] : [],
         isSuperuser: user.role === 'admin',
       };
     },

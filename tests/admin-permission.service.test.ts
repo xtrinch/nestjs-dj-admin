@@ -13,16 +13,16 @@ describe('AdminPermissionService', () => {
   };
   const editorUser: AdminRequestUser = {
     id: '2',
-    permissions: ['orders.manage'],
+    permissions: ['orders.read', 'orders.write'],
     email: 'grace@example.com',
   };
-  const multiRoleUser: AdminRequestUser = {
+  const customPermissionUser: AdminRequestUser = {
     id: '3',
-    permissions: ['support.access', 'orders.manage'],
+    permissions: ['users.read', 'users.write'],
     email: 'pat@example.com',
   };
 
-  it('defaults omitted resource permissions to superuser-only', () => {
+  it('derives default resource permissions from the resource name', () => {
     const schema = {
       resourceName: 'orders',
       label: 'Orders',
@@ -41,9 +41,9 @@ describe('AdminPermissionService', () => {
     } satisfies AdminResourceSchema;
 
     assert.equal(service.canReadResource(adminUser, schema), true);
-    assert.equal(service.canReadResource(editorUser, schema), false);
+    assert.equal(service.canReadResource(editorUser, schema), true);
     assert.doesNotThrow(() => service.assertCanWrite(adminUser, schema));
-    assert.throws(() => service.assertCanWrite(editorUser, schema));
+    assert.doesNotThrow(() => service.assertCanWrite(editorUser, schema));
   });
 
   it('defaults omitted extension permissions to superuser-only', () => {
@@ -71,10 +71,10 @@ describe('AdminPermissionService', () => {
     );
   });
 
-  it('matches permissions against any configured user permission', () => {
+  it('matches implicit permissions against the resource name', () => {
     const schema = {
-      resourceName: 'orders',
-      label: 'Orders',
+      resourceName: 'users',
+      label: 'Users',
       category: 'Sales',
       list: [],
       sortable: [],
@@ -82,10 +82,6 @@ describe('AdminPermissionService', () => {
       search: [],
       filters: [],
       readonly: [],
-      permissions: {
-        read: ['support.access'],
-        write: ['orders.manage'],
-      },
       actions: [],
       bulkActions: [],
       fields: [],
@@ -93,7 +89,7 @@ describe('AdminPermissionService', () => {
       updateFields: [],
     } satisfies AdminResourceSchema;
 
-    assert.equal(service.canReadResource(multiRoleUser, schema), true);
-    assert.doesNotThrow(() => service.assertCanWrite(multiRoleUser, schema));
+    assert.equal(service.canReadResource(customPermissionUser, schema), true);
+    assert.doesNotThrow(() => service.assertCanWrite(customPermissionUser, schema));
   });
 });

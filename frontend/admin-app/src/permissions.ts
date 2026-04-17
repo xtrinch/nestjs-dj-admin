@@ -9,10 +9,12 @@ function getUserPermissions(user: AdminUser): string[] {
 }
 
 export function canWriteResource(resource: ResourceSchema, user: AdminUser): boolean {
-  const allowedPermissions = resource.permissions?.write;
-  if (!allowedPermissions || allowedPermissions.length === 0) {
-    return user.isSuperuser === true;
+  if (user.isSuperuser === true) {
+    return true;
   }
+
+  const allowedPermissions =
+    [`${resource.resourceName}.write`];
 
   const userPermissions = getUserPermissions(user);
   return allowedPermissions.some((permission) => userPermissions.includes(permission));

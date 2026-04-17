@@ -17,15 +17,15 @@ import type {
 @Injectable()
 export class AdminPermissionService {
   canReadResource(user: AdminRequestUser, schema: AdminResourceSchema): boolean {
-    return this.hasPermission(user, schema.permissions?.read);
+    return this.hasPermission(user, this.getResourcePermissions(schema, 'read'));
   }
 
   assertCanRead(user: AdminRequestUser, schema: AdminResourceSchema): void {
-    this.assertPermission(user, schema.permissions?.read, 'read');
+    this.assertPermission(user, this.getResourcePermissions(schema, 'read'), 'read');
   }
 
   assertCanWrite(user: AdminRequestUser, schema: AdminResourceSchema): void {
-    this.assertPermission(user, schema.permissions?.write, 'write');
+    this.assertPermission(user, this.getResourcePermissions(schema, 'write'), 'write');
   }
 
   canReadPage(user: AdminRequestUser, page: AdminPageSchema): boolean {
@@ -65,11 +65,22 @@ export class AdminPermissionService {
   }
 
   private hasPermission(user: AdminRequestUser, permissions: string[] | undefined): boolean {
+    if (user.isSuperuser === true) {
+      return true;
+    }
+
     if (!permissions || permissions.length === 0) {
-      return user.isSuperuser === true;
+      return false;
     }
 
     const userPermissions = getUserPermissions(user);
     return permissions.some((permission) => userPermissions.includes(permission));
+  }
+
+  private getResourcePermissions(
+    schema: AdminResourceSchema,
+    permission: 'read' | 'write',
+  ): string[] {
+    return [`${schema.resourceName}.${permission}`];
   }
 }
