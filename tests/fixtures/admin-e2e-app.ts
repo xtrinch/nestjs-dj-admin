@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { BadRequestException, Controller, Injectable, Module, Post, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { hashPassword, verifyPassword } from '../../examples/in-memory-demo-app/src/auth/password.js';
+import { permissionsForDemoRole } from '../../examples/shared/src/admin-permissions.js';
 import { categoryAdminOptions } from '#examples-shared/modules/category/shared.js';
 import { orderAdminOptions } from '#examples-shared/modules/order/shared.js';
 import { productAdminOptions } from '#examples-shared/modules/product/shared.js';
@@ -349,9 +350,9 @@ Module({
 
           return {
             id: String(user.id),
-            permissions: [],
+            permissions: permissionsForDemoRole(String(user.role)),
             email: String(user.email),
-            isSuperuser: true,
+            isSuperuser: String(user.role) === 'admin',
           };
         },
       },
