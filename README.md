@@ -1,4 +1,4 @@
-# nestjs-dj-admin
+# NestJS Admin Panel (Django-style) - nestjs-dj-admin
 
 [![npm version](https://img.shields.io/npm/v/nestjs-dj-admin.svg)](https://www.npmjs.com/package/nestjs-dj-admin)
 [![npm downloads](https://img.shields.io/npm/dm/nestjs-dj-admin.svg)](https://www.npmjs.com/package/nestjs-dj-admin)
