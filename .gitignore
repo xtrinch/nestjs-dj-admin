@@ -22,3 +22,4 @@ pnpm-debug.log*
 *.tsbuildinfo
 ADOPTION_STRATEGY.md
 .snapshot-*.json
+.tmp-npm-pack-smoke-*

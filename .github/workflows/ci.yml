@@ -43,6 +43,9 @@ jobs:
       - name: Built consumer smoke test
         run: npm run test:smoke:built-consumer
 
+      - name: npm pack consumer smoke test
+        run: npm run test:smoke:npm-pack-consumer
+
   backend-tests:
     name: Backend Tests (In-Memory)
     runs-on: ubuntu-latest
