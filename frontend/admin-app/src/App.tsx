@@ -192,12 +192,8 @@ export function App() {
     return <div className="shell">Loading admin resources…</div>;
   }
 
-  if (meta.resources.length === 0 && meta.pages.length === 0) {
-    return <div className="shell">No admin resources or extension pages are registered.</div>;
-  }
-
   const activeRoute = route;
-  if (!activeRoute) {
+  if (!activeRoute && (meta.resources.length > 0 || meta.pages.length > 0)) {
     return <div className="shell">Loading admin resources…</div>;
   }
 
@@ -236,7 +232,7 @@ export function App() {
           </div>
         </header>
         <div className="content__body">
-          {routeUi && activeRoute.kind !== 'home' ? (
+          {routeUi && activeRoute && activeRoute.kind !== 'home' ? (
             <Breadcrumbs
               category={routeUi.category}
               resourceHref={routeUi.resourceHref}
@@ -244,16 +240,22 @@ export function App() {
               pageLabel={routeUi.pageLabel}
             />
           ) : null}
-          <RouteContent
-            auditLogEnabled={meta.auditLog?.enabled === true}
-            branding={meta.branding}
-            navigation={navigation}
-            pages={meta.pages}
-            widgets={meta.widgets}
-            display={meta.display}
-            route={activeRoute}
-            onTitleChange={setPageSubjectLabel}
-          />
+          {meta.resources.length === 0 && meta.pages.length === 0 ? (
+            <div className="panel">No admin resources or extension pages are registered.</div>
+          ) : activeRoute ? (
+            <RouteContent
+              auditLogEnabled={meta.auditLog?.enabled === true}
+              branding={meta.branding}
+              navigation={navigation}
+              pages={meta.pages}
+              widgets={meta.widgets}
+              display={meta.display}
+              route={activeRoute}
+              onTitleChange={setPageSubjectLabel}
+            />
+          ) : (
+            <div className="shell">Loading admin resources…</div>
+          )}
         </div>
       </main>
     </div>
@@ -356,7 +358,7 @@ function SidebarNav({
   auditLogEnabled,
   navigation,
 }: {
-  activeRoute: AppRoute;
+  activeRoute: AppRoute | null;
   auditLogEnabled: boolean;
   navigation: NavigationGroup[];
 }) {
@@ -364,7 +366,7 @@ function SidebarNav({
     <>
       <section className="nav__group">
         <span className="nav__group-label">Home</span>
-        <a className={activeRoute.kind === 'home' ? 'nav__link active' : 'nav__link'} href="#">
+        <a className={activeRoute?.kind === 'home' ? 'nav__link active' : 'nav__link'} href="#">
           Dashboard
         </a>
       </section>
@@ -374,7 +376,11 @@ function SidebarNav({
           {group.resources.map((resource) => (
             <a
               key={resource.resourceName}
-              className={isActiveResourceRoute(activeRoute, resource.resourceName) ? 'nav__link active' : 'nav__link'}
+              className={
+                activeRoute && isActiveResourceRoute(activeRoute, resource.resourceName)
+                  ? 'nav__link active'
+                  : 'nav__link'
+              }
               href={`#/${resource.resourceName}`}
             >
               {resource.label}
@@ -383,7 +389,11 @@ function SidebarNav({
           {group.navItems.map((navItem) => (
             <a
               key={navItem.key}
-              className={isActiveNavItemRoute(activeRoute, navItem) ? 'nav__link active' : 'nav__link'}
+              className={
+                activeRoute && isActiveNavItemRoute(activeRoute, navItem)
+                  ? 'nav__link active'
+                  : 'nav__link'
+              }
               href={navItem.kind === 'page' ? `#/pages/${navItem.pageSlug}` : navItem.href}
             >
               {navItem.label}
@@ -394,7 +404,7 @@ function SidebarNav({
       {auditLogEnabled ? (
         <section className="nav__group">
           <span className="nav__group-label">System</span>
-          <a className={activeRoute.kind === 'audit' ? 'nav__link active' : 'nav__link'} href="#/audit-log">
+          <a className={activeRoute?.kind === 'audit' ? 'nav__link active' : 'nav__link'} href="#/audit-log">
             Audit Log
           </a>
         </section>
