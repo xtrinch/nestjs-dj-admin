@@ -47,7 +47,10 @@ describe('external auth demo', { timeout: 120_000 }, () => {
     assert.equal(authConfig.response.status, 200);
     assert.equal(authConfig.body.mode, 'external');
     assert.equal(authConfig.body.loginEnabled, false);
-    assert.equal(authConfig.body.loginUrl, '/host-auth/login?next=/admin');
+    assert.equal(
+      authConfig.body.loginUrl,
+      '/host-auth/login?next=http%3A%2F%2Flocalhost%3A5173%2Fadmin%2F',
+    );
 
     const unauthenticated = await fetch(`${adminBaseUrl}/_meta`);
     assert.equal(unauthenticated.status, 401);
