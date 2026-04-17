@@ -28,7 +28,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./exports/index.js"
     },
     "./embed-page-extension": {
       "types": "./dist/extensions/embed/index.d.ts",
