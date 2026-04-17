@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
   CanActivate,
-  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -270,7 +269,7 @@ export class AdminAuthService {
       const guard = await this.resolveGuard(guardToken, request);
       const result = await guard.canActivate(context);
       if (!result) {
-        throw new ForbiddenException('Access denied by admin guard');
+        throw new UnauthorizedException('Admin login required');
       }
     }
 
