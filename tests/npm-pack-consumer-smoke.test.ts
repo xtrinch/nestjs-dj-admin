@@ -1,7 +1,7 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
@@ -24,8 +24,9 @@ describe('npm pack consumer smoke', { timeout: 180_000 }, () => {
     await runCommand('npm', ['run', 'build:lib'], undefined);
     const tarballInfo = await packTarball(repoRoot, tempDir, npmCacheDir);
     const tarballPath = path.join(tempDir, tarballInfo.filename);
+    const packageVersions = await loadConsumerRuntimeVersions(repoRoot);
 
-    await writeFile(path.join(tempDir, 'package.json'), createConsumerPackageJson(repoRoot, tarballPath));
+    await writeFile(path.join(tempDir, 'package.json'), createConsumerPackageJson(tarballPath, packageVersions));
     await writeFile(path.join(tempDir, 'app.mjs'), createConsumerAppSource());
 
     await runCommandInDir(
@@ -186,9 +187,10 @@ async function runCommandInDir(
   });
 }
 
-function createConsumerPackageJson(repoRoot: string, tarballPath: string): string {
-  const localDep = (name: string) => `file:${path.join(repoRoot, 'node_modules', ...name.split('/'))}`;
-
+function createConsumerPackageJson(
+  tarballPath: string,
+  packageVersions: Record<string, string>,
+): string {
   return JSON.stringify(
     {
       name: 'npm-pack-consumer-smoke',
@@ -196,19 +198,46 @@ function createConsumerPackageJson(repoRoot: string, tarballPath: string): strin
       type: 'module',
       dependencies: {
         'nestjs-dj-admin': `file:${tarballPath}`,
-        '@nestjs/common': localDep('@nestjs/common'),
-        '@nestjs/core': localDep('@nestjs/core'),
-        '@nestjs/platform-express': localDep('@nestjs/platform-express'),
-        'class-transformer': localDep('class-transformer'),
-        'class-validator': localDep('class-validator'),
-        express: localDep('express'),
-        'reflect-metadata': localDep('reflect-metadata'),
-        rxjs: localDep('rxjs'),
+        ...packageVersions,
       },
     },
     null,
     2,
   );
+}
+
+async function loadConsumerRuntimeVersions(repoRoot: string): Promise<Record<string, string>> {
+  const packageJson = JSON.parse(
+    await readFile(path.join(repoRoot, 'package.json'), 'utf8'),
+  ) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+
+  const source = {
+    ...packageJson.dependencies,
+    ...packageJson.devDependencies,
+  };
+
+  return {
+    '@nestjs/common': requireVersion(source, '@nestjs/common'),
+    '@nestjs/core': requireVersion(source, '@nestjs/core'),
+    '@nestjs/platform-express': requireVersion(source, '@nestjs/platform-express'),
+    'class-transformer': requireVersion(source, 'class-transformer'),
+    'class-validator': requireVersion(source, 'class-validator'),
+    express: requireVersion(source, 'express'),
+    'reflect-metadata': requireVersion(source, 'reflect-metadata'),
+    rxjs: requireVersion(source, 'rxjs'),
+  };
+}
+
+function requireVersion(source: Record<string, string>, packageName: string): string {
+  const version = source[packageName];
+  if (!version) {
+    throw new Error(`Missing runtime version for ${packageName} in root package.json`);
+  }
+
+  return version;
 }
 
 function createConsumerAppSource(): string {
