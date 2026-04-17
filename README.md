@@ -398,7 +398,8 @@ These control the sidebar header, browser title suffix, dashboard title, and the
 Example:
 
 ```ts
-import { dashboardLinkWidgetExtension, embedPageExtension } from 'nestjs-dj-admin';
+import { dashboardLinkWidgetExtension } from 'nestjs-dj-admin/dashboard-link-widget-extension';
+import { embedPageExtension } from 'nestjs-dj-admin/embed-page-extension';
 
 AdminModule.forRoot({
   path: '/admin',

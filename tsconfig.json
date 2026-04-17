@@ -10,10 +10,13 @@
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "sourceMap": true,
+    "rootDir": ".",
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
       "nestjs-dj-admin": ["./src/index.ts"],
+      "nestjs-dj-admin/embed-page-extension": ["./src/extensions/embed/index.ts"],
+      "nestjs-dj-admin/dashboard-link-widget-extension": ["./src/extensions/dashboard-link-widget/index.ts"],
       "#src/*": ["./src/*"],
       "#examples-shared/*": ["./examples/shared/src/*"]
     },

@@ -29,6 +29,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./embed-page-extension": {
+      "types": "./dist/extensions/embed/index.d.ts",
+      "import": "./embed-page-extension.js"
+    },
+    "./dashboard-link-widget-extension": {
+      "types": "./dist/extensions/dashboard-link-widget/index.d.ts",
+      "import": "./dashboard-link-widget-extension.js"
     }
   },
   "imports": {
@@ -37,6 +45,8 @@
   },
   "files": [
     "dist",
+    "embed-page-extension.js",
+    "dashboard-link-widget-extension.js",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
