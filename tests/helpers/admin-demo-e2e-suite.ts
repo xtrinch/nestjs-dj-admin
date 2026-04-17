@@ -87,9 +87,9 @@ export function defineDemoAdminE2ETests(config: DemoAdminE2EConfig): void {
       assert.equal(afterLogout.response.status, 401);
     });
 
-    it('rejects non-admin credentials at login', async () => {
+    it('allows editor credentials and rejects viewer credentials at login', async () => {
       const editor = await loginAs(adminBaseUrl, 'grace@example.com', 'editor123');
-      assert.equal(editor.response.status, 401);
+      assert.equal(editor.response.status, 201);
 
       const viewer = await loginAs(adminBaseUrl, 'linus@example.com', 'viewer123');
       assert.equal(viewer.response.status, 401);

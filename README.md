@@ -1338,11 +1338,14 @@ See:
 
 All three example apps serve the admin backend on `http://127.0.0.1:3000/admin`.
 
-Shared seeded admin login:
+Shared seeded demo logins:
 
 ```text
 email: ada@example.com
 password: admin123
+
+email: grace@example.com
+password: editor123
 ```
 
 Shared seeded baseline:
@@ -1353,7 +1356,7 @@ Shared seeded baseline:
 - products
 - order details
 
-The `ada@example.com` account is the seeded admin user. The other seeded users are present as demo data, but they are not valid admin logins.
+The `ada@example.com` account is the seeded superuser. `grace@example.com` is the seeded editor user with scoped permissions. `linus@example.com` remains demo-only and is not admitted to admin.
 
 ### TypeORM Setup
 

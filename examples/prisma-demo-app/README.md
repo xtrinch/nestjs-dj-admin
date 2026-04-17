@@ -26,11 +26,14 @@ npm run build:prisma-example
 npm run start:prisma-example
 ```
 
-## Seeded admin login
+## Seeded admin logins
 
 ```text
 email: ada@example.com
 password: admin123
+
+email: grace@example.com
+password: editor123
 ```
 
 ## Notes

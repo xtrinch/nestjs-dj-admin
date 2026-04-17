@@ -36,5 +36,5 @@ EXTERNAL_AUTH_RETURN_URL=http://localhost:5173/admin/
 Demo users:
 
 - `ada@example.com` / `admin123` - allowed into admin
-- `grace@example.com` / `editor123` - allowed into the admin shell, but still sees no admin resources because the demo resources are `admin`-only
+- `grace@example.com` / `editor123` - allowed into the admin with scoped permissions
 - `linus@example.com` / `viewer123` - authenticates in the host app but is blocked from admin by the admin access guard

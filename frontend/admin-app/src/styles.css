@@ -127,7 +127,7 @@ a {
 
 .toast-layer {
   position: fixed;
-  top: 1rem;
+  bottom: 1rem;
   right: 1rem;
   z-index: 1000;
   pointer-events: none;
@@ -157,14 +157,23 @@ a {
   color: inherit;
   font: inherit;
   line-height: 1;
-  padding: 0;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem;
+  margin: -0.25rem -0.25rem -0.25rem 0;
+  border-radius: 999px;
   cursor: pointer;
   opacity: 0.82;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
 .toast__close:hover,
 .toast__close:focus-visible {
   opacity: 1;
+  background: rgb(255 255 255 / 0.12);
 }
 
 .toast__close:focus-visible {
