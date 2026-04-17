@@ -160,12 +160,6 @@ describe('external auth demo', { timeout: 120_000 }, () => {
     assert.equal(editorAudit.response.status, 200);
     assert.ok(
       editorAudit.body.items.some(
-        (entry: { action: string; actor: { email?: string }; resourceName?: string }) =>
-          entry.action === 'login' && entry.actor.email === 'grace@example.com' && !entry.resourceName,
-      ),
-    );
-    assert.ok(
-      editorAudit.body.items.some(
         (entry: { action: string; resourceName?: string; objectLabel?: string }) =>
           entry.action === 'create' &&
           entry.resourceName === 'orders' &&

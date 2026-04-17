@@ -303,7 +303,9 @@ Module({
   imports: [
     AdminModule.forRoot({
       path: '/admin',
-      adapter: InMemoryAdminAdapter,
+      adapter: {
+        useFactory: () => new InMemoryAdminAdapter(),
+      },
       extensions: [
         embedPageExtension({
           id: 'consumer-monitoring-page',
