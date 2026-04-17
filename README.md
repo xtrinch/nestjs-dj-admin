@@ -10,9 +10,15 @@ It gives you:
 
 - server-side resource registration
 - DTO-driven form metadata
-- list, create, edit, delete, and lookup endpoints
+- built-in schema support for `class-validator` and `zod`
+- configurable list fields, filters, search, and lookup behavior
+- create, edit, delete, and detail flows for registered resources
+- optional soft delete support
+- built-in admin login and session management
+- built-in admin audit log support
 - bundled admin UI assets
-- TypeORM, Prisma, and in-memory adapter support
+- `TypeORM`, `MikroORM`, `Prisma`, and `in-memory` adapter support
+- runnable demo apps for `TypeORM`, `MikroORM`, `Prisma`, and `in-memory` setups
 
 ## Screenshots
 
@@ -26,13 +32,38 @@ The example apps use a small Northwind-style back-office dataset. Shared example
 
 ## Quickstart
 
-Install the package plus the dependencies used in this TypeORM-based quickstart:
+This quickstart assumes:
+
+- `TypeORM` for persistence
+- `class-validator` plus `class-transformer` for admin form/schema metadata
+
+Install the package plus the framework dependencies and the schema library you want to use out of the box:
 
 ```bash
-npm install nestjs-dj-admin @nestjs/common @nestjs/core @nestjs/platform-express class-validator class-transformer reflect-metadata rxjs typeorm
+npm install nestjs-dj-admin @nestjs/common @nestjs/core @nestjs/platform-express class-validator class-transformer reflect-metadata rxjs
 ```
 
-Then mount the admin module and provide an adapter:
+```bash
+npm install nestjs-dj-admin @nestjs/common @nestjs/core @nestjs/platform-express zod reflect-metadata rxjs
+```
+
+Then add your ORM package:
+
+```bash
+npm install typeorm
+```
+
+```bash
+npm install @mikro-orm/core
+```
+
+```bash
+npm install @prisma/client
+```
+
+Then mount the admin module and provide the matching adapter.
+
+TypeORM:
 
 ```ts
 import { Module } from '@nestjs/common';
@@ -50,6 +81,55 @@ import { DataSource } from 'typeorm';
       provide: ADMIN_ADAPTER,
       useFactory: (dataSource: DataSource) => new TypeOrmAdminAdapter(dataSource),
       inject: [DataSource],
+    },
+  ],
+})
+export class AppModule {}
+```
+
+MikroORM:
+
+```ts
+import { Module } from '@nestjs/common';
+import { EntityManager } from '@mikro-orm/core';
+import { ADMIN_ADAPTER, AdminModule, MikroOrmAdminAdapter } from 'nestjs-dj-admin';
+
+@Module({
+  imports: [
+    AdminModule.forRoot({
+      path: '/admin',
+    }),
+  ],
+  providers: [
+    {
+      provide: ADMIN_ADAPTER,
+      useFactory: (em: EntityManager) => new MikroOrmAdminAdapter(em),
+      inject: [EntityManager],
+    },
+  ],
+})
+export class AppModule {}
+```
+
+Prisma:
+
+```ts
+import { Module } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import { ADMIN_ADAPTER, AdminModule, PrismaAdminAdapter } from 'nestjs-dj-admin';
+
+@Module({
+  imports: [
+    AdminModule.forRoot({
+      path: '/admin',
+    }),
+  ],
+  providers: [
+    PrismaClient,
+    {
+      provide: ADMIN_ADAPTER,
+      useFactory: (prisma: PrismaClient) => new PrismaAdminAdapter(prisma),
+      inject: [PrismaClient],
     },
   ],
 })
@@ -113,6 +193,75 @@ Admin form fields come from your DTOs, and create/update payloads are validated 
 
 Build the library UI assets and start your app. The admin API and UI will be mounted at the `path` you configured, such as `/admin`.
 
+## ORM Support
+
+`nestjs-dj-admin` supports four adapter modes:
+
+- `TypeOrmAdminAdapter`
+  Use when your app already uses TypeORM repositories/entities.
+- `MikroOrmAdminAdapter`
+  Use when your app already uses MikroORM entities and an injected `EntityManager`.
+- `PrismaAdminAdapter`
+  Use when your app already uses a `PrismaClient`.
+- `InMemoryAdminAdapter`
+  Use for tests, isolated demos, or non-persistent admin fixtures.
+
+Current adapter coverage across the first-class ORMs includes:
+
+- list pagination, sorting, filtering, and distinct values
+- full-text search on local fields
+- relation-aware search such as `userId.email`
+- create, update, delete, and soft delete flows
+- many-to-many relation editing
+- lookup endpoints used by relation pickers
+
+The repository keeps runnable demo apps for each supported ORM:
+
+- [examples/typeorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/README.md)
+- [examples/mikroorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app/README.md)
+- [examples/prisma-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/README.md)
+- [examples/in-memory-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/in-memory-demo-app/README.md)
+
+## Example Apps
+
+The repo ships four example apps that exercise the same admin feature set through different persistence layers.
+
+TypeORM example:
+
+```bash
+docker compose up -d postgres
+npm run typeorm:setup:example
+npm run dev:typeorm-example
+```
+
+MikroORM example:
+
+```bash
+docker compose up -d postgres
+npm run mikroorm:setup:example
+npm run dev:mikroorm-example
+```
+
+Prisma example:
+
+```bash
+docker compose up -d postgres
+npm run prisma:setup:example
+npm run dev:prisma-example
+```
+
+In-memory example:
+
+```bash
+npm run dev:inmemory-example
+```
+
+The PostgreSQL-backed demos use separate databases by default so they can run side by side:
+
+- TypeORM: `nestjs_dj_admin_demo`
+- MikroORM: `nestjs_dj_admin_mikroorm`
+- Prisma: `nestjs_dj_admin_prisma`
+
 ## Public API
 
 The root package exports the core module, decorator, constants, adapters, and the main public types:
@@ -124,6 +273,7 @@ import {
   AdminModule,
   AdminResource,
   InMemoryAdminAdapter,
+  MikroOrmAdminAdapter,
   PrismaAdminAdapter,
   TypeOrmAdminAdapter,
 } from 'nestjs-dj-admin';
@@ -316,8 +466,24 @@ export class RedisAdminSessionStore implements AdminSessionStore {
 The examples show the full pattern in:
 
 - [examples/typeorm-demo-app/src/app.module.ts](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/src/app.module.ts)
+- [examples/mikroorm-demo-app/src/app.module.ts](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app/src/app.module.ts)
 - [examples/prisma-demo-app/src/app.module.ts](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/src/app.module.ts)
 - [examples/in-memory-demo-app/src/app.module.ts](/Users/mojca/repos/nestjs-dj-admin/examples/in-memory-demo-app/src/app.module.ts)
+
+## Testing
+
+The repo test split is intentional:
+
+- `npm run test:adapters`
+  Contract tests for adapter behavior.
+- `npm run test:e2e`
+  Fast generic backend E2E against the in-memory fixture app.
+- `npm run test:e2e:demos`
+  Real database-backed demo E2E for TypeORM, Prisma, and MikroORM.
+- `npm run test:frontend-smoke`
+  Frontend smoke coverage against the generic admin fixture.
+
+CI runs all of these, including the ORM demo E2E matrix, so first-class ORM support is enforced at runtime rather than only by compile checks.
 
 ## Auth Hardening Guidance
 
@@ -698,6 +864,7 @@ export class UserAdmin {}
 See the real example in:
 
 - [examples/typeorm-demo-app/src/modules/user/user.admin.ts](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/src/modules/user/user.admin.ts)
+- [examples/mikroorm-demo-app/src/modules/user/user.admin.ts](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app/src/modules/user/user.admin.ts)
 - [examples/prisma-demo-app/src/modules/user/user.admin.ts](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/src/modules/user/user.admin.ts)
 
 ## Custom Actions
@@ -849,6 +1016,7 @@ class PrismaAdminAuditStore implements AdminAuditStore {
 See the real implementations in:
 
 - [examples/prisma-demo-app/src/modules/admin-audit/prisma-admin-audit.store.ts](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app/src/modules/admin-audit/prisma-admin-audit.store.ts)
+- [examples/mikroorm-demo-app/src/modules/admin-audit/mikroorm-admin-audit.store.ts](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app/src/modules/admin-audit/mikroorm-admin-audit.store.ts)
 - [examples/typeorm-demo-app/src/modules/admin-audit/typeorm-admin-audit.store.ts](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/src/modules/admin-audit/typeorm-admin-audit.store.ts)
 
 This is intentionally closer to Django admin's `LogEntry` concept than to a compliance-grade immutable audit system.
@@ -968,6 +1136,41 @@ The TypeORM example now applies migrations on startup instead of relying on runt
 
 More detail: [examples/typeorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/README.md)
 
+### MikroORM Setup
+
+First-class runnable demo for MikroORM on PostgreSQL, using checked-in SQL migrations and seeded baseline data.
+
+Clean setup:
+
+```bash
+npm install
+docker compose up -d postgres
+npm run mikroorm:setup:example
+npm run dev:mikroorm-example
+```
+
+Built run:
+
+```bash
+npm run mikroorm:setup:example
+npm run build:mikroorm-example
+npm run start:mikroorm-example
+```
+
+Default database settings:
+
+```bash
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=nestjs_dj_admin_mikroorm
+```
+
+`npm run mikroorm:setup:example` creates the demo database if needed. The app itself applies the checked-in MikroORM migration on startup.
+
+More detail: [examples/mikroorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app/README.md)
+
 ### Prisma Setup
 
 First-class runnable demo, not a secondary adapter stub. Uses the same PostgreSQL container as the TypeORM demo, but a separate PostgreSQL database so it can coexist cleanly with the TypeORM example.
@@ -1044,10 +1247,11 @@ docker compose down -v
 
 ## Testing
 
-Adapter contract coverage is available across all three adapters:
+Adapter contract coverage is available across all four adapters:
 
 - in-memory
 - TypeORM
+- MikroORM
 - Prisma
 
 Covered adapter behavior:
@@ -1121,12 +1325,14 @@ The package is developed and tested against:
 | `class-transformer` | `^0.5.1` |
 | `rxjs` | `^7.8.2` |
 | TypeORM | `^0.3.25` |
+| MikroORM Core | `^7.0.11` |
 | Prisma Client | `^6.15.0 || ^7.0.0` |
 | Express | `5.x` |
 
 Adapter dependencies are optional unless you use that adapter:
 
 - `typeorm` is optional if you are not using `TypeOrmAdminAdapter`
+- `@mikro-orm/core` is optional if you are not using `MikroOrmAdminAdapter`
 - `@prisma/client` is optional if you are not using `PrismaAdminAdapter`
 
 ## Release Policy And Versioning Expectations
@@ -1150,5 +1356,6 @@ Versioning expectations before `1.0.0`:
 - Prebuilt admin UI assets: `dist/admin-ui/`
 - Example apps:
   - [examples/typeorm-demo-app](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app)
+  - [examples/mikroorm-demo-app](/Users/mojca/repos/nestjs-dj-admin/examples/mikroorm-demo-app)
   - [examples/in-memory-demo-app](/Users/mojca/repos/nestjs-dj-admin/examples/in-memory-demo-app)
   - [examples/prisma-demo-app](/Users/mojca/repos/nestjs-dj-admin/examples/prisma-demo-app)

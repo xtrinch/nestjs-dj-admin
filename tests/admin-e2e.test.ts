@@ -337,7 +337,7 @@ describe('Admin backend e2e', () => {
         (entry: { action: string; summary: string; resourceName?: string }) =>
           entry.action === 'create' &&
           entry.resourceName === 'categories' &&
-          /Audit Snacks/.test(entry.summary),
+          /Created Category Audit Snacks/.test(entry.summary),
       ),
     );
     assert.ok(
@@ -345,7 +345,7 @@ describe('Admin backend e2e', () => {
         (entry: { action: string; summary: string; resourceName?: string }) =>
           entry.action === 'delete' &&
           entry.resourceName === 'categories' &&
-          /Audit Snacks/.test(entry.summary),
+          /Deleted Category Audit Snacks/.test(entry.summary),
       ),
     );
     assert.ok(

@@ -3,7 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "../..",
-    "paths": {}
+    "paths": {
+      "#src/*": ["../../src/*"],
+      "#examples-shared/*": ["../../examples/shared/src/*"]
+    }
   },
   "include": ["src/**/*.ts", "../../src/**/*.ts", "../../src/**/*.d.ts"]
 }

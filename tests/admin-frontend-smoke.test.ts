@@ -94,9 +94,9 @@ describe('Admin frontend smoke', { timeout: 90_000 }, () => {
 
     await page.getByRole('link', { name: 'Audit Log' }).click();
     await page.getByRole('heading', { name: 'Audit Log' }).waitFor();
-    await page.getByRole('cell', { name: 'Created smoke-admin@example.com' }).waitFor();
+    await page.getByRole('cell', { name: 'Created User smoke-admin@example.com' }).waitFor();
     await page.getByRole('cell', { name: 'Ran Deactivate on smoke-admin@example.com' }).waitFor();
-    await page.getByRole('cell', { name: 'Changed password for smoke-admin@example.com' }).waitFor();
+    await page.getByRole('cell', { name: 'Changed password for User smoke-admin@example.com' }).waitFor();
   });
 
   it('covers soft delete flow and visibility filter from the UI', { timeout: 45_000 }, async () => {

@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-export { OrderStatus } from '../../../../shared/src/modules/order/shared.js';
-import { OrderStatus } from '../../../../shared/src/modules/order/shared.js';
+export { OrderStatus } from '#examples-shared/modules/order/shared.js';
+import { OrderStatus } from '#examples-shared/modules/order/shared.js';
 
 @Entity('orders')
 export class Order {

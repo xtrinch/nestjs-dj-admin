@@ -31,6 +31,7 @@ export const categoryAdminOptions = {
   },
   sortable: ['updatedAt', 'name'],
   search: ['name', 'description'],
+  filters: ['name'],
   readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],

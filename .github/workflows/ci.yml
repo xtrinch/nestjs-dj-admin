@@ -41,7 +41,7 @@ jobs:
         run: npm run build
 
   backend-tests:
-    name: Backend Tests
+    name: Backend Tests (In-Memory)
     runs-on: ubuntu-latest
 
     steps:
@@ -93,7 +93,7 @@ jobs:
         run: npm run test:frontend-smoke
 
   examples:
-    name: Example Apps
+    name: Backend Tests (ORM + Postgres)
     runs-on: ubuntu-latest
 
     services:
@@ -144,5 +144,11 @@ jobs:
       - name: Setup Prisma example database
         run: npm run prisma:setup:example
 
+      - name: Setup MikroORM example database
+        run: npm run mikroorm:setup:example
+
       - name: Build examples
         run: npm run build:examples
+
+      - name: ORM demo end-to-end tests
+        run: npm run test:e2e:demos

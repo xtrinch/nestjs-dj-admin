@@ -12,6 +12,25 @@ export class DemoDataService implements OnApplicationBootstrap {
   constructor(private readonly dataSource: DataSource) {}
 
   async onApplicationBootstrap(): Promise<void> {
+    await this.seed();
+  }
+
+  async reset(): Promise<void> {
+    await this.dataSource.query(`
+      TRUNCATE TABLE
+        "admin_audit_logs",
+        "order_details",
+        "product_categories",
+        "orders",
+        "products",
+        "categories",
+        "users"
+      RESTART IDENTITY CASCADE
+    `);
+    await this.seed();
+  }
+
+  private async seed(): Promise<void> {
     const userRepository = this.dataSource.getRepository(User);
     const defaultUsers = [
       { email: 'ada@example.com', phone: '+1 206 555 0101', profileUrl: 'https://example.com/users/ada', role: Role.ADMIN, passwordHash: hashPassword('admin123'), active: true },

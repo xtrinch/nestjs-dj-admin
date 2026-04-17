@@ -126,8 +126,15 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     data: Partial<TModel>,
   ) {
     const repository = this.getRepository(resource);
-    const entity = repository.create(this.normalizeMutationData(resource, data, repository) as never);
-    return (await repository.save(entity)) as TModel;
+    const { entityData, manyToManyRelations } = this.splitMutationData(resource, data, repository);
+    const entity = repository.create(entityData as never);
+    const saved = await repository.save(entity);
+    const savedId = this.readEntityId(saved);
+    await this.syncManyToManyRelations(repository, resource, String(savedId), manyToManyRelations);
+    return (await repository.findOneOrFail({
+      relations: this.getRelationNames(resource),
+      where: { id: savedId } as never,
+    })) as TModel;
   }
 
   async update<TModel extends AdminEntity>(
@@ -141,11 +148,17 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
       relations: this.getRelationNames(resource),
       where: { id: entityId } as never,
     });
+    const { entityData, manyToManyRelations } = this.splitMutationData(resource, data, repository);
     const merged = repository.merge(
       existing,
-      this.normalizeMutationData(resource, data, repository) as never,
+      entityData as never,
     );
-    return (await repository.save(merged)) as TModel;
+    await repository.save(merged);
+    await this.syncManyToManyRelations(repository, resource, String(entityId), manyToManyRelations, existing);
+    return (await repository.findOneOrFail({
+      relations: this.getRelationNames(resource),
+      where: { id: entityId } as never,
+    })) as TModel;
   }
 
   async delete<TModel extends AdminEntity>(resource: AdminAdapterResource<TModel>, id: string) {
@@ -196,6 +209,15 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
   private coerceId(repository: Repository<ObjectLiteral>, value: string): string | number {
     const idColumn = repository.metadata.findColumnWithPropertyName('id');
     return idColumn?.type === Number ? Number(value) : value;
+  }
+
+  private readEntityId(entity: ObjectLiteral): string | number {
+    const id = entity['id'];
+    if (typeof id !== 'string' && typeof id !== 'number') {
+      throw new Error('TypeORM admin adapter expected an entity with an "id" field');
+    }
+
+    return id;
   }
 
   private resolveTarget(resource: AdminAdapterResource): ObjectLiteral | string {
@@ -270,36 +292,81 @@ export class TypeOrmAdminAdapter implements AdminAdapter {
     return column ? `${alias}.${column.propertyPath}` : `${alias}.${field}`;
   }
 
-  private normalizeMutationData<TModel extends AdminEntity>(
+  private splitMutationData<TModel extends AdminEntity>(
     resource: AdminAdapterResource<TModel>,
     data: Partial<TModel>,
     repository: Repository<ObjectLiteral>,
-  ): Record<string, unknown> {
-    const next = { ...(data as Record<string, unknown>) };
+  ): {
+    entityData: Record<string, unknown>;
+    manyToManyRelations: Record<string, Array<string | number>>;
+  } {
+    const entityData = Object.fromEntries(
+      Object.entries(data as Record<string, unknown>).filter(([, value]) => value !== undefined),
+    );
+    const manyToManyRelations: Record<string, Array<string | number>> = {};
 
     for (const field of resource.fields) {
       if (field.relation?.kind !== 'many-to-many') {
         continue;
       }
 
-      const rawValue = next[field.name];
+      const rawValue = entityData[field.name];
       if (!Array.isArray(rawValue)) {
         continue;
       }
 
       const relation = repository.metadata.findRelationWithPropertyPath(field.name);
-      const relatedRepository = relation
-        ? this.dataSource.getRepository(relation.inverseEntityMetadata.target as never)
-        : null;
-      const relatedIdColumn = relatedRepository?.metadata.findColumnWithPropertyName('id');
+      const relatedIdColumn = relation?.inverseEntityMetadata.findColumnWithPropertyName('id');
 
-      next[field.name] = rawValue.map((value) => ({
-        id: relatedIdColumn?.type === Number && /^\d+$/.test(String(value))
+      manyToManyRelations[field.name] = rawValue.map((value) =>
+        relatedIdColumn?.type === Number && /^\d+$/.test(String(value))
           ? Number(value)
           : value,
-      }));
+      );
+      delete entityData[field.name];
     }
 
-    return next;
+    return { entityData, manyToManyRelations };
+  }
+
+  private async syncManyToManyRelations(
+    repository: Repository<ObjectLiteral>,
+    resource: AdminAdapterResource,
+    id: string,
+    manyToManyRelations: Record<string, Array<string | number>>,
+    existing?: ObjectLiteral,
+  ): Promise<void> {
+    for (const field of resource.fields) {
+      if (field.relation?.kind !== 'many-to-many' || !(field.name in manyToManyRelations)) {
+        continue;
+      }
+
+      const nextIds = manyToManyRelations[field.name] ?? [];
+      const currentValue = existing?.[field.name];
+      const currentIds = Array.isArray(currentValue)
+        ? currentValue
+            .map((item) => {
+              if (item && typeof item === 'object' && 'id' in item) {
+                return (item as { id: string | number }).id;
+              }
+
+              return item;
+            })
+            .filter((value): value is string | number => value != null)
+        : [];
+
+      const idsToAdd = nextIds.filter((value) => !currentIds.includes(value));
+      const idsToRemove = currentIds.filter((value) => !nextIds.includes(value));
+
+      if (idsToAdd.length === 0 && idsToRemove.length === 0) {
+        continue;
+      }
+
+      await this.dataSource
+        .createQueryBuilder()
+        .relation(repository.target, field.name)
+        .of(this.coerceId(repository, id))
+        .addAndRemove(idsToAdd, idsToRemove);
+    }
   }
 }

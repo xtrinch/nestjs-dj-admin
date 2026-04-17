@@ -1,5 +1,5 @@
-export { OrderStatus } from '../../../../shared/src/modules/order/shared.js';
-import { OrderStatus } from '../../../../shared/src/modules/order/shared.js';
+export { OrderStatus } from '#examples-shared/modules/order/shared.js';
+import { OrderStatus } from '#examples-shared/modules/order/shared.js';
 
 export class Order {
   id!: number;

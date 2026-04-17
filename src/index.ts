@@ -19,6 +19,7 @@ export { adminSchemaFromZod } from './admin/schema/zod-schema.provider.js';
 export { PrismaAdminAdapter } from './admin/adapters/prisma.adapter.js';
 export { TypeOrmAdminAdapter } from './admin/adapters/typeorm.adapter.js';
 export { InMemoryAdminAdapter } from './admin/adapters/in-memory.adapter.js';
+export { MikroOrmAdminAdapter } from './admin/adapters/mikroorm.adapter.js';
 
 export type {
   AdminAction,

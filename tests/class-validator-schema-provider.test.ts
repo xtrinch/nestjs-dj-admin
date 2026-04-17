@@ -9,7 +9,7 @@ import type {
   AdminResourceOptions,
   AdminResourceSchema,
 } from '../src/index.js';
-import { CreateOrderDto, OrderStatus, UpdateOrderDto } from '../examples/shared/src/modules/order/shared.js';
+import { CreateOrderDto, OrderStatus, UpdateOrderDto } from '#examples-shared/modules/order/shared.js';
 
 describe('adminSchemaFromClassValidator', () => {
   it('builds field metadata from DTOs', () => {

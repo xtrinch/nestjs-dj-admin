@@ -1,5 +1,5 @@
-export { Role } from '../../../../shared/src/modules/user/shared.js';
-import { Role } from '../../../../shared/src/modules/user/shared.js';
+export { Role } from '#examples-shared/modules/user/shared.js';
+import { Role } from '#examples-shared/modules/user/shared.js';
 
 export class User {
   id!: number;

@@ -873,11 +873,12 @@ export class AdminService implements OnModuleInit {
       delete: 'Deleted',
       'soft-delete': 'Archived',
     }[action];
+    const subject = `${schema.label} ${objectLabel}`.trim();
 
     await this.auditService.record({
       action,
       actor: user,
-      summary: `${verb} ${objectLabel}`,
+      summary: `${verb} ${subject}`,
       resourceName: schema.resourceName,
       resourceLabel: schema.label,
       objectId,

@@ -1,1 +1,1 @@
-export { hashPassword, verifyPassword } from '../../../shared/src/auth/password.js';
+export { hashPassword, verifyPassword } from '#examples-shared/auth/password.js';
