@@ -1,6 +1,9 @@
+import { adminUrl } from '../api.js';
 import type { AdminAuthConfig } from '../types.js';
 
 export function ExternalAuthPage({ config }: { config: AdminAuthConfig }) {
+  const loginHref = config.loginUrl ? new URL(config.loginUrl, adminUrl('/')).toString() : null;
+
   return (
     <div className="shell shell--auth">
       <main className="auth-card">
@@ -9,9 +12,9 @@ export function ExternalAuthPage({ config }: { config: AdminAuthConfig }) {
         <p className="auth-card__copy">
           {config.loginMessage ?? 'This admin uses the host application authentication flow.'}
         </p>
-        {config.loginUrl ? (
+        {loginHref ? (
           <p>
-            <a className="button button--primary" href={config.loginUrl}>
+            <a className="button button--primary" href={loginHref}>
               Continue to sign in
             </a>
           </p>
