@@ -141,6 +141,35 @@ a {
   font-weight: 600;
   box-shadow: 0 10px 26px rgba(2, 6, 23, 0.28);
   pointer-events: auto;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.toast__message {
+  min-width: 0;
+}
+
+.toast__close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.82;
+}
+
+.toast__close:hover,
+.toast__close:focus-visible {
+  opacity: 1;
+}
+
+.toast__close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }
 
 .toast--success {

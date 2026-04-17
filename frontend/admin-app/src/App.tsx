@@ -202,7 +202,15 @@ export function App() {
       {toast ? (
         <div className="toast-layer" aria-live="polite">
           <div className={`toast toast--${toast.variant ?? 'success'}`} role="status">
-            {toast.message}
+            <span className="toast__message">{toast.message}</span>
+            <button
+              aria-label="Dismiss notification"
+              className="toast__close"
+              type="button"
+              onClick={() => setToast(null)}
+            >
+              ×
+            </button>
           </div>
         </div>
       ) : null}
