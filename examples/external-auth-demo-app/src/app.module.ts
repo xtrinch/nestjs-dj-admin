@@ -8,6 +8,9 @@ import { ProductModule } from '../../in-memory-demo-app/src/modules/product/prod
 import { UserModule } from '../../in-memory-demo-app/src/modules/user/user.module.js';
 import { HostAuthController, HostSessionGuard, clearHostSession } from './host-auth.js';
 
+const externalAuthReturnUrl = process.env['EXTERNAL_AUTH_RETURN_URL'] ?? 'http://localhost:5173/admin';
+const externalAuthLoginUrl = `/host-auth/login?next=${encodeURIComponent(externalAuthReturnUrl)}`;
+
 @Module({
   imports: [
     CategoryModule,
@@ -46,7 +49,7 @@ import { HostAuthController, HostSessionGuard, clearHostSession } from './host-a
         mode: 'external',
         guards: [HostSessionGuard],
         resolveUser: (request) => request.user ?? null,
-        loginUrl: '/host-auth/login?next=/admin',
+        loginUrl: externalAuthLoginUrl,
         loginMessage: 'Use the host application session to enter the admin.',
         logout: (request, response) => {
           clearHostSession(request, response);
