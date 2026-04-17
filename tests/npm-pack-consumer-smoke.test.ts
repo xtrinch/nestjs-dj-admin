@@ -244,13 +244,41 @@ function createConsumerAppSource(): string {
   return `import 'reflect-metadata';
 import { Injectable, Module, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { AdminModule, AdminResource, InMemoryAdminAdapter } from 'nestjs-dj-admin';
+import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
+import {
+  AdminModule,
+  AdminResource,
+  InMemoryAdminAdapter,
+  adminSchemaFromClassValidator,
+} from 'nestjs-dj-admin';
 import { dashboardLinkWidgetExtension } from 'nestjs-dj-admin/dashboard-link-widget-extension';
 import { embedPageExtension } from 'nestjs-dj-admin/embed-page-extension';
 
 const dashboardPreviewUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><title>npm-pack-consumer</title><p>consumer monitoring</p>');
 
 class User {}
+
+class CreateUserDto {
+  email;
+  role;
+  active;
+}
+IsEmail()(CreateUserDto.prototype, 'email');
+IsString()(CreateUserDto.prototype, 'role');
+IsBoolean()(CreateUserDto.prototype, 'active');
+IsOptional()(CreateUserDto.prototype, 'active');
+
+class UpdateUserDto {
+  email;
+  role;
+  active;
+}
+IsEmail()(UpdateUserDto.prototype, 'email');
+IsOptional()(UpdateUserDto.prototype, 'email');
+IsString()(UpdateUserDto.prototype, 'role');
+IsOptional()(UpdateUserDto.prototype, 'role');
+IsBoolean()(UpdateUserDto.prototype, 'active');
+IsOptional()(UpdateUserDto.prototype, 'active');
 
 class UserAdmin {}
 Injectable()(UserAdmin);
@@ -264,6 +292,10 @@ AdminResource({
     read: ['admin'],
     write: ['admin'],
   },
+  schema: adminSchemaFromClassValidator({
+    createDto: CreateUserDto,
+    updateDto: UpdateUserDto,
+  }),
 })(UserAdmin);
 
 class AppModule {}
