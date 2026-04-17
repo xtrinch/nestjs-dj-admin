@@ -37,7 +37,7 @@ export class HostSessionGuard implements CanActivate {
 export class AdminAccessGuard implements CanActivate {
   canActivate(context: Parameters<CanActivate['canActivate']>[0]): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    return request.user?.role === 'admin';
+    return request.user?.role !== 'viewer';
   }
 }
 
@@ -99,7 +99,8 @@ export class HostAuthController {
       </p>
       <div class="actions">
         <a class="button" href="/host-auth/login/ada?next=${encodeURIComponent(next)}">Sign in as Ada Admin</a>
-        <a class="button" href="/host-auth/login/grace?next=${encodeURIComponent(next)}">Sign in as Grace Editor (blocked from admin)</a>
+        <a class="button" href="/host-auth/login/grace?next=${encodeURIComponent(next)}">Sign in as Grace Editor</a>
+        <a class="button" href="/host-auth/login/linus?next=${encodeURIComponent(next)}">Sign in as Linus Viewer (blocked from admin)</a>
       </div>
     </main>
   </body>
@@ -182,6 +183,8 @@ function createDemoUserSession(userKey: string): AdminRequestUser | null {
       ? 'ada@example.com'
       : userKey === 'grace'
         ? 'grace@example.com'
+        : userKey === 'linus'
+          ? 'linus@example.com'
         : null;
 
   if (!email) {
@@ -189,7 +192,7 @@ function createDemoUserSession(userKey: string): AdminRequestUser | null {
   }
 
   const record = IN_MEMORY_ADMIN_STORE.users.find((candidate) => String(candidate.email ?? '') === email);
-  if (!record || record.active !== true) {
+  if (!record) {
     return null;
   }
 
@@ -202,7 +205,7 @@ function createDemoUserSession(userKey: string): AdminRequestUser | null {
 
 function authenticateDemoUser(email: string, password: string): AdminRequestUser | null {
   const record = IN_MEMORY_ADMIN_STORE.users.find((candidate) => String(candidate.email ?? '') === email);
-  if (!record || record.active !== true) {
+  if (!record) {
     return null;
   }
 

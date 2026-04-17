@@ -89,11 +89,27 @@ describe('external auth demo', { timeout: 120_000 }, () => {
     });
     assert.equal(logout.response.status, 201);
 
-    const blockedLogin = await request(baseUrl, '/host-auth/login', {
+    const editorLogin = await request(baseUrl, '/host-auth/login', {
       method: 'POST',
       body: {
         email: 'grace@example.com',
         password: 'editor123',
+      },
+    });
+    assert.equal(editorLogin.response.status, 201);
+    const editorCookie = editorLogin.response.headers.get('set-cookie') ?? '';
+    assert.ok(editorCookie.includes('host_demo_session='));
+
+    const editorMeta = await request(adminBaseUrl, '/_meta', { cookie: editorCookie });
+    assert.equal(editorMeta.response.status, 200);
+    assert.equal(editorMeta.body.resources.length, 0);
+    assert.equal(editorMeta.body.pages.length, 0);
+
+    const blockedLogin = await request(baseUrl, '/host-auth/login', {
+      method: 'POST',
+      body: {
+        email: 'linus@example.com',
+        password: 'viewer123',
       },
     });
     assert.equal(blockedLogin.response.status, 201);
