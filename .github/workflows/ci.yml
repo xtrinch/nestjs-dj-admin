@@ -150,5 +150,8 @@ jobs:
       - name: Build examples
         run: npm run build:examples
 
+      - name: Built TypeORM demo smoke test
+        run: npm run test:smoke:typeorm-built
+
       - name: ORM demo end-to-end tests
         run: npm run test:e2e:demos

@@ -435,7 +435,7 @@ export function defineDemoAdminE2ETests(config: DemoAdminE2EConfig): void {
   });
 }
 
-async function runCommand(
+export async function runCommand(
   command: string,
   args: string[],
   env: NodeJS.ProcessEnv | undefined,
@@ -472,7 +472,7 @@ async function runCommand(
   });
 }
 
-async function waitForHttpReady(url: string, getOutput: () => string): Promise<void> {
+export async function waitForHttpReady(url: string, getOutput: () => string): Promise<void> {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < 60_000) {
@@ -491,7 +491,7 @@ async function waitForHttpReady(url: string, getOutput: () => string): Promise<v
   throw new Error(`Timed out waiting for server readiness at ${url}\n${getOutput()}`);
 }
 
-async function loginAs(baseUrl: string, email: string, password: string) {
+export async function loginAs(baseUrl: string, email: string, password: string) {
   const result = await request(baseUrl, '/_auth/login', {
     method: 'POST',
     body: { email, password },
@@ -503,7 +503,7 @@ async function loginAs(baseUrl: string, email: string, password: string) {
   };
 }
 
-async function request(
+export async function request(
   baseUrl: string,
   path: string,
   options: {

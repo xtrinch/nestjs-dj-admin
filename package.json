@@ -88,6 +88,7 @@
     "test:adapters": "node --import tsx --test tests/adapter-contract.test.ts",
     "test:e2e": "node --import tsx --test tests/admin-e2e.test.ts",
     "test:e2e:typeorm-demo": "node --import tsx --test tests/typeorm-demo-e2e.test.ts",
+    "test:smoke:typeorm-built": "node --import tsx --test tests/typeorm-demo-built-smoke.test.ts",
     "test:e2e:prisma-demo": "node --import tsx --test tests/prisma-demo-e2e.test.ts",
     "test:e2e:mikroorm-demo": "node --import tsx --test tests/mikroorm-demo-e2e.test.ts",
     "test:e2e:demos": "node --import tsx --test tests/typeorm-demo-e2e.test.ts tests/prisma-demo-e2e.test.ts tests/mikroorm-demo-e2e.test.ts",
