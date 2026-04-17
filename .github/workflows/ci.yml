@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Quality
+    name: Library Validation
     runs-on: ubuntu-latest
 
     steps:
@@ -73,7 +73,7 @@ jobs:
         run: npm run test:e2e
 
   frontend-smoke:
-    name: Frontend Smoke
+    name: Frontend Validation
     runs-on: ubuntu-latest
 
     steps:
