@@ -15,6 +15,10 @@ export { DtoIntrospectorService } from './admin/services/dto-introspector.servic
 export { AdminUiService } from './admin/services/admin-ui.service.js';
 export { adminSchemaFromClassValidator } from './admin/schema/class-validator-schema.provider.js';
 export { adminSchemaFromZod } from './admin/schema/zod-schema.provider.js';
+export { embedPageExtension } from './extensions/embed/index.js';
+export { dashboardLinkWidgetExtension } from './extensions/dashboard-link-widget/index.js';
+export type { EmbedPageExtensionOptions } from './extensions/embed/index.js';
+export type { DashboardLinkWidgetExtensionOptions } from './extensions/dashboard-link-widget/index.js';
 
 export { PrismaAdminAdapter } from './admin/adapters/prisma.adapter.js';
 export { TypeOrmAdminAdapter } from './admin/adapters/typeorm.adapter.js';
@@ -39,6 +43,7 @@ export type {
   AdminBulkActionContext,
   AdminAdapter,
   AdminDtoFieldConfig,
+  AdminExtensionsSchema,
   AdminFieldRelationOption,
   AdminFieldMode,
   AdminFieldSchema,
@@ -59,3 +64,18 @@ export type {
   AdminWriteTransformContext,
   PermissionRole,
 } from './admin/types/admin.types.js';
+
+export type {
+  AdminEmbedPageDefinition,
+  AdminHrefNavItemDefinition,
+  AdminHrefWidgetDefinition,
+  AdminNavItemDefinition,
+  AdminNavItemSchema,
+  AdminPageDefinition,
+  AdminPageNavItemDefinition,
+  AdminPageSchema,
+  AdminPageLinkWidgetDefinition,
+  AdminWidgetDefinition,
+  AdminWidgetSchema,
+  DjAdminExtension,
+} from './extension-api/types.js';

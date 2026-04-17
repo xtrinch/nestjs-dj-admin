@@ -13,6 +13,7 @@ It gives you:
 - built-in schema support for `class-validator` and `zod`
 - configurable list fields, filters, search, and lookup behavior
 - create, edit, delete, and detail flows for registered resources
+- extension-provided pages, nav items, and widgets, including embedded dashboards
 - optional soft delete support
 - built-in admin login and session management
 - built-in admin audit log support
@@ -23,9 +24,10 @@ It gives you:
 ## Screenshots
 
 <p>
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/users-list.png" alt="Users changelist" width="32%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="32%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/users-list.png" alt="Users changelist" width="24%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="24%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="24%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="24%" />
 </p>
 
 The example apps use a small Northwind-style back-office dataset. Shared example primitives live in `examples/shared`, while each demo app keeps its own ORM-specific models and thin `*.admin.ts` wrappers.
@@ -229,7 +231,7 @@ The repo ships four example apps that exercise the same admin feature set throug
 TypeORM example:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres grafana
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -373,6 +375,7 @@ The library supports a few basic branding tweaks without turning them into a ful
 - `branding.siteTitle`
 - `branding.indexTitle`
 - `branding.accentColor`
+- `pages`
 
 Example:
 
@@ -389,6 +392,40 @@ AdminModule.forRoot({
 ```
 
 These control the sidebar header, browser title suffix, dashboard title, and the main accent color used across the admin chrome.
+
+`extensions` lets you register non-CRUD admin capabilities through a public extension API. Built-in helpers can be composed, for example `embedPageExtension(...)` for the page itself and `dashboardLinkWidgetExtension(...)` for dashboard promotion.
+
+Example:
+
+```ts
+import { dashboardLinkWidgetExtension, embedPageExtension } from 'nestjs-dj-admin';
+
+AdminModule.forRoot({
+  path: '/admin',
+  extensions: [
+    embedPageExtension({
+      id: 'grafana-page',
+      page: {
+        slug: 'grafana-overview',
+        label: 'Grafana overview',
+        category: 'Monitoring',
+        title: 'Grafana Overview',
+        description: 'Embedded dashboard page inside the admin shell.',
+        url: 'http://127.0.0.1:3001/d-solo/dj-admin-overview/dj-admin-overview?orgId=1&panelId=1',
+        height: 720,
+      },
+    }),
+    dashboardLinkWidgetExtension({
+      id: 'grafana-widget',
+      title: 'Grafana overview',
+      description: 'Open the embedded monitoring dashboard from the admin home screen.',
+      pageSlug: 'grafana-overview',
+    }),
+  ],
+});
+```
+
+Embedded pages still depend on the upstream app allowing framing. For Grafana, that means embedding must be enabled on the Grafana side or the browser will block the iframe.
 
 For production deployments, the main auth hardening knobs are:
 
@@ -1108,7 +1145,7 @@ Clean setup:
 
 ```bash
 npm install
-docker compose up -d postgres
+docker compose up -d postgres grafana
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```

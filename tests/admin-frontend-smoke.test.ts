@@ -156,6 +156,14 @@ describe('Admin frontend smoke', { timeout: 90_000 }, () => {
     await row(page, 'ada@example.com').getByRole('link').first().click();
     await expectUnchecked(checkboxField(page, 'Active'));
   });
+
+  it('renders extension-provided embed pages in the sidebar', { timeout: 45_000 }, async () => {
+    await login(page, baseUrl);
+
+    await sidebarLink(page, 'Grafana overview').click();
+    await page.getByRole('heading', { name: 'Grafana Overview' }).waitFor();
+    await page.locator('iframe[title="Grafana Overview"]').waitFor();
+  });
 });
 
 async function login(page: Page, baseUrl: string) {

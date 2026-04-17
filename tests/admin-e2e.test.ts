@@ -84,6 +84,10 @@ describe('Admin backend e2e', () => {
     assert.equal(meta.response.status, 200);
     assert.ok(Array.isArray(meta.body.resources));
     assert.ok(meta.body.resources.some((resource: { resourceName: string }) => resource.resourceName === 'users'));
+    assert.ok(Array.isArray(meta.body.pages));
+    assert.ok(meta.body.pages.some((page: { slug: string; kind: string }) => page.slug === 'grafana-overview' && page.kind === 'embed'));
+    assert.ok(meta.body.navItems.some((item: { key: string; kind: string }) => item.key === 'test-grafana-page:nav' && item.kind === 'page'));
+    assert.ok(meta.body.widgets.some((widget: { key: string; kind: string }) => widget.key === 'test-grafana-widget:widget' && widget.kind === 'page-link'));
     assert.equal(meta.body.auditLog.enabled, true);
 
     const resourceMeta = await request(adminBaseUrl, '/_meta/users', { cookie });

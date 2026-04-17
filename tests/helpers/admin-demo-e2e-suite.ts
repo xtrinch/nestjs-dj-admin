@@ -101,6 +101,9 @@ export function defineDemoAdminE2ETests(config: DemoAdminE2EConfig): void {
       assert.equal(meta.response.status, 200);
       assert.ok(meta.body.resources.some((resource: { resourceName: string }) => resource.resourceName === 'users'));
       assert.ok(meta.body.resources.some((resource: { resourceName: string }) => resource.resourceName === 'orders'));
+      assert.ok(meta.body.pages.some((page: { slug: string; kind: string }) => page.slug === 'grafana-overview' && page.kind === 'embed'));
+      assert.ok(meta.body.navItems.some((item: { kind: string; pageSlug?: string }) => item.kind === 'page' && item.pageSlug === 'grafana-overview'));
+      assert.ok(meta.body.widgets.some((widget: { kind: string; pageSlug?: string }) => widget.kind === 'page-link' && widget.pageSlug === 'grafana-overview'));
       assert.equal(meta.body.auditLog.enabled, true);
 
       const userMeta = await request(adminBaseUrl, '/_meta/users', { cookie });

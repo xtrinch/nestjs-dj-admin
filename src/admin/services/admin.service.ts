@@ -8,6 +8,7 @@ import {
 import { ModuleRef } from '@nestjs/core';
 import { ADMIN_ADAPTER } from '../admin.constants.js';
 import { AdminRegistry } from '../admin.registry.js';
+import { AdminExtensionRegistry } from '../../extension-api/extension.registry.js';
 import type {
   AdminAdapter,
   AdminAdapterResource,
@@ -16,6 +17,7 @@ import type {
   AdminPasswordOptions,
   AdminDeleteSummary,
   AdminDeleteSummaryItem,
+  AdminExtensionsSchema,
   AdminLookupResult,
   AdminListQuery,
   AdminRequestUser,
@@ -33,6 +35,7 @@ export class AdminService implements OnModuleInit {
 
   constructor(
     private readonly registry: AdminRegistry,
+    private readonly extensionRegistry: AdminExtensionRegistry,
     private readonly permissionService: AdminPermissionService,
     private readonly moduleRef: ModuleRef,
     private readonly auditService: AdminAuditService,
@@ -49,6 +52,7 @@ export class AdminService implements OnModuleInit {
 
     this.adapter = adapter;
     this.registry.initialize();
+    this.extensionRegistry.initialize();
   }
 
   getResources(): AdminResourceSchema[] {
@@ -59,6 +63,10 @@ export class AdminService implements OnModuleInit {
     const resource = this.registry.get(resourceName);
     this.permissionService.assertCanRead(user, resource.schema);
     return resource.schema;
+  }
+
+  getExtensionsSchema(): AdminExtensionsSchema {
+    return this.extensionRegistry.getSchema();
   }
 
   async list(resourceName: string, query: AdminListQuery, user: AdminRequestUser) {

@@ -2,18 +2,36 @@ import { useEffect, useState } from 'react';
 import { formatAdminValue } from '../formatters.js';
 import { getAuditLog, listResource } from '../services/resources.service.js';
 import { showToast } from '../services/toast.service.js';
-import type { AdminAuditEntry, AdminBrandingConfig, AdminDisplayConfig, ResourceSchema } from '../types.js';
+import type {
+  AdminAuditEntry,
+  AdminBrandingConfig,
+  AdminDisplayConfig,
+  CustomPageSchema,
+  NavItemSchema,
+  ResourceSchema,
+  WidgetSchema,
+} from '../types.js';
+
+type NavigationGroup = {
+  category: string;
+  resources: ResourceSchema[];
+  navItems: NavItemSchema[];
+};
 
 type DashboardCounts = Record<string, number>;
 
 export function DashboardPage({
-  categories,
+  navigation,
+  pages,
+  widgets,
   display,
   auditLogEnabled,
   branding,
   onTitleChange,
 }: {
-  categories: Array<[string, ResourceSchema[]]>;
+  navigation: NavigationGroup[];
+  pages: CustomPageSchema[];
+  widgets: WidgetSchema[];
   display: AdminDisplayConfig;
   auditLogEnabled: boolean;
   branding: AdminBrandingConfig;
@@ -29,11 +47,11 @@ export function DashboardPage({
 
   useEffect(() => {
     void load();
-  }, [auditLogEnabled, categories.map(([category]) => category).join('|')]);
+  }, [auditLogEnabled, navigation.map((group) => group.category).join('|')]);
 
   async function load() {
     try {
-      const resources = categories.flatMap(([, groupResources]) => groupResources);
+      const resources = navigation.flatMap((group) => group.resources);
       const [countEntries, auditEntries] = await Promise.all([
         Promise.all(
           resources.map(async (resource) => {
@@ -83,11 +101,13 @@ export function DashboardPage({
             <h3>Manage data</h3>
           </header>
           <div className="dashboard__categories">
-            {categories.map(([category, resources]) => (
-              <section key={category} className="dashboard__category">
-                <h4>{category}</h4>
+            {navigation
+              .filter((group) => group.resources.length > 0)
+              .map((group) => (
+              <section key={group.category} className="dashboard__category">
+                <h4>{group.category}</h4>
                 <div className="dashboard__cards">
-                  {resources.map((resource) => (
+                  {group.resources.map((resource) => (
                     <article key={resource.resourceName} className="dashboard-card">
                       <div className="dashboard-card__meta">
                         <span className="dashboard-card__count">{counts[resource.resourceName] ?? 0}</span>
@@ -112,6 +132,38 @@ export function DashboardPage({
                 </div>
               </section>
             ))}
+          </div>
+        </section>
+
+        <section className="panel dashboard__resources">
+          <header className="dashboard__section-header">
+            <span className="panel__eyebrow">Extensions</span>
+            <h3>Open tools</h3>
+          </header>
+          <div className="dashboard__categories">
+            {widgets.length > 0 ? (
+              <div className="dashboard__cards">
+                {widgets.map((widget) => (
+                  <article key={widget.key} className="dashboard-card">
+                    <div className="dashboard-card__meta">
+                      <span className="dashboard-card__label">Extension</span>
+                    </div>
+                    <h5>{widget.title}</h5>
+                    <p>{widget.description ?? 'Open an extension-provided admin tool.'}</p>
+                    <div className="dashboard-card__actions">
+                      <a
+                        className="button button--primary"
+                        href={resolveWidgetHref(widget, pages)}
+                      >
+                        {widget.ctaLabel ?? 'Open'}
+                      </a>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="dashboard__empty">No extension widgets are configured for this admin.</p>
+            )}
           </div>
         </section>
 
@@ -150,4 +202,13 @@ export function DashboardPage({
       </div>
     </section>
   );
+}
+
+function resolveWidgetHref(widget: WidgetSchema, pages: CustomPageSchema[]): string {
+  if (widget.kind === 'href') {
+    return widget.href;
+  }
+
+  const page = pages.find((entry) => entry.slug === widget.pageSlug);
+  return page ? `#/pages/${page.slug}` : '#';
 }

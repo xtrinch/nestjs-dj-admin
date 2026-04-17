@@ -9,7 +9,109 @@ import { userAdminOptions } from '#examples-shared/modules/user/shared.js';
 import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../../src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '../../src/admin/admin.module.js';
 import { AdminResource } from '../../src/admin/decorators/admin-resource.decorator.js';
+import { dashboardLinkWidgetExtension } from '../../src/extensions/dashboard-link-widget/index.js';
+import { embedPageExtension } from '../../src/extensions/embed/index.js';
 import { AdminUiService } from '../../src/admin/services/admin-ui.service.js';
+
+const dashboardPreviewHtml = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Grafana Overview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(247, 122, 55, 0.22), transparent 22rem),
+          linear-gradient(180deg, #111827 0%, #0f172a 100%);
+        color: #e5e7eb;
+      }
+      .wrap {
+        padding: 24px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #f59e0b;
+      }
+      h1 {
+        margin: 8px 0 18px;
+        font-size: 28px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      .card {
+        padding: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        background: rgba(15, 23, 42, 0.78);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      }
+      .metric {
+        font-size: 30px;
+        font-weight: 700;
+        color: #f8fafc;
+      }
+      .label {
+        margin-top: 6px;
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      .chart {
+        height: 280px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        background:
+          linear-gradient(180deg, rgba(30, 41, 59, 0.88) 0%, rgba(15, 23, 42, 0.95) 100%);
+        position: relative;
+        overflow: hidden;
+      }
+      .chart svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="eyebrow">Monitoring</div>
+      <h1>Grafana Overview</h1>
+      <div class="grid">
+        <div class="card"><div class="metric">241 ms</div><div class="label">P95 latency</div></div>
+        <div class="card"><div class="metric">99.98%</div><div class="label">Availability</div></div>
+        <div class="card"><div class="metric">1.2k</div><div class="label">Requests / min</div></div>
+      </div>
+      <div class="chart">
+        <svg viewBox="0 0 1200 320" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35" />
+              <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <path d="M0,250 C80,220 120,110 210,140 C280,160 330,250 420,210 C520,165 560,70 650,90 C760,114 790,250 880,230 C970,210 1040,110 1120,130 C1160,140 1180,148 1200,152 L1200,320 L0,320 Z" fill="url(#fill)"></path>
+          <path d="M0,250 C80,220 120,110 210,140 C280,160 330,250 420,210 C520,165 560,70 650,90 C760,114 790,250 880,230 C970,210 1040,110 1120,130 C1160,140 1180,148 1200,152" fill="none" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"></path>
+        </svg>
+      </div>
+    </div>
+  </body>
+</html>
+`;
+
+const dashboardPreviewUrl = `data:text/html;charset=utf-8,${encodeURIComponent(dashboardPreviewHtml)}`;
 
 const SEEDED_USERS = [
   {
@@ -204,6 +306,26 @@ Module({
     AdminModule.forRoot({
       path: '/admin',
       adapter: InMemoryAdminAdapter,
+      extensions: [
+        embedPageExtension({
+          id: 'test-grafana-page',
+          page: {
+            slug: 'grafana-overview',
+            label: 'Grafana overview',
+            category: 'Monitoring',
+            title: 'Grafana Overview',
+            description: 'Embedded observability dashboard rendered inside the admin shell.',
+            url: dashboardPreviewUrl,
+            height: 720,
+          },
+        }),
+        dashboardLinkWidgetExtension({
+          id: 'test-grafana-widget',
+          title: 'Grafana overview',
+          description: 'Open the embedded monitoring dashboard from the admin home screen.',
+          pageSlug: 'grafana-overview',
+        }),
+      ],
       display: {
         locale: 'en-US',
       },
