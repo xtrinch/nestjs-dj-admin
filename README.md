@@ -292,7 +292,16 @@ The complete barrel lives in [`src/index.ts`](https://github.com/xtrinch/nestjs-
 
 ## Auth Integration
 
-`nestjs-dj-admin` does not implement your real user model or password policy. You provide an `authenticate` function, and the admin module manages the session cookie around it.
+`nestjs-dj-admin` supports two auth modes:
+
+- session auth managed by the admin module
+- external auth managed by the host application
+
+`nestjs-dj-admin` does not implement your real user model or password policy. You either provide an `authenticate` function for built-in session auth, or you reuse your host app’s auth stack and map the already-authenticated principal into the admin user shape.
+
+### Session Auth
+
+In session mode, you provide `authenticate(credentials, request)` and the admin module manages the admin session cookie around it.
 
 ```ts
 AdminModule.forRoot({
@@ -325,7 +334,7 @@ AdminModule.forRoot({
 });
 ```
 
-Auth options currently include:
+Session auth options:
 
 - session mode:
   - `cookieName`
@@ -334,14 +343,18 @@ Auth options currently include:
   - `sessionStore`
   - `cookie`
   - `authenticate(credentials, request)`
-- external mode:
-  - `guards`
-  - `resolveUser(request)`
-  - `loginUrl`
-  - `loginMessage`
-  - `logout(request, response)`
+
+### External Auth
 
 External auth mode is meant for apps that already have their own auth/session stack. In that mode the admin can reuse host guards and map the already-authenticated principal from `request.user`.
+
+External auth options:
+
+- `guards`
+- `resolveUser(request)`
+- `loginUrl`
+- `loginMessage`
+- `logout(request, response)`
 
 Example:
 
@@ -357,6 +370,16 @@ AdminModule.forRoot({
   },
 });
 ```
+
+This is the right path when your app already has:
+
+- cookie/session auth handled by the host app
+- Nest guards that authenticate requests before they reach `/admin`
+- `request.user` populated by your existing auth layer
+
+See:
+
+- [examples/external-auth-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/external-auth-demo-app/README.md)
 
 ## Default Configuration
 
