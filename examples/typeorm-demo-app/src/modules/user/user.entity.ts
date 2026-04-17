@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-export { Role } from '../../../../shared/src/modules/user/shared.js';
-import { Role } from '../../../../shared/src/modules/user/shared.js';
+export { Role } from '#examples-shared/modules/user/shared.js';
+import { Role } from '#examples-shared/modules/user/shared.js';
 
 @Entity('users')
 export class User {

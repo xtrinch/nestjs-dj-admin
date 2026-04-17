@@ -9,6 +9,25 @@ export class DemoDataService implements OnApplicationBootstrap {
   constructor(private readonly prisma: PrismaClient) {}
 
   async onApplicationBootstrap(): Promise<void> {
+    await this.seed();
+  }
+
+  async reset(): Promise<void> {
+    await this.prisma.$executeRawUnsafe(`
+      TRUNCATE TABLE
+        "AdminAuditLog",
+        "OrderDetail",
+        "_CategoryToProduct",
+        "Order",
+        "Product",
+        "Category",
+        "User"
+      RESTART IDENTITY CASCADE
+    `);
+    await this.seed();
+  }
+
+  private async seed(): Promise<void> {
     const defaultUsers = [
       { email: 'ada@example.com', phone: '+1 206 555 0101', profileUrl: 'https://example.com/users/ada', role: Role.ADMIN, passwordHash: hashPassword('admin123'), active: true },
       { email: 'grace@example.com', phone: '+1 206 555 0102', profileUrl: 'https://example.com/users/grace', role: Role.EDITOR, passwordHash: hashPassword('editor123'), active: true },

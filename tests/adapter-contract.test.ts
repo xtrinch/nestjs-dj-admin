@@ -4,11 +4,13 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { EntitySchema as MikroEntitySchema } from '@mikro-orm/core';
+import { MikroORM } from '@mikro-orm/postgresql';
 import { Client } from 'pg';
 import { DataSource, EntitySchema } from 'typeorm';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { PrismaAdminAdapter, TypeOrmAdminAdapter } from '../src/index.js';
+import { MikroOrmAdminAdapter, PrismaAdminAdapter, TypeOrmAdminAdapter } from '../src/index.js';
 import type { AdminAdapter, AdminAdapterResource } from '../src/index.js';
 import { InMemoryAdminAdapter, IN_MEMORY_ADMIN_STORE } from '../src/admin/adapters/in-memory.adapter.js';
 import { Order as PrismaOrder } from '../examples/prisma-demo-app/src/modules/order/order.entity.js';
@@ -109,6 +111,43 @@ const postgresAvailable = await canConnectToPostgres();
 
 class PlainUserModel {}
 class PlainOrderModel {}
+
+class MikroOrmUserModel {}
+class MikroOrmOrderModel {}
+
+const MikroOrmUserSchema = new MikroEntitySchema({
+  class: MikroOrmUserModel,
+  tableName: 'users',
+  properties: {
+    id: { type: Number, primary: true, autoincrement: true },
+    email: { type: String, unique: true },
+    phone: { type: String, default: '' },
+    profileUrl: { type: String, default: '' },
+    role: { type: String },
+    passwordHash: { type: String },
+    active: { type: Boolean, default: true },
+    createdAt: { type: Date, onCreate: () => new Date() },
+    updatedAt: { type: Date, onCreate: () => new Date(), onUpdate: () => new Date() },
+  },
+});
+
+const MikroOrmOrderSchema = new MikroEntitySchema({
+  class: MikroOrmOrderModel,
+  tableName: 'orders',
+  properties: {
+    id: { type: Number, primary: true, autoincrement: true },
+    number: { type: String, unique: true },
+    orderDate: { type: 'date' },
+    deliveryTime: { type: 'time', nullable: true },
+    fulfillmentAt: { type: Date, nullable: true },
+    userId: { type: Number },
+    status: { type: String },
+    total: { type: 'decimal', precision: 10, scale: 2 },
+    internalNote: { type: 'text', default: '' },
+    createdAt: { type: Date, onCreate: () => new Date() },
+    updatedAt: { type: Date, onCreate: () => new Date(), onUpdate: () => new Date() },
+  },
+});
 
 const TypeOrmUserSchema = new EntitySchema({
   name: 'User',
@@ -221,6 +260,15 @@ describe(
   { skip: !postgresAvailable },
   async () => {
     const harness = await createPrismaHarness();
+    await runAdapterContractSuite(harness);
+  },
+);
+
+describe(
+  'MikroOrmAdminAdapter contract',
+  { skip: !postgresAvailable },
+  async () => {
+    const harness = await createMikroOrmHarness();
     await runAdapterContractSuite(harness);
   },
 );
@@ -515,6 +563,65 @@ async function createPrismaHarness(): Promise<AdapterHarness> {
     },
     async getIdByEmail(email: string) {
       const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+      return String(user.id);
+    },
+  };
+}
+
+async function createMikroOrmHarness(): Promise<AdapterHarness> {
+  const databaseName = `adapter_contract_mikroorm_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+  await createDatabase(databaseName);
+
+  const orm = await MikroORM.init({
+    host: POSTGRES_CONFIG.host,
+    port: POSTGRES_CONFIG.port,
+    user: POSTGRES_CONFIG.user,
+    password: POSTGRES_CONFIG.password,
+    dbName: databaseName,
+    entities: [MikroOrmUserSchema, MikroOrmOrderSchema],
+    allowGlobalContext: true,
+  });
+  await orm.schema.create();
+
+  return {
+    adapter: new MikroOrmAdminAdapter(orm.em),
+    resource: createUserResource(MikroOrmUserModel),
+    orderResource: createOrderResource(MikroOrmOrderModel),
+    async reset() {
+      const em = orm.em.fork({ clear: true });
+      await em.nativeDelete(MikroOrmOrderModel, {});
+      await em.nativeDelete(MikroOrmUserModel, {});
+
+      for (const user of TEST_USERS) {
+        em.persist(em.create(MikroOrmUserModel, { ...user } as never));
+      }
+
+      await em.flush();
+
+      const users = await em.find(MikroOrmUserModel, {}, { fields: ['id', 'email'] as never });
+      const userIds = Object.fromEntries(users.map((user) => [String(user.email), Number(user.id)]));
+
+      for (const order of TEST_ORDERS) {
+        em.persist(em.create(MikroOrmOrderModel, {
+          number: order.number,
+          orderDate: order.orderDate,
+          deliveryTime: order.deliveryTime,
+          fulfillmentAt: order.fulfillmentAt ? new Date(order.fulfillmentAt) : null,
+          userId: userIds[order.userEmail],
+          status: order.status,
+          total: order.total,
+          internalNote: order.internalNote,
+        } as never));
+      }
+
+      await em.flush();
+    },
+    async dispose() {
+      await orm.close(true);
+      await dropDatabase(databaseName);
+    },
+    async getIdByEmail(email: string) {
+      const user = await orm.em.fork({ clear: true }).findOneOrFail(MikroOrmUserModel, { email });
       return String(user.id);
     },
   };

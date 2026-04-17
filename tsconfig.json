@@ -14,7 +14,8 @@
     "baseUrl": ".",
     "paths": {
       "nestjs-dj-admin": ["./src/index.ts"],
-      "#src/*": ["./src/*"]
+      "#src/*": ["./src/*"],
+      "#examples-shared/*": ["./examples/shared/src/*"]
     },
     "jsx": "react-jsx",
     "types": ["node"]

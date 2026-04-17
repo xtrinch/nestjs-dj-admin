@@ -88,6 +88,7 @@ export const orderDetailAdminOptions = {
   },
   sortable: ['updatedAt', 'quantity'],
   search: [],
+  filters: ['orderId', 'productId'],
   readonly: ['createdAt', 'updatedAt'],
   permissions: {
     read: ['admin'],

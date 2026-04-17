@@ -1,1 +1,1 @@
-export { CreateCategoryDto, UpdateCategoryDto } from '../../../../shared/src/modules/category/shared.js';
+export { CreateCategoryDto, UpdateCategoryDto } from '#examples-shared/modules/category/shared.js';

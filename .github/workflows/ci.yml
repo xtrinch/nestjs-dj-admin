@@ -144,5 +144,11 @@ jobs:
       - name: Setup Prisma example database
         run: npm run prisma:setup:example
 
+      - name: Setup MikroORM example database
+        run: npm run mikroorm:setup:example
+
       - name: Build examples
         run: npm run build:examples
+
+      - name: ORM demo end-to-end tests
+        run: npm run test:e2e:demos

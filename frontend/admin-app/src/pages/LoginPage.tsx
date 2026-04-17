@@ -45,7 +45,8 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
             <input
               autoComplete="username"
               className="input"
-              name="username"
+              name="email"
+              required
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -57,6 +58,7 @@ export function LoginPage({ onAuthenticated }: { onAuthenticated: () => Promise<
               autoComplete="current-password"
               className="input"
               name="password"
+              required
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}

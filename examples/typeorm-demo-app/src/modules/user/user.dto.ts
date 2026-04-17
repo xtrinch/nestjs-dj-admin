@@ -1,1 +1,1 @@
-export { CreateUserDto, UpdateUserDto } from '../../../../shared/src/modules/user/shared.js';
+export { CreateUserDto, UpdateUserDto } from '#examples-shared/modules/user/shared.js';

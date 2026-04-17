@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { DtoIntrospectorService } from '../src/admin/services/dto-introspector.service.js';
-import { CreateUserDto } from '../examples/shared/src/modules/user/shared.js';
+import { CreateUserDto } from '#examples-shared/modules/user/shared.js';
 
 describe('DtoIntrospectorService', () => {
   it('maps enum DTO fields to select inputs with enum values', () => {

@@ -1,1 +1,1 @@
-export { CreateProductDto, UpdateProductDto } from '../../../../shared/src/modules/product/shared.js';
+export { CreateProductDto, UpdateProductDto } from '#examples-shared/modules/product/shared.js';

@@ -21,3 +21,4 @@ pnpm-debug.log*
 .vscode/
 *.tsbuildinfo
 ADOPTION_STRATEGY.md
+.snapshot-*.json

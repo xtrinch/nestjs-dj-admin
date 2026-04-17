@@ -1,1 +1,1 @@
-export { CreateOrderDto, UpdateOrderDto } from '../../../../shared/src/modules/order/shared.js';
+export { CreateOrderDto, UpdateOrderDto } from '#examples-shared/modules/order/shared.js';
