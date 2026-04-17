@@ -1,6 +1,6 @@
 {
   "name": "nestjs-dj-admin",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "NestJS-native admin framework inspired by Django admin",
   "keywords": [
     "nestjs",
