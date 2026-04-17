@@ -41,7 +41,7 @@ jobs:
         run: npm run build
 
   backend-tests:
-    name: Backend Tests
+    name: Backend Tests (In-Memory)
     runs-on: ubuntu-latest
 
     steps:
@@ -93,7 +93,7 @@ jobs:
         run: npm run test:frontend-smoke
 
   examples:
-    name: Example Apps
+    name: Backend Tests (ORM + Postgres)
     runs-on: ubuntu-latest
 
     services:
