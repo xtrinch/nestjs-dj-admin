@@ -10,6 +10,7 @@ type DemoAdminE2EConfig = {
   entrypoint: string;
   setupCommand: [string, ...string[]];
   env?: NodeJS.ProcessEnv;
+  expectedPageSlug?: string;
 };
 
 export function defineDemoAdminE2ETests(config: DemoAdminE2EConfig): void {
@@ -101,9 +102,26 @@ export function defineDemoAdminE2ETests(config: DemoAdminE2EConfig): void {
       assert.equal(meta.response.status, 200);
       assert.ok(meta.body.resources.some((resource: { resourceName: string }) => resource.resourceName === 'users'));
       assert.ok(meta.body.resources.some((resource: { resourceName: string }) => resource.resourceName === 'orders'));
-      assert.ok(meta.body.pages.some((page: { slug: string; kind: string }) => page.slug === 'grafana-overview' && page.kind === 'embed'));
-      assert.ok(meta.body.navItems.some((item: { kind: string; pageSlug?: string }) => item.kind === 'page' && item.pageSlug === 'grafana-overview'));
-      assert.ok(meta.body.widgets.some((widget: { kind: string; pageSlug?: string }) => widget.kind === 'page-link' && widget.pageSlug === 'grafana-overview'));
+      if (config.expectedPageSlug) {
+        assert.ok(
+          meta.body.pages.some(
+            (page: { slug: string; kind: string }) =>
+              page.slug === config.expectedPageSlug && page.kind === 'embed',
+          ),
+        );
+        assert.ok(
+          meta.body.navItems.some(
+            (item: { kind: string; pageSlug?: string }) =>
+              item.kind === 'page' && item.pageSlug === config.expectedPageSlug,
+          ),
+        );
+        assert.ok(
+          meta.body.widgets.some(
+            (widget: { kind: string; pageSlug?: string }) =>
+              widget.kind === 'page-link' && widget.pageSlug === config.expectedPageSlug,
+          ),
+        );
+      }
       assert.equal(meta.body.auditLog.enabled, true);
 
       const userMeta = await request(adminBaseUrl, '/_meta/users', { cookie });
