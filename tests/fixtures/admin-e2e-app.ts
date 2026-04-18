@@ -17,7 +17,6 @@ import type {
   QueueDetails,
   QueueJobDetails,
   QueueJobState,
-  QueueJobSummary,
   QueueSummary,
 } from '../../src/extensions/bullmq-queue/index.js';
 import { bullmqQueueExtension } from '../../src/extensions/bullmq-queue/index.js';

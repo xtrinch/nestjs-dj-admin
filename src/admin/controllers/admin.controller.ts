@@ -20,7 +20,6 @@ import type {
   AdminBrandingSchema,
   AdminAuthCredentials,
   AdminDisplaySchema,
-  AdminRequestUser,
   AdminListQuery,
   AdminModuleOptions,
 } from '../types/admin.types.js';
@@ -85,34 +84,22 @@ export class AdminController {
   }
 
   @Get('_extensions/:namespace')
-  async getExtensionRoot(
-    @Req() request: Request,
-    @Param('namespace') _namespace: string,
-  ) {
+  async getExtensionRoot(@Req() request: Request) {
     return this.handleExtensionRequest(request, 'GET');
   }
 
   @Get('_extensions/:namespace/*path')
-  async getExtensionPath(
-    @Req() request: Request,
-    @Param('namespace') _namespace: string,
-  ) {
+  async getExtensionPath(@Req() request: Request) {
     return this.handleExtensionRequest(request, 'GET');
   }
 
   @Post('_extensions/:namespace')
-  async postExtensionRoot(
-    @Req() request: Request,
-    @Param('namespace') _namespace: string,
-  ) {
+  async postExtensionRoot(@Req() request: Request) {
     return this.handleExtensionRequest(request, 'POST');
   }
 
   @Post('_extensions/:namespace/*path')
-  async postExtensionPath(
-    @Req() request: Request,
-    @Param('namespace') _namespace: string,
-  ) {
+  async postExtensionPath(@Req() request: Request) {
     return this.handleExtensionRequest(request, 'POST');
   }
 

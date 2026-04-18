@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { formatAdminValue } from '../formatters.js';
-import { getExtensionData, runExtensionAction } from '../services/resources.service.js';
-import { showToast } from '../services/toast.service.js';
-import type { AdminDisplayConfig, AdminUser, CustomPageSchema, ScreenPageSchema } from '../types.js';
+import { formatAdminValue } from '../../formatters.js';
+import { getExtensionData, runExtensionAction } from '../../services/resources.service.js';
+import { showToast } from '../../services/toast.service.js';
+import type { ScreenPageSchema } from '../../types.js';
+import type { AdminExtensionPageProps } from '../types.js';
+import './styles.css';
 
 type QueueJobState = 'waiting' | 'active' | 'delayed' | 'failed' | 'completed';
 
@@ -35,67 +37,33 @@ type QueueJobDetails = QueueJobSummary & {
   stackTrace?: string[];
 };
 
-export function ExtensionPage({
-  display,
-  page,
-  pagePath,
-  params,
-  user,
-  onTitleChange,
-}: {
-  display: AdminDisplayConfig;
-  page: ScreenPageSchema;
-  pagePath: string;
-  pages: CustomPageSchema[];
-  params: Record<string, string>;
-  user: AdminUser;
-  onTitleChange?: (label: string | null) => void;
-}) {
-  if (page.screen === 'bullmq-queue-overview') {
-    return <QueueOverviewPage page={page} user={user} onTitleChange={onTitleChange} />;
+export function BullMqQueuePage(props: AdminExtensionPageProps<ScreenPageSchema>) {
+  if (props.page.screen === 'bullmq-queue-overview') {
+    return <QueueOverviewPage {...props} />;
   }
 
-  if (page.screen === 'bullmq-queue-detail') {
-    return (
-      <QueueDetailPage
-        display={display}
-        page={page}
-        queueKey={params['queueKey'] ?? extractQueueKey(pagePath)}
-        user={user}
-        onTitleChange={onTitleChange}
-      />
-    );
+  if (props.page.screen === 'bullmq-queue-detail') {
+    return <QueueDetailPage {...props} queueKey={props.params['queueKey'] ?? extractQueueKey(props.pagePath)} />;
   }
 
-  if (page.screen === 'bullmq-queue-job-detail') {
+  if (props.page.screen === 'bullmq-queue-job-detail') {
     return (
       <QueueJobDetailPage
-        display={display}
-        page={page}
-        queueKey={params['queueKey'] ?? ''}
-        jobId={params['jobId'] ?? ''}
-        user={user}
-        onTitleChange={onTitleChange}
+        {...props}
+        queueKey={props.params['queueKey'] ?? ''}
+        jobId={props.params['jobId'] ?? ''}
       />
     );
   }
 
-  useEffect(() => {
-    onTitleChange?.(null);
-  }, [onTitleChange]);
-
-  return <section className="panel">Unsupported extension page: {page.screen}</section>;
+  return <section className="panel">Unsupported queue page: {props.page.screen}</section>;
 }
 
 function QueueOverviewPage({
   page,
   user,
   onTitleChange,
-}: {
-  page: ScreenPageSchema;
-  user: AdminUser;
-  onTitleChange?: (label: string | null) => void;
-}) {
+}: AdminExtensionPageProps<ScreenPageSchema>) {
   const [items, setItems] = useState<QueueSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -203,13 +171,7 @@ function QueueDetailPage({
   queueKey,
   user,
   onTitleChange,
-}: {
-  display: AdminDisplayConfig;
-  page: ScreenPageSchema;
-  queueKey: string;
-  user: AdminUser;
-  onTitleChange?: (label: string | null) => void;
-}) {
+}: AdminExtensionPageProps<ScreenPageSchema> & { queueKey: string }) {
   const [queue, setQueue] = useState<QueueDetails | null>(null);
   const [jobs, setJobs] = useState<QueueJobSummary[]>([]);
   const [filter, setFilter] = useState<QueueJobState>('waiting');
@@ -443,14 +405,7 @@ function QueueJobDetailPage({
   jobId,
   user,
   onTitleChange,
-}: {
-  display: AdminDisplayConfig;
-  page: ScreenPageSchema;
-  queueKey: string;
-  jobId: string;
-  user: AdminUser;
-  onTitleChange?: (label: string | null) => void;
-}) {
+}: AdminExtensionPageProps<ScreenPageSchema> & { queueKey: string; jobId: string }) {
   const [job, setJob] = useState<QueueJobDetails | null>(null);
   const [queue, setQueue] = useState<QueueDetails | null>(null);
   const [error, setError] = useState<string | null>(null);

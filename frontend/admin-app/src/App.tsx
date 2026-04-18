@@ -6,10 +6,9 @@ import { PasswordPage } from './pages/PasswordPage.js';
 import { DeleteConfirmPage } from './pages/DeleteConfirmPage.js';
 import { AuditLogPage } from './pages/AuditLogPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
-import { CustomPage } from './pages/CustomPage.js';
-import { ExtensionPage } from './pages/ExtensionPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { ExternalAuthPage } from './pages/ExternalAuthPage.js';
+import { getExtensionPageComponent } from './extensions/registry.js';
 import { canWriteResource } from './permissions.js';
 import { matchExtensionRoute, normalizeExtensionRoute } from './route-utils.js';
 import { getAdminAuthConfig, getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
@@ -472,21 +471,19 @@ function RouteContent({
   }
 
   if (route.kind === 'page') {
-    if (route.page.kind === 'embed') {
-      return <CustomPage key={`page:${route.page.slug}`} page={route.page} onTitleChange={onTitleChange} />;
-    }
-
-    return (
-      <ExtensionPage
+    const ExtensionPageComponent = getExtensionPageComponent(route.page);
+    return ExtensionPageComponent ? (
+      <ExtensionPageComponent
         key={`page:${route.page.slug}:${route.href}`}
         display={display}
         page={route.page}
         pagePath={route.href}
-        pages={pages}
         params={route.params}
         user={user}
         onTitleChange={onTitleChange}
       />
+    ) : (
+      <section className="panel">Unsupported extension page: {route.page.label}</section>
     );
   }
 

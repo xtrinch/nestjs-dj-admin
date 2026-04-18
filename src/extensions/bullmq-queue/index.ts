@@ -1,7 +1,6 @@
 import type {
   AdminExtensionActionAuditEvent,
   AdminExtensionEndpointDefinition,
-  AdminExtensionEndpointContext,
   AdminExtensionPostEndpointDefinition,
   DjAdminExtension,
 } from '../../extension-api/types.js';
@@ -16,7 +15,7 @@ export interface QueueSummary {
   isPaused: boolean;
 }
 
-export interface QueueDetails extends QueueSummary {}
+export type QueueDetails = QueueSummary;
 
 export interface QueueJobSummary {
   id: string;
