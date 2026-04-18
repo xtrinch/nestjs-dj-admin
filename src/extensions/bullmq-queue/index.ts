@@ -1,12 +1,11 @@
 import type {
-  AdminFieldSchema,
-  AdminSchemaProvider,
   AdminExtensionActionAuditEvent,
   AdminResourceDetailPanelDefinition,
   AdminExtensionEndpointDefinition,
   AdminExtensionPostEndpointDefinition,
   DjAdminExtension,
 } from '../../extension-api/types.js';
+import type { AdminFieldSchema, AdminSchemaBuildContext } from '../../admin/types/admin.types.js';
 
 export type QueueJobState = 'waiting' | 'active' | 'delayed' | 'failed' | 'completed';
 
@@ -53,7 +52,9 @@ export interface QueueListFieldDefinition {
   path: string;
 }
 
-export type QueuePayloadSchema = Pick<AdminSchemaProvider, 'buildDisplayFields'>;
+export interface QueuePayloadSchema {
+  buildDisplayFields(context: AdminSchemaBuildContext): AdminFieldSchema[];
+}
 
 export interface QueuePayloadFilter {
   path: string;

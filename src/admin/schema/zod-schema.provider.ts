@@ -36,12 +36,32 @@ type ZodObjectLike = ZodSchemaLike & {
   shape?: Record<string, unknown> | (() => Record<string, unknown>);
 };
 
+type DisplayOnlySchemaProvider = Required<Pick<AdminSchemaProvider, 'buildDisplayFields'>>;
+
+export function adminSchemaFromZod(config: {
+  display: ZodObjectLike;
+  fields?: Record<string, AdminDtoFieldConfig>;
+}): DisplayOnlySchemaProvider;
 export function adminSchemaFromZod(config: {
   display?: ZodObjectLike;
   create: ZodObjectLike;
   update: ZodObjectLike;
   fields?: Record<string, AdminDtoFieldConfig>;
-}): AdminSchemaProvider {
+}): AdminSchemaProvider;
+export function adminSchemaFromZod(config: {
+  display?: ZodObjectLike;
+  create?: ZodObjectLike;
+  update?: ZodObjectLike;
+  fields?: Record<string, AdminDtoFieldConfig>;
+}): AdminSchemaProvider | DisplayOnlySchemaProvider {
+  if (config.display && !config.create && !config.update) {
+    return {
+      buildDisplayFields(context: AdminSchemaBuildContext) {
+        return buildFieldsFromZodShape(config.display!, config.fields ?? {}, context.readonlyFields);
+      },
+    };
+  }
+
   return {
     buildDisplayFields(context: AdminSchemaBuildContext) {
       if (config.display) {
@@ -49,13 +69,13 @@ export function adminSchemaFromZod(config: {
       }
 
       return mergeFields(
-        buildFieldsFromZodShape(config.create, config.fields ?? {}, context.readonlyFields),
-        buildFieldsFromZodShape(config.update, config.fields ?? {}, context.readonlyFields),
+        buildFieldsFromZodShape(config.create!, config.fields ?? {}, context.readonlyFields),
+        buildFieldsFromZodShape(config.update!, config.fields ?? {}, context.readonlyFields),
       );
     },
     buildCreateFields(context: AdminSchemaBuildContext) {
       return buildFieldsFromZodShape(
-        config.create,
+        config.create!,
         config.fields ?? {},
         context.readonlyFields,
         config.display ? buildFieldsFromZodShape(config.display, config.fields ?? {}, context.readonlyFields) : undefined,
@@ -63,17 +83,17 @@ export function adminSchemaFromZod(config: {
     },
     buildUpdateFields(context: AdminSchemaBuildContext) {
       return buildFieldsFromZodShape(
-        config.update,
+        config.update!,
         config.fields ?? {},
         context.readonlyFields,
         config.display ? buildFieldsFromZodShape(config.display, config.fields ?? {}, context.readonlyFields) : undefined,
       );
     },
     async validateCreate(payload: Record<string, unknown>) {
-      return parseZodPayload(config.create, payload);
+      return parseZodPayload(config.create!, payload);
     },
     async validateUpdate(payload: Record<string, unknown>) {
-      return parseZodPayload(config.update, payload);
+      return parseZodPayload(config.update!, payload);
     },
   };
 }

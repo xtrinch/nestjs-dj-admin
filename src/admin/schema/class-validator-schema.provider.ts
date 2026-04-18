@@ -2,16 +2,35 @@ import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import type {
+  AdminFieldMode,
   AdminSchemaBuildContext,
   AdminSchemaProvider,
 } from '../types/admin.types.js';
 import { buildClassValidatorFields } from '../services/dto-introspector.service.js';
 
+type DisplayOnlySchemaProvider = Required<Pick<AdminSchemaProvider, 'buildDisplayFields'>>;
+
+export function adminSchemaFromClassValidator(config: {
+  displayDto: Function;
+}): DisplayOnlySchemaProvider;
 export function adminSchemaFromClassValidator(config: {
   displayDto?: Function;
   createDto?: Function;
   updateDto?: Function;
-}): AdminSchemaProvider {
+}): AdminSchemaProvider;
+export function adminSchemaFromClassValidator(config: {
+  displayDto?: Function;
+  createDto?: Function;
+  updateDto?: Function;
+}): AdminSchemaProvider | DisplayOnlySchemaProvider {
+  if (config.displayDto && !config.createDto && !config.updateDto) {
+    return {
+      buildDisplayFields(context: AdminSchemaBuildContext) {
+        return buildFields(config.displayDto, context);
+      },
+    };
+  }
+
   return {
     buildDisplayFields(context: AdminSchemaBuildContext) {
       if (config.displayDto) {
