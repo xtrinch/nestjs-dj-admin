@@ -3,6 +3,7 @@ import { ADMIN_ADAPTER } from '#src/admin/admin.constants.js';
 import { TypeOrmAdminAdapter } from '#src/admin/adapters/typeorm.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
 import { dashboardLinkWidgetExtension } from '#src/extensions/dashboard-link-widget/index.js';
+import { bullmqQueueExtension } from '#src/extensions/bullmq-queue/index.js';
 import { embedPageExtension } from '#src/extensions/embed/index.js';
 import { verifyPassword } from './auth/password.js';
 import { DataSource } from 'typeorm';
@@ -17,6 +18,8 @@ import { ProductModule } from './modules/product/product.module.js';
 import { Role, User } from './modules/user/user.entity.js';
 import { UserModule } from './modules/user/user.module.js';
 import { DEMO_PERMISSIONS, permissionsForDemoRole } from '../../shared/src/admin-permissions.js';
+import { demoBullMqQueueAdapter } from './queues/demo-bullmq.js';
+import { DemoQueueService } from './queues/demo-queue.service.js';
 
 const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:3001/d-solo/dj-admin-overview/dj-admin-overview?orgId=1&from=now-6h&to=now&theme=dark&panelId=1';
 
@@ -48,6 +51,29 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
           description: 'Open the embedded monitoring dashboard from the admin home screen.',
           ctaLabel: 'Open Grafana overview',
           pageSlug: 'grafana-overview',
+        }),
+        bullmqQueueExtension({
+          adapter: demoBullMqQueueAdapter,
+          queues: [
+            {
+              key: 'email',
+              label: 'Email',
+              description: 'Transactional messages waiting for SMTP delivery.',
+              order: 10,
+            },
+            {
+              key: 'webhooks',
+              label: 'Webhooks',
+              description: 'Outbound partner webhook fanout and retries.',
+              order: 20,
+            },
+            {
+              key: 'imports',
+              label: 'Imports',
+              description: 'Nightly ingest and reconciliation jobs.',
+              order: 30,
+            },
+          ],
         }),
       ],
       branding: {
@@ -118,6 +144,7 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
       inject: [DataSource],
     },
     DemoDataService,
+    DemoQueueService,
   ],
 })
 export class AppModule {}

@@ -20,6 +20,7 @@ import type {
   AdminBrandingSchema,
   AdminAuthCredentials,
   AdminDisplaySchema,
+  AdminRequestUser,
   AdminListQuery,
   AdminModuleOptions,
 } from '../types/admin.types.js';
@@ -81,6 +82,38 @@ export class AdminController {
         enabled: this.adminPermissionService.canReadAuditLog(user, this.adminOptions.auditLog),
       },
     };
+  }
+
+  @Get('_extensions/:namespace')
+  async getExtensionRoot(
+    @Req() request: Request,
+    @Param('namespace') _namespace: string,
+  ) {
+    return this.handleExtensionRequest(request, 'GET');
+  }
+
+  @Get('_extensions/:namespace/*path')
+  async getExtensionPath(
+    @Req() request: Request,
+    @Param('namespace') _namespace: string,
+  ) {
+    return this.handleExtensionRequest(request, 'GET');
+  }
+
+  @Post('_extensions/:namespace')
+  async postExtensionRoot(
+    @Req() request: Request,
+    @Param('namespace') _namespace: string,
+  ) {
+    return this.handleExtensionRequest(request, 'POST');
+  }
+
+  @Post('_extensions/:namespace/*path')
+  async postExtensionPath(
+    @Req() request: Request,
+    @Param('namespace') _namespace: string,
+  ) {
+    return this.handleExtensionRequest(request, 'POST');
   }
 
   @Get('_audit')
@@ -246,6 +279,23 @@ export class AdminController {
   ) {
     return this.adminService.runAction(resource, id, action, await this.adminAuthService.requireUser(request));
   }
+
+  private async handleExtensionRequest(
+    request: Request,
+    method: 'GET' | 'POST',
+  ) {
+    const user = await this.adminAuthService.requireUser(request);
+    return this.adminService.runExtensionEndpoint(
+      method,
+      extractExtensionPath(this.adminOptions.path, request),
+      {
+        body: (request.body ?? {}) as Record<string, unknown>,
+        query: normalizeExtensionQuery(request.query as Record<string, string | string[] | undefined>),
+        request,
+        user,
+      },
+    );
+  }
 }
 
 function parseListQuery(query: Record<string, string | string[]>): AdminListQuery {
@@ -280,6 +330,34 @@ function parseIds(value: string | string[] | undefined): string[] {
 
   const ids = Array.isArray(value) ? value : value.split(',');
   return ids.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function extractExtensionPath(adminPath: string, request: Request): string {
+  const pathWithoutAdminPrefix = request.path.startsWith(adminPath)
+    ? request.path.slice(adminPath.length)
+    : request.path;
+  const extensionPrefix = '/_extensions';
+
+  if (!pathWithoutAdminPrefix.startsWith(extensionPrefix)) {
+    return '/';
+  }
+
+  const next = pathWithoutAdminPrefix.slice(extensionPrefix.length);
+  return next.length > 0 ? next : '/';
+}
+
+function normalizeExtensionQuery(
+  query: Record<string, string | string[] | undefined>,
+): Record<string, string | string[]> {
+  const next: Record<string, string | string[]> = {};
+
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) {
+      next[key] = value;
+    }
+  }
+
+  return next;
 }
 
 function resolveDisplay(options: AdminModuleOptions): AdminDisplaySchema {

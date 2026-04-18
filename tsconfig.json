@@ -17,6 +17,7 @@
       "nestjs-dj-admin": ["./src/index.ts"],
       "nestjs-dj-admin/embed-page-extension": ["./src/extensions/embed/index.ts"],
       "nestjs-dj-admin/dashboard-link-widget-extension": ["./src/extensions/dashboard-link-widget/index.ts"],
+      "nestjs-dj-admin/bullmq-queue-extension": ["./src/extensions/bullmq-queue/index.ts"],
       "#src/*": ["./src/*"],
       "#examples-shared/*": ["./examples/shared/src/*"]
     },

@@ -5,14 +5,19 @@ import { OrderDetail } from '../modules/order-detail/order-detail.entity.js';
 import { hashPassword } from '../auth/password.js';
 import { Order, OrderStatus } from '../modules/order/order.entity.js';
 import { Product } from '../modules/product/product.entity.js';
+import { DemoQueueService } from '../queues/demo-queue.service.js';
 import { Role, User } from '../modules/user/user.entity.js';
 
 @Injectable()
 export class DemoDataService implements OnApplicationBootstrap {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly demoQueueService: DemoQueueService,
+  ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     await this.seed();
+    await this.demoQueueService.reset();
   }
 
   async reset(): Promise<void> {
@@ -28,6 +33,7 @@ export class DemoDataService implements OnApplicationBootstrap {
       RESTART IDENTITY CASCADE
     `);
     await this.seed();
+    await this.demoQueueService.reset();
   }
 
   private async seed(): Promise<void> {

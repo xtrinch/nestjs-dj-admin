@@ -9,7 +9,9 @@ import type {
 } from '../types/admin.types.js';
 import { describeUserPermissions, getUserPermissions } from '../utils/user-permissions.js';
 import type {
+  AdminExtensionActionPermissions,
   AdminNavItemSchema,
+  AdminExtensionPostEndpointDefinition,
   AdminPageSchema,
   AdminWidgetSchema,
 } from '../../extension-api/types.js';
@@ -38,6 +40,26 @@ export class AdminPermissionService {
 
   canReadWidget(user: AdminRequestUser, widget: AdminWidgetSchema): boolean {
     return this.hasPermission(user, widget.permissions?.read);
+  }
+
+  canReadExtensionEndpoint(
+    user: AdminRequestUser,
+    endpoint: { permissions?: { read?: string[] } },
+  ): boolean {
+    return this.hasPermission(user, endpoint.permissions?.read);
+  }
+
+  assertCanExecuteExtensionAction(
+    user: AdminRequestUser,
+    action:
+      | AdminExtensionActionPermissions
+      | AdminExtensionPostEndpointDefinition
+      | { permissions?: AdminExtensionActionPermissions },
+  ): void {
+    const permissions = resolveExtensionActionPermissions(action);
+    if (!this.hasPermission(user, permissions)) {
+      throw new ForbiddenException(`Missing action permission for permissions "${describeUserPermissions(user)}"`);
+    }
   }
 
   canReadAuditLog(user: AdminRequestUser, auditLog: AdminAuditOptions | undefined): boolean {
@@ -83,4 +105,17 @@ export class AdminPermissionService {
   ): string[] {
     return [`${schema.resourceName}.${permission}`];
   }
+}
+
+function resolveExtensionActionPermissions(
+  action:
+    | AdminExtensionActionPermissions
+    | AdminExtensionPostEndpointDefinition
+    | { permissions?: AdminExtensionActionPermissions },
+): string[] | undefined {
+  if ('permissions' in action) {
+    return action.permissions?.execute;
+  }
+
+  return (action as AdminExtensionActionPermissions).execute;
 }

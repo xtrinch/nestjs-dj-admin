@@ -2,11 +2,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ADMIN_OPTIONS } from '../admin/admin.constants.js';
 import type { AdminExtensionsSchema, AdminModuleOptions } from '../admin/types/admin.types.js';
 import type {
+  AdminExtensionEndpointDefinition,
   AdminNavItemSchema,
   AdminPageSchema,
   AdminWidgetSchema,
   DjAdminExtension,
 } from './types.js';
+import { matchExtensionRoute, normalizeExtensionRoute } from './route.utils.js';
 
 @Injectable()
 export class AdminExtensionRegistry {
@@ -14,6 +16,7 @@ export class AdminExtensionRegistry {
   private pages: AdminPageSchema[] = [];
   private navItems: AdminNavItemSchema[] = [];
   private widgets: AdminWidgetSchema[] = [];
+  private endpoints: AdminExtensionEndpointDefinition[] = [];
 
   constructor(@Inject(ADMIN_OPTIONS) private readonly options: AdminModuleOptions) {}
 
@@ -26,6 +29,7 @@ export class AdminExtensionRegistry {
     const pageBySlug = new Map<string, AdminPageSchema>();
     const navKeySet = new Set<string>();
     const widgetKeySet = new Set<string>();
+    const endpointKeySet = new Set<string>();
 
     for (const extension of extensions) {
       this.assertExtensionId(extension);
@@ -35,10 +39,20 @@ export class AdminExtensionRegistry {
           throw new Error(`Duplicate admin extension page slug "${page.slug}"`);
         }
 
+        if (page.kind === 'embed') {
+          pageBySlug.set(page.slug, {
+            ...page,
+            category: page.category ?? 'General',
+            route: normalizeExtensionRoute(page.route ?? `/pages/${page.slug}`),
+            height: page.height ?? 960,
+          });
+          continue;
+        }
+
         pageBySlug.set(page.slug, {
           ...page,
           category: page.category ?? 'General',
-          height: page.kind === 'embed' ? page.height ?? 960 : 960,
+          route: normalizeExtensionRoute(page.route),
         });
       }
     }
@@ -77,6 +91,18 @@ export class AdminExtensionRegistry {
           order: widget.order ?? 0,
         });
       }
+
+      for (const endpoint of extension.endpoints ?? []) {
+        if (endpointKeySet.has(endpoint.key)) {
+          throw new Error(`Duplicate admin extension endpoint key "${endpoint.key}"`);
+        }
+
+        endpointKeySet.add(endpoint.key);
+        this.endpoints.push({
+          ...endpoint,
+          path: normalizeExtensionRoute(endpoint.path),
+        });
+      }
     }
 
     this.pages = [...pageBySlug.values()];
@@ -91,6 +117,30 @@ export class AdminExtensionRegistry {
       navItems: this.navItems,
       widgets: this.widgets,
     };
+  }
+
+  resolveEndpoint(method: 'GET' | 'POST', path: string):
+    | {
+        endpoint: AdminExtensionEndpointDefinition;
+        params: Record<string, string>;
+      }
+    | undefined {
+    const normalizedPath = normalizeExtensionRoute(path);
+    for (const endpoint of this.endpoints) {
+      if (endpoint.method !== method) {
+        continue;
+      }
+
+      const matched = matchExtensionRoute(endpoint.path, normalizedPath);
+      if (matched) {
+        return {
+          endpoint,
+          params: matched.params,
+        };
+      }
+    }
+
+    return undefined;
   }
 
   private assertExtensionId(extension: DjAdminExtension): void {

@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { ForbiddenException } from '@nestjs/common';
 import { AdminPermissionService } from '../src/admin/services/admin-permission.service.js';
 import type { AdminRequestUser, AdminResourceSchema } from '../src/admin/types/admin.types.js';
 
@@ -91,5 +92,21 @@ describe('AdminPermissionService', () => {
 
     assert.equal(service.canReadResource(customPermissionUser, schema), true);
     assert.doesNotThrow(() => service.assertCanWrite(customPermissionUser, schema));
+  });
+
+  it('checks extension action permissions separately from page visibility', () => {
+    assert.doesNotThrow(() =>
+      service.assertCanExecuteExtensionAction(adminUser, {
+        execute: ['queues.write'],
+      }),
+    );
+
+    assert.throws(
+      () =>
+        service.assertCanExecuteExtensionAction(editorUser, {
+          execute: ['queues.write'],
+        }),
+      ForbiddenException,
+    );
   });
 });

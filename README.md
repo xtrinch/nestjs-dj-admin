@@ -13,7 +13,7 @@ It gives you:
 - built-in schema support for `class-validator` and `zod`
 - configurable list fields, filters, search, and lookup behavior
 - create, edit, delete, and detail flows for registered resources
-- extension-provided pages, nav items, and widgets, including embedded dashboards
+- extension-provided pages, nav items, widgets, and route-backed operational screens, including embedded dashboards and queues
 - optional soft delete support
 - built-in admin login and session management
 - built-in admin audit log support
@@ -24,10 +24,12 @@ It gives you:
 ## Screenshots
 
 <p>
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/users-list.png" alt="Users changelist" width="24%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="24%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="24%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="24%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/users-list.png" alt="Users changelist" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/queues-overview.png" alt="Queue overview page" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/queue-email-detail.png" alt="Queue detail page for the email queue" width="32%" />
 </p>
 
 ## Quickstart
@@ -232,7 +234,7 @@ The repo ships runnable examples for the supported persistence layers plus a hos
 TypeORM example:
 
 ```bash
-docker compose up -d postgres grafana
+docker compose up -d postgres grafana redis
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -603,7 +605,7 @@ These control the sidebar header, browser title suffix, dashboard title, and the
 
 ## Extensions
 
-`extensions` lets you register non-CRUD admin capabilities through a public extension API. Built-in helpers can be composed, for example `embedPageExtension(...)` for the page itself and `dashboardLinkWidgetExtension(...)` for dashboard promotion.
+`extensions` lets you register non-CRUD admin capabilities through a public extension API. Built-in helpers can be composed, for example `embedPageExtension(...)` for the page itself, `dashboardLinkWidgetExtension(...)` for dashboard promotion, and `bullmqQueueExtension(...)` for first-class queue inspection and actions.
 
 Example:
 
@@ -637,6 +639,86 @@ AdminModule.forRoot({
 ```
 
 Embedded pages still depend on the upstream app allowing framing. For Grafana, that means embedding must be enabled on the Grafana side or the browser will block the iframe.
+
+### BullMQ Queue Extension
+
+The queue extension registers:
+
+- queue overview and per-queue pages
+- job detail pages
+- dashboard widgets
+- sidebar entries
+- queue and job actions under the extension API
+
+Example:
+
+```ts
+import { Queue } from 'bullmq';
+import { bullmqQueueExtension, BullMqQueueAdapter } from 'nestjs-dj-admin/bullmq-queue-extension';
+
+const queues = {
+  email: new Queue('email', {
+    connection: {
+      host: '127.0.0.1',
+      port: 6379,
+      maxRetriesPerRequest: null,
+    },
+  }),
+  webhooks: new Queue('webhooks', {
+    connection: {
+      host: '127.0.0.1',
+      port: 6379,
+      maxRetriesPerRequest: null,
+    },
+  }),
+};
+
+AdminModule.forRoot({
+  path: '/admin',
+  extensions: [
+    bullmqQueueExtension({
+      adapter: new BullMqQueueAdapter({
+        queues,
+        labels: {
+          email: {
+            label: 'Email',
+            description: 'Transactional mail delivery.',
+          },
+          webhooks: {
+            label: 'Webhooks',
+            description: 'Outbound partner webhook fanout.',
+          },
+        },
+      }),
+      queues: [
+        {
+          key: 'email',
+          label: 'Email',
+          order: 10,
+        },
+        {
+          key: 'webhooks',
+          label: 'Webhooks',
+          order: 20,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+That extension mounts route-backed queue screens inside the admin shell:
+
+- `/queues`
+- `/queues/:queueKey`
+- `/queues/:queueKey/jobs/:jobId`
+
+The built-in `BullMqQueueAdapter` expects live BullMQ `Queue` instances from your app. It does not create Redis connections for you, and it assumes your workers and queue lifecycle are already managed by the host app.
+
+The queue extension follows the same implicit permission naming pattern as resources:
+
+- `queues.read`
+- `queues.write`
 
 For production deployments, the main auth hardening knobs are:
 

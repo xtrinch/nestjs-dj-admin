@@ -163,6 +163,7 @@ export interface CustomPageSchemaBase {
   slug: string;
   label: string;
   category: string;
+  route: string;
 }
 
 export interface EmbedPageSchema extends CustomPageSchemaBase {
@@ -175,7 +176,14 @@ export interface EmbedPageSchema extends CustomPageSchemaBase {
   referrerPolicy?: HTMLIFrameElement['referrerPolicy'];
 }
 
-export type CustomPageSchema = EmbedPageSchema;
+export interface ScreenPageSchema extends CustomPageSchemaBase {
+  kind: 'screen';
+  screen: string;
+  title?: string;
+  description?: string;
+}
+
+export type CustomPageSchema = EmbedPageSchema | ScreenPageSchema;
 
 export interface NavItemSchemaBase {
   key: string;
@@ -210,6 +218,13 @@ export interface PageLinkWidgetSchema extends WidgetSchemaBase {
   ctaLabel?: string;
 }
 
+export interface RouteWidgetSchema extends WidgetSchemaBase {
+  kind: 'route';
+  route: string;
+  description?: string;
+  ctaLabel?: string;
+}
+
 export interface HrefWidgetSchema extends WidgetSchemaBase {
   kind: 'href';
   href: string;
@@ -217,7 +232,13 @@ export interface HrefWidgetSchema extends WidgetSchemaBase {
   ctaLabel?: string;
 }
 
-export type WidgetSchema = PageLinkWidgetSchema | HrefWidgetSchema;
+export type WidgetSchema = PageLinkWidgetSchema | RouteWidgetSchema | HrefWidgetSchema;
+
+export interface ExtensionActionResult {
+  success?: boolean;
+  count?: number;
+  [key: string]: unknown;
+}
 
 export interface AdminMetaResponse {
   resources: ResourceSchema[];

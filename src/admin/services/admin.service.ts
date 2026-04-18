@@ -26,8 +26,13 @@ import type {
   AdminSearchOption,
   AdminWriteTransform,
 } from '../types/admin.types.js';
+import type {
+  AdminExtensionEndpointContext,
+  AdminExtensionPostEndpointDefinition,
+} from '../../extension-api/types.js';
 import { AdminAuditService } from './admin-audit.service.js';
 import { AdminPermissionService } from './admin-permission.service.js';
+import { normalizeExtensionRoute } from '../../extension-api/route.utils.js';
 
 @Injectable()
 export class AdminService implements OnModuleInit {
@@ -67,6 +72,35 @@ export class AdminService implements OnModuleInit {
 
   getExtensionsSchema(): AdminExtensionsSchema {
     return this.extensionRegistry.getSchema();
+  }
+
+  async runExtensionEndpoint(
+    method: 'GET' | 'POST',
+    path: string,
+    context: Omit<AdminExtensionEndpointContext, 'params'>,
+  ) {
+    const resolved = this.extensionRegistry.resolveEndpoint(method, normalizeExtensionRoute(path));
+    if (!resolved) {
+      throw new NotFoundException(`Unknown admin extension endpoint "${path}"`);
+    }
+
+    const endpointContext: AdminExtensionEndpointContext = {
+      ...context,
+      params: resolved.params,
+    };
+
+    if (resolved.endpoint.method === 'GET') {
+      if (!this.permissionService.canReadExtensionEndpoint(context.user, resolved.endpoint)) {
+        throw new NotFoundException(`Unknown admin extension endpoint "${path}"`);
+      }
+
+      return resolved.endpoint.handler(endpointContext as AdminExtensionEndpointContext<never>);
+    }
+
+    this.permissionService.assertCanExecuteExtensionAction(context.user, resolved.endpoint);
+    const result = await resolved.endpoint.handler(endpointContext);
+    await this.recordExtensionAudit(resolved.endpoint, endpointContext, result);
+    return result;
   }
 
   async list(resourceName: string, query: AdminListQuery, user: AdminRequestUser) {
@@ -456,6 +490,27 @@ export class AdminService implements OnModuleInit {
         };
       }),
     };
+  }
+
+  private async recordExtensionAudit(
+    endpoint: AdminExtensionPostEndpointDefinition,
+    context: AdminExtensionEndpointContext,
+    result: unknown,
+  ): Promise<void> {
+    const auditEvent = await endpoint.audit?.(context, result);
+    if (!auditEvent) {
+      return;
+    }
+
+    await this.auditService.record({
+      action: 'action',
+      actor: context.user,
+      summary: auditEvent.summary,
+      objectId: auditEvent.objectId,
+      objectLabel: auditEvent.objectLabel,
+      actionLabel: auditEvent.actionLabel,
+      count: auditEvent.count,
+    });
   }
 
   private async prepareMutationPayload(

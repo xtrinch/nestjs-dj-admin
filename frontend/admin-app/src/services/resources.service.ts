@@ -5,6 +5,7 @@ import type {
   AdminDisplayConfig,
   AdminLookupResponse,
   AdminMetaResponse,
+  ExtensionActionResult,
   ResourceMetaResponse,
 } from '../types.js';
 
@@ -206,6 +207,38 @@ export async function lookupResource(
 
   const response = await adminFetch(`/_lookup/${resourceName}?${params.toString()}`);
   return readJson<AdminLookupResponse>(response);
+}
+
+export async function getExtensionData<T>(
+  path: string,
+  query?: Record<string, string | number | undefined>,
+): Promise<T> {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value !== undefined) {
+      params.set(key, String(value));
+    }
+  }
+
+  const suffix = params.size > 0 ? `?${params.toString()}` : '';
+  const response = await adminFetch(`/_extensions${path}${suffix}`);
+  return readJson<T>(response);
+}
+
+export async function runExtensionAction<T extends ExtensionActionResult = ExtensionActionResult>(
+  path: string,
+  payload?: Record<string, unknown>,
+): Promise<T> {
+  const response = await adminFetch(`/_extensions${path}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload ?? {}),
+  });
+
+  return readJson<T>(response);
 }
 
 export function resolveDisplayConfig(
