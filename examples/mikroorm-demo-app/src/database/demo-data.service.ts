@@ -86,10 +86,13 @@ export class DemoDataService implements OnApplicationBootstrap {
     const categoryDefs = buildDemoCategoryDefs();
     const savedCategories: Category[] = [];
 
-    for (const defaults of categoryDefs) {
+    for (const [index, defaults] of categoryDefs.entries()) {
       let category = await em.findOne(Category, { name: defaults.name });
       if (!category) {
-        category = em.create(Category, defaults as never);
+        category = em.create(Category, {
+          ...defaults,
+          createdById: savedUsers[index % savedUsers.length]!.id,
+        } as never);
       }
 
       em.persist(category);

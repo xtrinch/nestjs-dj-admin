@@ -37,6 +37,7 @@ export class Migration20260417000000InitialDemoSchema extends Migration {
         "id" serial primary key,
         "name" varchar(255) not null unique,
         "description" text not null default '',
+        "created_by_id" integer not null,
         "created_at" timestamptz not null default now(),
         "updated_at" timestamptz not null default now()
       );
@@ -96,6 +97,7 @@ export class Migration20260417000000InitialDemoSchema extends Migration {
     `);
 
     this.addSql('alter table "orders" add constraint "orders_user_id_foreign" foreign key ("user_id") references "users" ("id") on update cascade;');
+    this.addSql('alter table "categories" add constraint "categories_created_by_id_foreign" foreign key ("created_by_id") references "users" ("id") on update cascade;');
     this.addSql('alter table "product_categories" add constraint "product_categories_product_id_foreign" foreign key ("product_id") references "products" ("id") on delete cascade on update cascade;');
     this.addSql('alter table "product_categories" add constraint "product_categories_category_id_foreign" foreign key ("category_id") references "categories" ("id") on delete cascade on update cascade;');
     this.addSql('alter table "order_details" add constraint "order_details_order_id_foreign" foreign key ("order_id") references "orders" ("id") on update cascade;');

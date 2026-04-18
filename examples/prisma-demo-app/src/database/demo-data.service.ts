@@ -78,10 +78,15 @@ export class DemoDataService implements OnApplicationBootstrap {
     }
 
     const categoryDefs = buildDemoCategoryDefs();
-    for (const defaults of categoryDefs) {
+    for (const [index, defaults] of categoryDefs.entries()) {
       const existing = await this.prisma.category.findUnique({ where: { name: defaults.name } });
       if (!existing) {
-        await this.prisma.category.create({ data: defaults });
+        await this.prisma.category.create({
+          data: {
+            ...defaults,
+            createdById: savedUsers[index % savedUsers.length]!.id,
+          },
+        });
       }
     }
 

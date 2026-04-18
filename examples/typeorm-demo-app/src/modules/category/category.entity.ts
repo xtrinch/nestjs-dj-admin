@@ -12,6 +12,9 @@ export class Category {
   @Column({ default: '' })
   description!: string;
 
+  @Column()
+  createdById!: number;
+
   @ManyToMany(() => Product, (product) => product.categories)
   products!: Product[];
 

@@ -194,6 +194,8 @@ export class UserAdmin {}
 
 Use `displayDto` as the canonical admin field schema for list/detail/filter/search metadata. `createDto` and `updateDto` define writable fields and validation. If you omit `displayDto`, the library falls back to the legacy create/update merge behavior.
 
+The demo `Category` resource uses this pattern for a server-assigned `createdById` field: it is visible in admin list/filter/detail metadata through `displayDto`, but omitted from the create/update DTOs and defaulted on create from the authenticated user.
+
 Build the library UI assets and start your app. The admin API and UI will be mounted at the `path` you configured, such as `/admin`.
 
 ## ORM Support
