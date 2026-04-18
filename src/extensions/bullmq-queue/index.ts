@@ -631,6 +631,7 @@ function withQueueDefinition<TQueue extends QueueSummary | QueueDetails>(
     ...queue,
     label: definition.label,
     description: definition.description,
+    filters: definition.filters,
   };
 }
 

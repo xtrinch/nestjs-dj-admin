@@ -133,7 +133,12 @@ describe('bullmq queue extension', () => {
           email: new FakeQueue('runtime-email'),
         },
       }),
-      queues: [{ key: 'email', label: 'Email', description: 'Transactional messages.' }],
+      queues: [{
+        key: 'email',
+        label: 'Email',
+        description: 'Transactional messages.',
+        filters: [{ key: 'userId', label: 'User', path: 'userId' }],
+      }],
     });
 
     const listEndpoint = extension.endpoints?.find((endpoint) => endpoint.key === 'queues:list');
@@ -154,8 +159,10 @@ describe('bullmq queue extension', () => {
 
     assert.equal(listResult.items[0]?.label, 'Email');
     assert.equal(listResult.items[0]?.description, 'Transactional messages.');
+    assert.deepEqual(listResult.items[0]?.filters, [{ key: 'userId', label: 'User', path: 'userId' }]);
     assert.equal(detailResult.queue.label, 'Email');
     assert.equal(detailResult.queue.description, 'Transactional messages.');
+    assert.deepEqual(detailResult.queue.filters, [{ key: 'userId', label: 'User', path: 'userId' }]);
   });
 
   it('passes configured queue filters into the jobs endpoint query', async () => {
