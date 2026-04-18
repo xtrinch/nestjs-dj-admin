@@ -168,16 +168,13 @@ describe('Admin frontend smoke', { timeout: 90_000 }, () => {
   it('renders queue extension pages and supports queue/job actions', { timeout: 45_000 }, async () => {
     await login(page, baseUrl);
 
-    page.on('dialog', async (dialog) => {
-      await dialog.accept();
-    });
-
     await page.goto(`${baseUrl}/admin#/queues`);
     await page.getByRole('heading', { name: 'Queues overview' }).waitFor();
     await page.getByRole('link', { name: 'Open queue' }).first().click();
 
     await page.getByRole('heading', { name: 'Email' }).waitFor();
     await page.getByRole('button', { name: 'Retry failed jobs' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Retry failed jobs', exact: true }).click();
     await expectToast(page, 'Email retry failed complete');
 
     await page.getByRole('button', { name: 'Failed', exact: true }).click();
@@ -187,6 +184,7 @@ describe('Admin frontend smoke', { timeout: 90_000 }, () => {
     await page.getByRole('link', { name: 'send-welcome-email' }).click();
     await page.getByRole('heading', { name: 'send-welcome-email' }).waitFor();
     await page.getByRole('button', { name: 'Remove job' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Remove job', exact: true }).click();
     await expectToast(page, 'Job email-1001 remove complete.');
     await page.getByRole('heading', { name: 'Email' }).waitFor();
   });
