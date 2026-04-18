@@ -59,16 +59,26 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
               key: 'email',
               label: 'Email',
               description: 'Transactional messages waiting for SMTP delivery.',
+              filters: [
+                { key: 'userId', label: 'User', path: 'userId' },
+                { key: 'template', label: 'Template', path: 'template' },
+              ],
             },
             {
               key: 'webhooks',
               label: 'Webhooks',
               description: 'Outbound partner webhook fanout and retries.',
+              filters: [
+                { key: 'target', label: 'Target', path: 'target' },
+              ],
             },
             {
               key: 'imports',
               label: 'Imports',
               description: 'Nightly ingest and reconciliation jobs.',
+              filters: [
+                { key: 'source', label: 'Source', path: 'source' },
+              ],
             },
           ],
         }),

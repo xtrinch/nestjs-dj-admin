@@ -11,6 +11,7 @@ export interface QueueSummary {
   key: string;
   label: string;
   description?: string;
+  filters?: QueueFilterDefinition[];
   counts: Record<QueueJobState, number>;
   isPaused: boolean;
 }
@@ -36,9 +37,21 @@ export interface QueueJobDetails extends QueueJobSummary {
   stackTrace?: string[];
 }
 
+export interface QueueFilterDefinition {
+  key: string;
+  label: string;
+  path: string;
+}
+
+export interface QueuePayloadFilter {
+  path: string;
+  value: string;
+}
+
 export interface QueueListQuery {
   page: number;
   pageSize: number;
+  payloadFilters?: QueuePayloadFilter[];
 }
 
 export interface CleanQueueInput {
@@ -150,16 +163,31 @@ export class BullMqQueueAdapter implements QueueAdapter {
     const queue = this.requireQueue(queueKey);
     const page = Math.max(1, query.page);
     const pageSize = Math.max(1, query.pageSize);
+    const queueDetails = await this.getQueue(queueKey);
+    const payloadFilters = query.payloadFilters ?? [];
+
+    if (payloadFilters.length === 0) {
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize - 1;
+      const jobs = await queue.getJobs([filter], start, end, true);
+
+      return {
+        items: await Promise.all(jobs.map((job) => serializeJob(job))),
+        total: queueDetails.counts[filter] ?? 0,
+        page,
+        pageSize,
+      };
+    }
+
+    const totalJobs = queueDetails.counts[filter] ?? 0;
+    const jobs = totalJobs > 0 ? await queue.getJobs([filter], 0, totalJobs - 1, true) : [];
+    const serializedJobs = await Promise.all(jobs.map((job) => serializeJob(job)));
+    const filteredJobs = serializedJobs.filter((job) => matchesPayloadFilters(job.data, payloadFilters));
     const start = (page - 1) * pageSize;
-    const end = start + pageSize - 1;
-    const [jobs, queueDetails] = await Promise.all([
-      queue.getJobs([filter], start, end, true),
-      this.getQueue(queueKey),
-    ]);
 
     return {
-      items: await Promise.all(jobs.map((job) => serializeJob(job))),
-      total: queueDetails.counts[filter] ?? 0,
+      items: filteredJobs.slice(start, start + pageSize),
+      total: filteredJobs.length,
       page,
       pageSize,
     };
@@ -245,6 +273,7 @@ export interface BullMqQueueDefinition {
   key: string;
   label: string;
   description?: string;
+  filters?: QueueFilterDefinition[];
 }
 
 export interface BullMqQueueExtensionOptions {
@@ -397,12 +426,21 @@ function createEndpoints(
       path: '/queues/:queueKey/jobs',
       permissions: { read: readPermissions },
       handler: async ({ params, query }) => {
+        const queueDefinition = queueDefinitions.get(params['queueKey'] ?? '');
         const state = normalizeState(query['state']);
         const page = Number(firstQueryValue(query['page']) ?? 1);
         const pageSize = Number(firstQueryValue(query['pageSize']) ?? 20);
         return adapter.listJobs(params['queueKey'] ?? '', state, {
           page,
           pageSize,
+          payloadFilters: (queueDefinition?.filters ?? [])
+            .map((filterDefinition) => {
+              const value = firstQueryValue(query[`filter_${filterDefinition.key}`]);
+              return value && value.trim()
+                ? { path: filterDefinition.path, value: value.trim() }
+                : null;
+            })
+            .filter((value): value is QueuePayloadFilter => value !== null),
         });
       },
     },
@@ -557,6 +595,27 @@ function firstQueryValue(value: string | string[] | undefined): string | undefin
   }
 
   return value;
+}
+
+function matchesPayloadFilters(data: unknown, payloadFilters: QueuePayloadFilter[]): boolean {
+  return payloadFilters.every((filter) => {
+    const candidate = getValueAtPath(data, filter.path);
+    return candidate != null && String(candidate) === filter.value;
+  });
+}
+
+function getValueAtPath(value: unknown, path: string): unknown {
+  if (!path) {
+    return undefined;
+  }
+
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (current == null || typeof current !== 'object' || !(segment in current)) {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, value);
 }
 
 function createAuditEvent(

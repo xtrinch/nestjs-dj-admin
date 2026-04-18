@@ -50,12 +50,28 @@
 .queue-card__stats,
 .queue-card__actions,
 .queue-actions,
+.queue-filters,
 .queue-pagination,
 .queue-tabs {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.queue-filters {
+  margin-bottom: 0.75rem;
+}
+
+.queue-filters__field {
+  min-width: 12rem;
+}
+
+.queue-filters__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
 }
 
 .queue-card__header {
@@ -212,6 +228,8 @@
 @media (max-width: 860px) {
   .queue-card__header,
   .queue-actions,
+  .queue-filters,
+  .queue-filters__actions,
   .queue-pagination,
   .queue-tabs,
   .queue-confirm__actions {

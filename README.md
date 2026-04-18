@@ -685,6 +685,10 @@ AdminModule.forRoot({
           key: 'email',
           label: 'Email',
           description: 'Transactional mail delivery.',
+          filters: [
+            { key: 'userId', label: 'User', path: 'userId' },
+            { key: 'template', label: 'Template', path: 'template' },
+          ],
         },
         {
           key: 'webhooks',

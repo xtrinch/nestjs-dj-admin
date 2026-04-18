@@ -346,9 +346,19 @@ class TestQueueAdapter implements QueueAdapter {
     return this.serializeQueue(this.requireQueue(queueKey));
   }
 
-  async listJobs(queueKey: string, filter: QueueJobState, query: { page: number; pageSize: number }): Promise<JobListResult> {
+  async listJobs(
+    queueKey: string,
+    filter: QueueJobState,
+    query: { page: number; pageSize: number; payloadFilters?: Array<{ path: string; value: string }> },
+  ): Promise<JobListResult> {
     const queue = this.requireQueue(queueKey);
-    const items = queue.jobs.filter((job) => job.state === filter);
+    const items = queue.jobs.filter((job) =>
+      job.state === filter
+      && (query.payloadFilters ?? []).every((payloadFilter) => {
+        const candidate = getValueAtPath(job.data, payloadFilter.path);
+        return candidate != null && String(candidate) === payloadFilter.value;
+      }),
+    );
     const page = Math.max(1, query.page);
     const pageSize = Math.max(1, query.pageSize);
     const start = (page - 1) * pageSize;
@@ -447,6 +457,16 @@ class TestQueueAdapter implements QueueAdapter {
       },
     };
   }
+}
+
+function getValueAtPath(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (current == null || typeof current !== 'object' || !(segment in current)) {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, value);
 }
 
 class TestUserAdmin {}
@@ -556,16 +576,26 @@ Module({
               key: 'email',
               label: 'Email',
               description: 'Transactional email delivery queue.',
+              filters: [
+                { key: 'userId', label: 'User', path: 'userId' },
+                { key: 'template', label: 'Template', path: 'template' },
+              ],
             },
             {
               key: 'webhooks',
               label: 'Webhooks',
               description: 'Outbound webhook fanout for partner systems.',
+              filters: [
+                { key: 'target', label: 'Target', path: 'target' },
+              ],
             },
             {
               key: 'imports',
               label: 'Imports',
               description: 'Batch ingest and reconciliation tasks.',
+              filters: [
+                { key: 'source', label: 'Source', path: 'source' },
+              ],
             },
           ],
         }),

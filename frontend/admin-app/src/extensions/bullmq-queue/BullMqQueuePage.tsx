@@ -7,11 +7,17 @@ import type { AdminExtensionPageProps } from '../types.js';
 import './styles.css';
 
 type QueueJobState = 'waiting' | 'active' | 'delayed' | 'failed' | 'completed';
+type QueueFilterDefinition = {
+  key: string;
+  label: string;
+  path: string;
+};
 
 type QueueSummary = {
   key: string;
   label: string;
   description?: string;
+  filters?: QueueFilterDefinition[];
   counts: Record<QueueJobState, number>;
   isPaused: boolean;
 };
@@ -185,6 +191,8 @@ function QueueDetailPage({
   const [queue, setQueue] = useState<QueueDetails | null>(null);
   const [jobs, setJobs] = useState<QueueJobSummary[]>([]);
   const [filter, setFilter] = useState<QueueJobState>('completed');
+  const [filterInputs, setFilterInputs] = useState<Record<string, string>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [pageNumber, setPageNumber] = useState(1);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -194,7 +202,7 @@ function QueueDetailPage({
 
   useEffect(() => {
     setPageNumber(1);
-  }, [filter, queueKey]);
+  }, [filter, queueKey, JSON.stringify(activeFilters)]);
 
   useEffect(() => {
     void load();
@@ -203,6 +211,18 @@ function QueueDetailPage({
   useEffect(() => {
     onTitleChange?.(queue?.label ?? page.title ?? null);
   }, [onTitleChange, page.title, queue?.label]);
+
+  useEffect(() => {
+    if (!queue?.filters) {
+      return;
+    }
+
+    setFilterInputs(
+      Object.fromEntries(
+        queue.filters.map((filterDefinition) => [filterDefinition.key, activeFilters[filterDefinition.key] ?? '']),
+      ),
+    );
+  }, [queue?.key, queue?.filters, JSON.stringify(activeFilters)]);
 
   async function load() {
     try {
@@ -217,6 +237,9 @@ function QueueDetailPage({
           state: filter,
           page: pageNumber,
           pageSize: 20,
+          ...Object.fromEntries(
+            Object.entries(activeFilters).map(([key, value]) => [`filter_${key}`, value]),
+          ),
         }),
       ]);
       setQueue(queueResponse.queue);
@@ -379,6 +402,56 @@ function QueueDetailPage({
             </div>
           </div>
         </header>
+        {queue?.filters && queue.filters.length > 0 ? (
+          <div className="queue-filters">
+            {queue.filters.map((filterDefinition) => (
+              <label className="field queue-filters__field" key={filterDefinition.key}>
+                <span className="field__label">{filterDefinition.label}</span>
+                <input
+                  className="input"
+                  type="text"
+                  value={filterInputs[filterDefinition.key] ?? ''}
+                  onChange={(event) =>
+                    setFilterInputs((current) => ({
+                      ...current,
+                      [filterDefinition.key]: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ))}
+            <div className="queue-filters__actions">
+              <button
+                className="button"
+                type="button"
+                onClick={() => {
+                  setPageNumber(1);
+                  setActiveFilters(
+                    Object.fromEntries(
+                      Object.entries(filterInputs).filter(([, value]) => value.trim() !== ''),
+                    ),
+                  );
+                }}
+              >
+                Apply filters
+              </button>
+              <button
+                className="button"
+                type="button"
+                onClick={() => {
+                  const emptyFilters = Object.fromEntries(
+                    (queue.filters ?? []).map((filterDefinition) => [filterDefinition.key, '']),
+                  );
+                  setFilterInputs(emptyFilters);
+                  setActiveFilters({});
+                  setPageNumber(1);
+                }}
+              >
+                Clear filters
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="queue-tabs">
           {QUEUE_STATE_ORDER.map((state) => (
             <button

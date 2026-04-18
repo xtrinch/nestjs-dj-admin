@@ -148,6 +148,44 @@ describe('bullmq queue extension', () => {
     assert.equal(detailResult.queue.label, 'Email');
     assert.equal(detailResult.queue.description, 'Transactional messages.');
   });
+
+  it('passes configured queue filters into the jobs endpoint query', async () => {
+    const extension = bullmqQueueExtension({
+      adapter: new BullMqQueueAdapter({
+        queues: {
+          email: new FakeQueue('runtime-email', [
+            new FakeJob('job-1', 'send-reset', 'completed', { userId: 1, template: 'password-reset' }),
+            new FakeJob('job-2', 'send-welcome', 'completed', { userId: 2, template: 'welcome' }),
+          ]),
+        },
+      }),
+      queues: [
+        {
+          key: 'email',
+          label: 'Email',
+          filters: [
+            { key: 'userId', label: 'User', path: 'userId' },
+          ],
+        },
+      ],
+    });
+
+    const jobsEndpoint = extension.endpoints?.find((endpoint) => endpoint.key === 'queues:jobs');
+    assert.ok(jobsEndpoint);
+    if (!jobsEndpoint) {
+      return;
+    }
+
+    const result = await jobsEndpoint.handler({
+      params: { queueKey: 'email' },
+      query: { state: 'completed', page: '1', pageSize: '20', filter_userId: '2' },
+      body: undefined,
+      request: {} as never,
+    });
+
+    assert.equal(result.total, 1);
+    assert.equal(result.items[0]?.id, 'job-2');
+  });
 });
 
 describe('BullMqQueueAdapter', () => {
@@ -210,6 +248,34 @@ describe('BullMqQueueAdapter', () => {
       result: { ok: true },
       stackTrace: [],
     });
+  });
+
+  it('filters jobs by configured payload paths', async () => {
+    const adapter = new BullMqQueueAdapter({
+      queues: {
+        email: new FakeQueue('email', [
+          new FakeJob('job-1', 'send-reset', 'completed', { userId: 1, template: 'password-reset' }),
+          new FakeJob('job-2', 'send-welcome', 'completed', { userId: 2, template: 'welcome' }),
+          new FakeJob('job-3', 'send-reminder', 'completed', { user: { id: 1 }, template: 'reminder' }),
+        ]),
+      },
+    });
+
+    const page = await adapter.listJobs('email', 'completed', {
+      page: 1,
+      pageSize: 20,
+      payloadFilters: [{ path: 'userId', value: '2' }],
+    });
+    const nestedPage = await adapter.listJobs('email', 'completed', {
+      page: 1,
+      pageSize: 20,
+      payloadFilters: [{ path: 'user.id', value: '1' }],
+    });
+
+    assert.equal(page.total, 1);
+    assert.equal(page.items[0]?.id, 'job-2');
+    assert.equal(nestedPage.total, 1);
+    assert.equal(nestedPage.items[0]?.id, 'job-3');
   });
 
   it('returns queue detail and job detail records', async () => {
