@@ -62,6 +62,7 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
               filters: [
                 { key: 'userId', label: 'User', path: 'userId' },
                 { key: 'orderId', label: 'Order', path: 'orderId' },
+                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
                 { key: 'template', label: 'Template', path: 'template' },
               ],
             },
@@ -71,6 +72,7 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
               description: 'Outbound partner webhook fanout and retries.',
               filters: [
                 { key: 'orderId', label: 'Order', path: 'orderId' },
+                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
                 { key: 'target', label: 'Target', path: 'target' },
               ],
             },
@@ -88,8 +90,8 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
               resource: 'orders',
               title: 'Related queue jobs',
               links: [
-                { queueKey: 'email', filterKey: 'orderId', recordField: 'id', label: 'Email jobs' },
-                { queueKey: 'webhooks', filterKey: 'orderId', recordField: 'id', label: 'Webhook jobs' },
+                { queueKey: 'email', filterKey: 'orderNumber', recordField: 'number', label: 'Email jobs' },
+                { queueKey: 'webhooks', filterKey: 'orderNumber', recordField: 'number', label: 'Webhook jobs' },
               ],
             },
           ],
