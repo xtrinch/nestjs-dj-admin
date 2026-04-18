@@ -52,6 +52,13 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
           ctaLabel: 'Open Grafana overview',
           pageSlug: 'grafana-overview',
         }),
+        dashboardLinkWidgetExtension({
+          id: 'queues-widget',
+          title: 'Queues',
+          description: 'Inspect queue health, backlog, and recent jobs across configured queues.',
+          ctaLabel: 'Open queue overview',
+          pageSlug: 'queues-overview',
+        }),
         bullmqQueueExtension({
           adapter: demoBullMqQueueAdapter,
           queues: [

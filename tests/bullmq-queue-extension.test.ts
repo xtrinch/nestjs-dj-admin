@@ -121,7 +121,7 @@ describe('bullmq queue extension', () => {
     assert.ok(extension.pages?.some((page) => page.kind === 'screen' && page.route === '/queues'));
     assert.ok(extension.pages?.some((page) => page.kind === 'screen' && page.route === '/queues/:queueKey/jobs/:jobId'));
     assert.ok(extension.navItems?.some((item) => item.kind === 'page' && item.pageSlug === 'queue-email'));
-    assert.ok(extension.widgets?.some((widget) => widget.kind === 'route' && widget.route === '/queues'));
+    assert.equal(extension.widgets?.length ?? 0, 0);
     assert.ok(extension.detailPanels?.some((panel) => panel.resource === 'orders' && panel.screen === 'bullmq-related-jobs'));
     assert.ok(extension.endpoints?.some((endpoint) => endpoint.path === '/queues/:queueKey/jobs/:jobId'));
   });

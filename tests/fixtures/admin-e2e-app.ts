@@ -569,6 +569,13 @@ Module({
           description: 'Open the embedded monitoring dashboard from the admin home screen.',
           pageSlug: 'grafana-overview',
         }),
+        dashboardLinkWidgetExtension({
+          id: 'test-queues-widget',
+          title: 'Queues',
+          description: 'Inspect queue health, backlog, and recent jobs across configured queues.',
+          ctaLabel: 'Open queue overview',
+          pageSlug: 'queues-overview',
+        }),
         bullmqQueueExtension({
           adapter: new TestQueueAdapter(TEST_QUEUE_STORE),
           queues: [

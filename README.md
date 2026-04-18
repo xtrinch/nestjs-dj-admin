@@ -646,7 +646,6 @@ The queue extension registers:
 
 - queue overview and per-queue pages
 - job detail pages
-- dashboard widgets
 - sidebar entries
 - queue and job actions under the extension API
 
@@ -654,6 +653,7 @@ Example:
 
 ```ts
 import { Queue } from 'bullmq';
+import { dashboardLinkWidgetExtension } from 'nestjs-dj-admin/dashboard-link-widget-extension';
 import { bullmqQueueExtension, BullMqQueueAdapter } from 'nestjs-dj-admin/bullmq-queue-extension';
 
 const queues = {
@@ -676,6 +676,13 @@ const queues = {
 AdminModule.forRoot({
   path: '/admin',
   extensions: [
+    dashboardLinkWidgetExtension({
+      id: 'queues-widget',
+      title: 'Queues',
+      description: 'Inspect queue health, backlog, and recent jobs across configured queues.',
+      ctaLabel: 'Open queue overview',
+      pageSlug: 'queues-overview',
+    }),
     bullmqQueueExtension({
       adapter: new BullMqQueueAdapter({
         queues,
@@ -714,6 +721,8 @@ AdminModule.forRoot({
   ],
 });
 ```
+
+If you want queues promoted on the dashboard, add that separately with `dashboardLinkWidgetExtension(...)`. The queue feature itself only registers queue pages, nav items, actions, and optional resource-detail panels.
 
 That extension mounts route-backed queue screens inside the admin shell:
 
