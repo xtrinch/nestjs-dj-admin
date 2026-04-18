@@ -8,6 +8,7 @@ const redisConnection = {
 } as const;
 
 const queuePrefix = process.env['DEMO_QUEUE_PREFIX'] ?? process.env['DB_NAME'] ?? 'typeorm-demo';
+const activeImportJobDurationMs = resolveActiveImportJobDurationMs();
 
 const queueDefinitions = {
   email: {
@@ -163,7 +164,7 @@ async function seedImportsQueue(): Promise<void> {
 
   await queues.imports.add(
     'run-live-import',
-    { source: 'northwind/live-sync.csv', durationMs: 60_000 },
+    { source: 'northwind/live-sync.csv', durationMs: activeImportJobDurationMs },
     { removeOnComplete: false, removeOnFail: false },
   );
 }
@@ -235,6 +236,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function resolveActiveImportJobDurationMs(): number {
+  const configuredDuration = process.env['DEMO_ACTIVE_JOB_DURATION_MS'];
+  if (configuredDuration) {
+    return Number(configuredDuration);
+  }
+
+  if (process.env['ADMIN_E2E_ENABLE_RESET'] === 'true') {
+    return 1_000;
+  }
+
+  return 60_000;
 }
 
 async function waitForTerminalState(jobId: string, events: QueueEvents): Promise<void> {
