@@ -13,11 +13,18 @@ type QueueFilterDefinition = {
   path: string;
 };
 
+type QueueListFieldDefinition = {
+  key: string;
+  label: string;
+  path: string;
+};
+
 type QueueSummary = {
   key: string;
   label: string;
   description?: string;
   filters?: QueueFilterDefinition[];
+  list?: QueueListFieldDefinition[];
   counts: Record<QueueJobState, number>;
   isPaused: boolean;
 };
@@ -615,6 +622,9 @@ function QueueDetailPage({
               <tr>
                 <th>Job</th>
                 <th>State</th>
+                {(queue?.list ?? []).map((field) => (
+                  <th key={field.key}>{field.label}</th>
+                ))}
                 <th>Attempts</th>
                 <th>Created</th>
                 <th>Started</th>
@@ -636,6 +646,11 @@ function QueueDetailPage({
                       </a>
                     </td>
                     <td>{job.state}</td>
+                    {(queue?.list ?? []).map((field) => (
+                      <td key={`${job.id}:${field.key}`}>
+                        {formatQueueListValue(getValueAtPath(job.data, field.path), display)}
+                      </td>
+                    ))}
                     <td>
                       {job.attemptsMade}
                       {job.attemptsConfigured ? ` / ${job.attemptsConfigured}` : ''}
@@ -668,7 +683,7 @@ function QueueDetailPage({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={canManage ? 8 : 7}>No {filter} jobs found.</td>
+                  <td colSpan={(canManage ? 8 : 7) + (queue?.list?.length ?? 0)}>No {filter} jobs found.</td>
                 </tr>
               )}
             </tbody>
@@ -1005,6 +1020,18 @@ function QueueTextBlock({ label, value }: { label: string; value: string }) {
 
 function capitalize(value: string): string {
   return value.slice(0, 1).toUpperCase() + value.slice(1);
+}
+
+function formatQueueListValue(value: unknown, display: AdminExtensionPageProps<ScreenPageSchema>['display']): string {
+  if (value == null) {
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return formatAdminValue(value, '', display);
 }
 
 function getValueAtPath(value: unknown, path: string): unknown {

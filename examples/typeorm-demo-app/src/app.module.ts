@@ -72,6 +72,11 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
                 { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
                 { key: 'template', label: 'Template', path: 'template' },
               ],
+              list: [
+                { key: 'userId', label: 'User', path: 'userId' },
+                { key: 'template', label: 'Template', path: 'template' },
+                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
+              ],
             },
             {
               key: 'webhooks',
@@ -82,12 +87,19 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
                 { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
                 { key: 'target', label: 'Target', path: 'target' },
               ],
+              list: [
+                { key: 'target', label: 'Target', path: 'target' },
+                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
+              ],
             },
             {
               key: 'imports',
               label: 'Imports',
               description: 'Nightly ingest and reconciliation jobs.',
               filters: [
+                { key: 'source', label: 'Source', path: 'source' },
+              ],
+              list: [
                 { key: 'source', label: 'Source', path: 'source' },
               ],
             },

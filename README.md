@@ -697,12 +697,19 @@ AdminModule.forRoot({
             { key: 'orderId', label: 'Order', path: 'orderId' },
             { key: 'template', label: 'Template', path: 'template' },
           ],
+          list: [
+            { key: 'userId', label: 'User', path: 'userId' },
+            { key: 'template', label: 'Template', path: 'template' },
+          ],
         },
         {
           key: 'webhooks',
           label: 'Webhooks',
           description: 'Outbound partner webhook fanout.',
           filters: [
+            { key: 'orderId', label: 'Order', path: 'orderId' },
+          ],
+          list: [
             { key: 'orderId', label: 'Order', path: 'orderId' },
           ],
         },
@@ -723,6 +730,8 @@ AdminModule.forRoot({
 ```
 
 If you want queues promoted on the dashboard, add that separately with `dashboardLinkWidgetExtension(...)`. The queue feature itself only registers queue pages, nav items, actions, and optional resource-detail panels.
+
+`filters` controls the queue page filter inputs. `list` controls extra payload-backed columns shown in the jobs table, so you can surface fields like `userId`, `template`, or `orderNumber` directly in the list view.
 
 That extension mounts route-backed queue screens inside the admin shell:
 

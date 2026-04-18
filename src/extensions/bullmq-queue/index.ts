@@ -13,6 +13,7 @@ export interface QueueSummary {
   label: string;
   description?: string;
   filters?: QueueFilterDefinition[];
+  list?: QueueListFieldDefinition[];
   counts: Record<QueueJobState, number>;
   isPaused: boolean;
 }
@@ -39,6 +40,12 @@ export interface QueueJobDetails extends QueueJobSummary {
 }
 
 export interface QueueFilterDefinition {
+  key: string;
+  label: string;
+  path: string;
+}
+
+export interface QueueListFieldDefinition {
   key: string;
   label: string;
   path: string;
@@ -275,6 +282,7 @@ export interface BullMqQueueDefinition {
   label: string;
   description?: string;
   filters?: QueueFilterDefinition[];
+  list?: QueueListFieldDefinition[];
 }
 
 export interface BullMqQueueRecordLink {
@@ -586,6 +594,7 @@ function withQueueDefinition<TQueue extends QueueSummary | QueueDetails>(
     label: definition.label,
     description: definition.description,
     filters: definition.filters,
+    list: definition.list,
   };
 }
 

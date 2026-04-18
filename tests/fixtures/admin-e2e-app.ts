@@ -588,6 +588,10 @@ Module({
                 { key: 'orderId', label: 'Order', path: 'orderId' },
                 { key: 'template', label: 'Template', path: 'template' },
               ],
+              list: [
+                { key: 'userId', label: 'User', path: 'userId' },
+                { key: 'template', label: 'Template', path: 'template' },
+              ],
             },
             {
               key: 'webhooks',
@@ -597,12 +601,18 @@ Module({
                 { key: 'orderId', label: 'Order', path: 'orderId' },
                 { key: 'target', label: 'Target', path: 'target' },
               ],
+              list: [
+                { key: 'target', label: 'Target', path: 'target' },
+              ],
             },
             {
               key: 'imports',
               label: 'Imports',
               description: 'Batch ingest and reconciliation tasks.',
               filters: [
+                { key: 'source', label: 'Source', path: 'source' },
+              ],
+              list: [
                 { key: 'source', label: 'Source', path: 'source' },
               ],
             },
