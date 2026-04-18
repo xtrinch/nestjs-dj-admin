@@ -76,22 +76,6 @@ try {
     path: fileURLToPath(new URL('grafana-overview.png', outputDir)),
   });
 
-  console.log('Capturing queue overview');
-  await page.goto(`${baseUrl}/admin#/queues`);
-  await page.getByRole('heading', { name: 'Queues overview' }).waitFor({ timeout: 10000 });
-  await page.getByRole('link', { name: 'Open queue' }).first().waitFor({ timeout: 10000 });
-  await page.screenshot({
-    path: fileURLToPath(new URL('queues-overview.png', outputDir)),
-  });
-
-  console.log('Capturing queue detail');
-  await page.goto(`${baseUrl}/admin#/queues/email`);
-  await page.getByRole('heading', { name: 'Email' }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: 'Retry failed jobs' }).waitFor({ timeout: 10000 });
-  await page.screenshot({
-    path: fileURLToPath(new URL('queue-email-detail.png', outputDir)),
-  });
-
   console.log('Done');
   await browser.close();
 } finally {
