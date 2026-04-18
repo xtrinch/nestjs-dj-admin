@@ -131,7 +131,7 @@ const emailQueuePayloadSchema = adminSchemaFromZod({
     template: z.string(),
   }),
   fields: {
-    userId: { label: 'User', relation: { kind: 'many-to-one', option: { resource: 'users', labelField: 'email', valueField: 'id' } } },
+    userId: { label: 'User' },
     orderId: { label: 'Order' },
     template: { label: 'Template' },
   },
