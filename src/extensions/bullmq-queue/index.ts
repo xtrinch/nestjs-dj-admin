@@ -116,7 +116,6 @@ export interface BullMqQueueLike {
 
 export interface BullMqQueueAdapterOptions {
   queues: Record<string, BullMqQueueLike>;
-  labels?: Record<string, { label?: string; description?: string }>;
 }
 
 export class BullMqQueueAdapter implements QueueAdapter {
@@ -132,12 +131,10 @@ export class BullMqQueueAdapter implements QueueAdapter {
   async getQueue(queueKey: string): Promise<QueueDetails> {
     const queue = this.requireQueue(queueKey);
     const counts = await queue.getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed');
-    const labels = this.options.labels?.[queueKey];
 
     return {
       key: queueKey,
-      label: labels?.label ?? queue.name,
-      description: labels?.description,
+      label: queue.name,
       counts: {
         waiting: counts['waiting'] ?? 0,
         active: counts['active'] ?? 0,
@@ -248,7 +245,6 @@ export interface BullMqQueueDefinition {
   key: string;
   label: string;
   description?: string;
-  order?: number;
 }
 
 export interface BullMqQueueExtensionOptions {
@@ -260,8 +256,9 @@ export interface BullMqQueueExtensionOptions {
 export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAdminExtension {
   const readPermissions = ['queues.read'];
   const actionPermissions = ['queues.write'];
-  const sortedQueues = [...options.queues].sort((left, right) => (left.order ?? 0) - (right.order ?? 0) || left.label.localeCompare(right.label));
-  const endpoints = createEndpoints(options.adapter, actionPermissions, readPermissions);
+  const indexedQueues = options.queues.map((queue, index) => ({ queue, index }));
+  const queueDefinitions = new Map(options.queues.map((queue) => [queue.key, queue] as const));
+  const endpoints = createEndpoints(options.adapter, actionPermissions, readPermissions, queueDefinitions);
 
   return {
     id: options.id ?? 'bullmq-queues',
@@ -275,7 +272,7 @@ export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAd
         category: 'Queues',
         permissions: { read: readPermissions },
       },
-      ...sortedQueues.map((queue) => ({
+      ...indexedQueues.map(({ queue }) => ({
         slug: `queue-${queue.key}`,
         kind: 'screen' as const,
         route: `/queues/${queue.key}`,
@@ -306,13 +303,13 @@ export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAd
         order: -100,
         permissions: { read: readPermissions },
       },
-      ...sortedQueues.map((queue) => ({
+      ...indexedQueues.map(({ queue, index }) => ({
         key: `queues:${queue.key}`,
         kind: 'page' as const,
         pageSlug: `queue-${queue.key}`,
         label: queue.label,
         category: 'Queues',
-        order: queue.order ?? 0,
+        order: index + 1,
         permissions: { read: readPermissions },
       })),
     ],
@@ -370,6 +367,7 @@ function createEndpoints(
   adapter: QueueAdapter,
   actionPermissions: string[],
   readPermissions: string[],
+  queueDefinitions: ReadonlyMap<string, BullMqQueueDefinition>,
 ): AdminExtensionEndpointDefinition[] {
   return [
     {
@@ -378,7 +376,7 @@ function createEndpoints(
       path: '/queues',
       permissions: { read: readPermissions },
       handler: async () => ({
-        items: await adapter.listQueues(),
+        items: (await adapter.listQueues()).map((queue) => withQueueDefinition(queue, queueDefinitions)),
       }),
     },
     {
@@ -387,7 +385,10 @@ function createEndpoints(
       path: '/queues/:queueKey',
       permissions: { read: readPermissions },
       handler: async ({ params }) => ({
-        queue: await adapter.getQueue(params['queueKey'] ?? ''),
+        queue: withQueueDefinition(
+          await adapter.getQueue(params['queueKey'] ?? ''),
+          queueDefinitions,
+        ),
       }),
     },
     {
@@ -461,6 +462,22 @@ function createEndpoints(
       return { success: true };
     }),
   ];
+}
+
+function withQueueDefinition<TQueue extends QueueSummary | QueueDetails>(
+  queue: TQueue,
+  queueDefinitions: ReadonlyMap<string, BullMqQueueDefinition>,
+): TQueue {
+  const definition = queueDefinitions.get(queue.key);
+  if (!definition) {
+    return queue;
+  }
+
+  return {
+    ...queue,
+    label: definition.label,
+    description: definition.description,
+  };
 }
 
 function queueActionEndpoint(

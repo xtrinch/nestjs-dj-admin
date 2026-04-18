@@ -679,27 +679,17 @@ AdminModule.forRoot({
     bullmqQueueExtension({
       adapter: new BullMqQueueAdapter({
         queues,
-        labels: {
-          email: {
-            label: 'Email',
-            description: 'Transactional mail delivery.',
-          },
-          webhooks: {
-            label: 'Webhooks',
-            description: 'Outbound partner webhook fanout.',
-          },
-        },
       }),
       queues: [
         {
           key: 'email',
           label: 'Email',
-          order: 10,
+          description: 'Transactional mail delivery.',
         },
         {
           key: 'webhooks',
           label: 'Webhooks',
-          order: 20,
+          description: 'Outbound partner webhook fanout.',
         },
       ],
     }),

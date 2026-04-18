@@ -44,20 +44,6 @@ let workersStarted = false;
 
 export const demoBullMqQueueAdapter = new BullMqQueueAdapter({
   queues,
-  labels: {
-    email: {
-      label: queueDefinitions.email.label,
-      description: queueDefinitions.email.description,
-    },
-    webhooks: {
-      label: queueDefinitions.webhooks.label,
-      description: queueDefinitions.webhooks.description,
-    },
-    imports: {
-      label: queueDefinitions.imports.label,
-      description: queueDefinitions.imports.description,
-    },
-  },
 });
 
 export async function resetDemoBullMqQueues(): Promise<void> {

@@ -116,6 +116,38 @@ describe('bullmq queue extension', () => {
     assert.ok(extension.widgets?.some((widget) => widget.kind === 'route' && widget.route === '/queues'));
     assert.ok(extension.endpoints?.some((endpoint) => endpoint.path === '/queues/:queueKey/jobs/:jobId'));
   });
+
+  it('uses queue definitions as the source of admin labels and descriptions', async () => {
+    const extension = bullmqQueueExtension({
+      adapter: new BullMqQueueAdapter({
+        queues: {
+          email: new FakeQueue('runtime-email'),
+        },
+      }),
+      queues: [{ key: 'email', label: 'Email', description: 'Transactional messages.' }],
+    });
+
+    const listEndpoint = extension.endpoints?.find((endpoint) => endpoint.key === 'queues:list');
+    const detailEndpoint = extension.endpoints?.find((endpoint) => endpoint.key === 'queues:detail');
+
+    assert.ok(listEndpoint && detailEndpoint);
+    if (!listEndpoint || !detailEndpoint) {
+      return;
+    }
+
+    const listResult = await listEndpoint.handler({ params: {}, query: {}, body: undefined, request: {} as never });
+    const detailResult = await detailEndpoint.handler({
+      params: { queueKey: 'email' },
+      query: {},
+      body: undefined,
+      request: {} as never,
+    });
+
+    assert.equal(listResult.items[0]?.label, 'Email');
+    assert.equal(listResult.items[0]?.description, 'Transactional messages.');
+    assert.equal(detailResult.queue.label, 'Email');
+    assert.equal(detailResult.queue.description, 'Transactional messages.');
+  });
 });
 
 describe('BullMqQueueAdapter', () => {
@@ -129,17 +161,13 @@ describe('BullMqQueueAdapter', () => {
       queues: {
         email: new FakeQueue('email', [completedJob, failedJob]),
       },
-      labels: {
-        email: { label: 'Email', description: 'Transactional messages.' },
-      },
     });
 
     const overview = await adapter.listQueues();
     assert.equal(overview.length, 1);
     assert.deepEqual(overview[0], {
       key: 'email',
-      label: 'Email',
-      description: 'Transactional messages.',
+      label: 'email',
       counts: {
         waiting: 0,
         active: 0,
