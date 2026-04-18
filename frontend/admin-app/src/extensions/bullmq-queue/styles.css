@@ -61,6 +61,7 @@
 
 .queue-filters {
   margin-bottom: 0.75rem;
+  align-items: flex-end;
 }
 
 .queue-filters__field {
