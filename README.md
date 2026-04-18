@@ -143,6 +143,24 @@ Define create and update DTOs for a resource:
 ```ts
 import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
 
+export class UserAdminDto {
+  @IsString()
+  id!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  role!: string;
+
+  @IsBoolean()
+  active!: boolean;
+
+  @IsString()
+  @IsOptional()
+  createdAt?: string;
+}
+
 export class CreateUserDto {
   @IsEmail()
   email!: string;
@@ -656,9 +674,10 @@ Example:
 
 ```ts
 import { Queue } from 'bullmq';
-import { z } from 'zod';
+import { AdminField } from 'nestjs-dj-admin';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 import { dashboardLinkWidgetExtension } from 'nestjs-dj-admin/dashboard-link-widget-extension';
-import { adminSchemaFromZod, bullmqQueueExtension, BullMqQueueAdapter } from 'nestjs-dj-admin';
+import { adminSchemaFromClassValidator, bullmqQueueExtension, BullMqQueueAdapter } from 'nestjs-dj-admin';
 
 const queues = {
   email: new Queue('email', {
@@ -677,28 +696,38 @@ const queues = {
   }),
 };
 
-const emailQueuePayloadSchema = adminSchemaFromZod({
-  display: z.object({
-    userId: z.coerce.number(),
-    orderId: z.coerce.number().optional(),
-    template: z.string(),
-  }),
-  fields: {
-    userId: { label: 'User' },
-    orderId: { label: 'Order' },
-    template: { label: 'Template' },
-  },
+class EmailQueuePayloadDto {
+  @AdminField({ label: 'User' })
+  @IsInt()
+  userId!: number;
+
+  @AdminField({ label: 'Order' })
+  @IsInt()
+  @IsOptional()
+  orderId?: number;
+
+  @AdminField({ label: 'Template' })
+  @IsString()
+  template!: string;
+}
+
+class WebhookQueuePayloadDto {
+  @AdminField({ label: 'Order' })
+  @IsInt()
+  @IsOptional()
+  orderId?: number;
+
+  @AdminField({ label: 'Target' })
+  @IsString()
+  target!: string;
+}
+
+const emailQueuePayloadSchema = adminSchemaFromClassValidator({
+  displayDto: EmailQueuePayloadDto,
 });
 
-const webhookQueuePayloadSchema = adminSchemaFromZod({
-  display: z.object({
-    orderId: z.coerce.number().optional(),
-    target: z.string(),
-  }),
-  fields: {
-    orderId: { label: 'Order' },
-    target: { label: 'Target' },
-  },
+const webhookQueuePayloadSchema = adminSchemaFromClassValidator({
+  displayDto: WebhookQueuePayloadDto,
 });
 
 AdminModule.forRoot({
@@ -751,6 +780,14 @@ AdminModule.forRoot({
 If you want queues promoted on the dashboard, add that separately with `dashboardLinkWidgetExtension(...)`. The queue feature itself only registers queue pages, nav items, actions, and optional resource-detail panels.
 
 `payloadSchema` is the canonical queue payload field schema. `filters` and `list` are string arrays resolved against that schema, so queue payload configuration now follows the same schema-derived model as admin resources.
+
+Queue filter and list labels come from the payload schema field metadata:
+
+- with `adminSchemaFromClassValidator(...)`, use `@AdminField({ label: '...' })` on the payload DTO field when you want a custom label
+- with `adminSchemaFromZod(...)`, use the `fields` map, for example `fields: { userId: { label: 'User' } }`
+- if you do not provide an explicit label, the admin falls back to a start-cased field name such as `orderNumber` -> `Order Number`
+
+If your app already uses Zod, you can use `adminSchemaFromZod({ display: ... })` for queue payload schemas instead.
 
 That extension mounts route-backed queue screens inside the admin shell:
 
