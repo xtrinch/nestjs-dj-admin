@@ -5,6 +5,7 @@ import type {
   AdminExtensionEndpointDefinition,
   AdminNavItemSchema,
   AdminPageSchema,
+  AdminResourceDetailPanelSchema,
   AdminWidgetSchema,
   DjAdminExtension,
 } from './types.js';
@@ -16,6 +17,7 @@ export class AdminExtensionRegistry {
   private pages: AdminPageSchema[] = [];
   private navItems: AdminNavItemSchema[] = [];
   private widgets: AdminWidgetSchema[] = [];
+  private detailPanels: AdminResourceDetailPanelSchema[] = [];
   private endpoints: AdminExtensionEndpointDefinition[] = [];
 
   constructor(@Inject(ADMIN_OPTIONS) private readonly options: AdminModuleOptions) {}
@@ -29,6 +31,7 @@ export class AdminExtensionRegistry {
     const pageBySlug = new Map<string, AdminPageSchema>();
     const navKeySet = new Set<string>();
     const widgetKeySet = new Set<string>();
+    const detailPanelKeySet = new Set<string>();
     const endpointKeySet = new Set<string>();
 
     for (const extension of extensions) {
@@ -92,6 +95,15 @@ export class AdminExtensionRegistry {
         });
       }
 
+      for (const detailPanel of extension.detailPanels ?? []) {
+        if (detailPanelKeySet.has(detailPanel.key)) {
+          throw new Error(`Duplicate admin extension detail panel key "${detailPanel.key}"`);
+        }
+
+        detailPanelKeySet.add(detailPanel.key);
+        this.detailPanels.push(detailPanel);
+      }
+
       for (const endpoint of extension.endpoints ?? []) {
         if (endpointKeySet.has(endpoint.key)) {
           throw new Error(`Duplicate admin extension endpoint key "${endpoint.key}"`);
@@ -116,6 +128,7 @@ export class AdminExtensionRegistry {
       pages: this.pages,
       navItems: this.navItems,
       widgets: this.widgets,
+      detailPanels: this.detailPanels,
     };
   }
 

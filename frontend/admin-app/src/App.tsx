@@ -526,6 +526,7 @@ function RouteContent({
       resource={route.resource}
       id={route.id}
       readOnly={route.mode === 'view' || !canWriteResource(route.resource, user)}
+      user={user}
       onTitleChange={onTitleChange}
     />
   );

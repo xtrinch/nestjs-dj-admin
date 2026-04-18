@@ -157,6 +157,19 @@ describe('Admin frontend smoke', { timeout: 90_000 }, () => {
     await expectUnchecked(checkboxField(page, 'Active'));
   });
 
+  it('renders related queue jobs on order detail pages', { timeout: 45_000 }, async () => {
+    await login(page, baseUrl);
+
+    await sidebarLink(page, 'Order').click();
+    await page.getByRole('heading', { name: 'Order' }).waitFor();
+    await row(page, 'ORD-1001').getByRole('link').first().click();
+
+    await page.getByRole('heading', { name: 'ORD-1001' }).waitFor();
+    await page.getByRole('heading', { name: 'Related queue jobs' }).waitFor();
+    await page.getByRole('heading', { name: 'Email jobs' }).waitFor();
+    await page.getByRole('link', { name: 'send-receipt' }).waitFor();
+  });
+
   it('renders extension-provided embed pages in the sidebar', { timeout: 45_000 }, async () => {
     await login(page, baseUrl);
 

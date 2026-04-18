@@ -3,7 +3,7 @@ import { formatAdminValue } from '../../formatters.js';
 import { getExtensionData, runExtensionAction } from '../../services/resources.service.js';
 import { showToast } from '../../services/toast.service.js';
 import type { ScreenPageSchema } from '../../types.js';
-import type { AdminExtensionPageProps } from '../types.js';
+import type { AdminExtensionDetailPanelProps, AdminExtensionPageProps } from '../types.js';
 import './styles.css';
 
 type QueueJobState = 'waiting' | 'active' | 'delayed' | 'failed' | 'completed';
@@ -43,6 +43,17 @@ type QueueJobDetails = QueueJobSummary & {
   stackTrace?: string[];
 };
 
+type RelatedJobsPanelLink = {
+  queueKey: string;
+  queueLabel: string;
+  queueDescription?: string;
+  filterKey: string;
+  filterLabel: string;
+  recordField: string;
+  label: string;
+  limit: number;
+};
+
 const QUEUE_STATE_ORDER: QueueJobState[] = ['completed', 'failed', 'waiting', 'delayed', 'active'];
 
 type ConfirmationState = {
@@ -52,6 +63,139 @@ type ConfirmationState = {
   tone?: 'neutral' | 'danger';
   onConfirm: () => Promise<void>;
 };
+
+export function BullMqRelatedJobsPanel({
+  display,
+  panel,
+  record,
+}: AdminExtensionDetailPanelProps) {
+  const [groups, setGroups] = useState<Array<{ link: RelatedJobsPanelLink; value: string; items: QueueJobSummary[] }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const links = ((panel.config?.['links'] as RelatedJobsPanelLink[] | undefined) ?? [])
+    .map((link) => {
+      const rawValue = getValueAtPath(record, link.recordField);
+      return rawValue == null || String(rawValue).trim() === ''
+        ? null
+        : {
+            link,
+            value: String(rawValue).trim(),
+          };
+    })
+    .filter((link): link is { link: RelatedJobsPanelLink; value: string } => link !== null);
+
+  useEffect(() => {
+    void load();
+  }, [panel.key, JSON.stringify(links)]);
+
+  async function load() {
+    if (links.length === 0) {
+      setGroups([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const nextGroups = await Promise.all(
+        links.map(async ({ link, value }) => {
+          const response = await getExtensionData<{ items: QueueJobSummary[] }>(`/queues/${link.queueKey}/related`, {
+            filterKey: link.filterKey,
+            filterValue: value,
+            limit: link.limit,
+          });
+
+          return {
+            link,
+            value,
+            items: response.items,
+          };
+        }),
+      );
+
+      setGroups(nextGroups);
+      setError(null);
+    } catch (reason) {
+      const message = (reason as Error).message;
+      setError(message);
+      showToast({ message, variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (links.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="panel queue-related-panel">
+      <header className="panel__header">
+        <div>
+          <span className="panel__eyebrow">Queues</span>
+          <div className="panel__title-row">
+            <h3>{panel.title}</h3>
+          </div>
+        </div>
+      </header>
+      {loading ? <p>Loading related jobs…</p> : null}
+      {error ? <p>Failed to load related jobs: {error}</p> : null}
+      {!loading && !error ? (
+        <div className="queue-related-panel__groups">
+          {groups.map(({ link, value, items }) => (
+            <section className="queue-related-group" key={`${link.queueKey}:${link.filterKey}:${value}`}>
+              <div className="queue-related-group__header">
+                <div>
+                  <h4>{link.label}</h4>
+                  <p>
+                    {link.filterLabel}: <code>{value}</code>
+                  </p>
+                </div>
+                <a className="button" href={`#/queues/${link.queueKey}`}>
+                  Open queue
+                </a>
+              </div>
+              {items.length > 0 ? (
+                <div className="queue-table-wrap">
+                  <table className="queue-table">
+                    <thead>
+                      <tr>
+                        <th>Job</th>
+                        <th>State</th>
+                        <th>Created</th>
+                        <th>Started</th>
+                        <th>Finished</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((job) => (
+                        <tr key={job.id}>
+                          <td>
+                            <a className="table__link" href={`#/queues/${link.queueKey}/jobs/${job.id}`}>
+                              {job.name ?? job.id}
+                            </a>
+                          </td>
+                          <td>{job.state}</td>
+                          <td>{formatAdminValue(job.createdAt, 'createdAt', display)}</td>
+                          <td>{formatAdminValue(job.processedAt, 'processedAt', display)}</td>
+                          <td>{formatAdminValue(job.finishedAt, 'finishedAt', display)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>No related jobs found.</p>
+              )}
+            </section>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
 
 export function BullMqQueuePage(props: AdminExtensionPageProps<ScreenPageSchema>) {
   if (props.page.screen === 'bullmq-queue-overview') {
@@ -861,6 +1005,20 @@ function QueueTextBlock({ label, value }: { label: string; value: string }) {
 
 function capitalize(value: string): string {
   return value.slice(0, 1).toUpperCase() + value.slice(1);
+}
+
+function getValueAtPath(value: unknown, path: string): unknown {
+  if (!path) {
+    return undefined;
+  }
+
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (current == null || typeof current !== 'object' || !(segment in current)) {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, value);
 }
 
 function extractQueueKey(path: string): string {

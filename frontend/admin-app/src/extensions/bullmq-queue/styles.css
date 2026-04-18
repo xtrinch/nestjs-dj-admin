@@ -168,6 +168,42 @@
   gap: 1rem;
 }
 
+.queue-related-panel {
+  margin-top: 1rem;
+}
+
+.queue-related-panel__groups {
+  display: grid;
+  gap: 1rem;
+}
+
+.queue-related-group {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.queue-related-group + .queue-related-group {
+  border-top: 1px solid rgb(var(--admin-accent-rgb) / 0.08);
+  padding-top: 1rem;
+}
+
+.queue-related-group__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.queue-related-group__header h4,
+.queue-related-group__header p {
+  margin: 0;
+}
+
+.queue-related-group__header p {
+  color: var(--admin-text-muted);
+}
+
 .queue-job-detail__grid {
   display: grid;
   gap: 1rem;
@@ -228,6 +264,7 @@
 @media (max-width: 860px) {
   .queue-card__header,
   .queue-actions,
+  .queue-related-group__header,
   .queue-filters,
   .queue-filters__actions,
   .queue-pagination,

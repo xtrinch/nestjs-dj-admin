@@ -107,13 +107,22 @@ describe('bullmq queue extension', () => {
           email: new FakeQueue('email'),
         },
       }),
-      queues: [{ key: 'email', label: 'Email' }],
+      queues: [{ key: 'email', label: 'Email', filters: [{ key: 'orderId', label: 'Order', path: 'orderId' }] }],
+      recordPanels: [
+        {
+          resource: 'orders',
+          links: [
+            { queueKey: 'email', filterKey: 'orderId', recordField: 'id' },
+          ],
+        },
+      ],
     });
 
     assert.ok(extension.pages?.some((page) => page.kind === 'screen' && page.route === '/queues'));
     assert.ok(extension.pages?.some((page) => page.kind === 'screen' && page.route === '/queues/:queueKey/jobs/:jobId'));
     assert.ok(extension.navItems?.some((item) => item.kind === 'page' && item.pageSlug === 'queue-email'));
     assert.ok(extension.widgets?.some((widget) => widget.kind === 'route' && widget.route === '/queues'));
+    assert.ok(extension.detailPanels?.some((panel) => panel.resource === 'orders' && panel.screen === 'bullmq-related-jobs'));
     assert.ok(extension.endpoints?.some((endpoint) => endpoint.path === '/queues/:queueKey/jobs/:jobId'));
   });
 
@@ -185,6 +194,52 @@ describe('bullmq queue extension', () => {
 
     assert.equal(result.total, 1);
     assert.equal(result.items[0]?.id, 'job-2');
+  });
+
+  it('returns related jobs for configured queue record links', async () => {
+    const extension = bullmqQueueExtension({
+      adapter: new BullMqQueueAdapter({
+        queues: {
+          email: new FakeQueue('runtime-email', [
+            new FakeJob('job-1', 'send-reset', 'completed', { orderId: 301 }),
+            new FakeJob('job-2', 'send-receipt', 'failed', { orderId: 301 }),
+            new FakeJob('job-3', 'send-welcome', 'completed', { orderId: 302 }),
+          ]),
+        },
+      }),
+      queues: [
+        {
+          key: 'email',
+          label: 'Email',
+          filters: [
+            { key: 'orderId', label: 'Order', path: 'orderId' },
+          ],
+        },
+      ],
+      recordPanels: [
+        {
+          resource: 'orders',
+          links: [
+            { queueKey: 'email', filterKey: 'orderId', recordField: 'id', label: 'Email jobs', limit: 5 },
+          ],
+        },
+      ],
+    });
+
+    const relatedEndpoint = extension.endpoints?.find((endpoint) => endpoint.key === 'queues:related');
+    assert.ok(relatedEndpoint);
+    if (!relatedEndpoint) {
+      return;
+    }
+
+    const result = await relatedEndpoint.handler({
+      params: { queueKey: 'email' },
+      query: { filterKey: 'orderId', filterValue: '301', limit: '5' },
+      body: undefined,
+      request: {} as never,
+    });
+
+    assert.deepEqual(result.items.map((item: { id: string }) => item.id), ['job-1', 'job-2']);
   });
 });
 

@@ -139,6 +139,13 @@ export class AdminController {
     return {
       resource: schema,
       filterOptions: filters,
+      detailPanels: this.adminService
+        .getExtensionsSchema()
+        .detailPanels
+        .filter((detailPanel) => (
+          detailPanel.resource === resource
+          && this.adminPermissionService.canReadDetailPanel(user, detailPanel)
+        )),
       display: resolveDisplay(this.adminOptions),
     };
   }

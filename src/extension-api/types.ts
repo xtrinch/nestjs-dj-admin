@@ -91,6 +91,15 @@ export type AdminWidgetDefinition =
   | AdminRouteWidgetDefinition
   | AdminHrefWidgetDefinition;
 
+export interface AdminResourceDetailPanelDefinition {
+  key: string;
+  resource: string;
+  title: string;
+  screen: string;
+  permissions?: AdminExtensionReadPermissions;
+  config?: Record<string, unknown>;
+}
+
 export interface AdminExtensionEndpointContext<
   TBody = Record<string, unknown>,
   TQuery extends Record<string, string | string[]> = Record<string, string | string[]>,
@@ -143,6 +152,7 @@ export interface DjAdminExtension {
   pages?: AdminPageDefinition[];
   navItems?: AdminNavItemDefinition[];
   widgets?: AdminWidgetDefinition[];
+  detailPanels?: AdminResourceDetailPanelDefinition[];
   endpoints?: AdminExtensionEndpointDefinition[];
 }
 
@@ -226,3 +236,12 @@ export type AdminWidgetSchema =
   | AdminPageLinkWidgetSchema
   | AdminRouteWidgetSchema
   | AdminHrefWidgetSchema;
+
+export interface AdminResourceDetailPanelSchema {
+  key: string;
+  resource: string;
+  title: string;
+  screen: string;
+  permissions?: AdminExtensionReadPermissions;
+  config?: Record<string, unknown>;
+}

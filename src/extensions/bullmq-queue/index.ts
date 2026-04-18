@@ -1,5 +1,6 @@
 import type {
   AdminExtensionActionAuditEvent,
+  AdminResourceDetailPanelDefinition,
   AdminExtensionEndpointDefinition,
   AdminExtensionPostEndpointDefinition,
   DjAdminExtension,
@@ -276,10 +277,25 @@ export interface BullMqQueueDefinition {
   filters?: QueueFilterDefinition[];
 }
 
+export interface BullMqQueueRecordLink {
+  queueKey: string;
+  filterKey: string;
+  recordField?: string;
+  label?: string;
+  limit?: number;
+}
+
+export interface BullMqQueueRecordPanelDefinition {
+  resource: string;
+  title?: string;
+  links: BullMqQueueRecordLink[];
+}
+
 export interface BullMqQueueExtensionOptions {
   id?: string;
   adapter: QueueAdapter;
   queues: BullMqQueueDefinition[];
+  recordPanels?: BullMqQueueRecordPanelDefinition[];
 }
 
 export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAdminExtension {
@@ -288,6 +304,7 @@ export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAd
   const indexedQueues = options.queues.map((queue, index) => ({ queue, index }));
   const queueDefinitions = new Map(options.queues.map((queue) => [queue.key, queue] as const));
   const endpoints = createEndpoints(options.adapter, actionPermissions, readPermissions, queueDefinitions);
+  const detailPanels = createDetailPanels(readPermissions, options.recordPanels ?? [], queueDefinitions);
 
   return {
     id: options.id ?? 'bullmq-queues',
@@ -388,8 +405,54 @@ export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAd
         permissions: { read: readPermissions },
       },
     ],
+    detailPanels,
     endpoints,
   };
+}
+
+function createDetailPanels(
+  readPermissions: string[],
+  recordPanels: BullMqQueueRecordPanelDefinition[],
+  queueDefinitions: ReadonlyMap<string, BullMqQueueDefinition>,
+): AdminResourceDetailPanelDefinition[] {
+  const detailPanels: Array<AdminResourceDetailPanelDefinition | null> = recordPanels
+    .map((recordPanel): AdminResourceDetailPanelDefinition | null => {
+      const links = recordPanel.links
+        .map((link) => {
+          const queueDefinition = queueDefinitions.get(link.queueKey);
+          const filterDefinition = queueDefinition?.filters?.find((filter) => filter.key === link.filterKey);
+          if (!queueDefinition || !filterDefinition) {
+            return null;
+          }
+
+          return {
+            queueKey: link.queueKey,
+            queueLabel: queueDefinition.label,
+            queueDescription: queueDefinition.description,
+            filterKey: filterDefinition.key,
+            filterLabel: filterDefinition.label,
+            recordField: link.recordField ?? 'id',
+            label: link.label ?? queueDefinition.label,
+            limit: Math.max(1, link.limit ?? 5),
+          };
+        })
+        .filter((link): link is NonNullable<typeof link> => link !== null);
+
+      if (links.length === 0) {
+        return null;
+      }
+
+      return {
+        key: `queues:related:${recordPanel.resource}`,
+        resource: recordPanel.resource,
+        title: recordPanel.title ?? 'Related queue jobs',
+        screen: 'bullmq-related-jobs',
+        permissions: { read: readPermissions },
+        config: { links },
+      };
+    });
+
+  return detailPanels.filter((detailPanel): detailPanel is AdminResourceDetailPanelDefinition => detailPanel !== null);
 }
 
 function createEndpoints(
@@ -453,6 +516,27 @@ function createEndpoints(
         job: await adapter.getJob(params['queueKey'] ?? '', params['jobId'] ?? ''),
       }),
     },
+    {
+      key: 'queues:related',
+      method: 'GET',
+      path: '/queues/:queueKey/related',
+      permissions: { read: readPermissions },
+      handler: async ({ params, query }) => {
+        const queueKey = params['queueKey'] ?? '';
+        const queueDefinition = queueDefinitions.get(queueKey);
+        const filterKey = firstQueryValue(query['filterKey']) ?? '';
+        const filterValue = firstQueryValue(query['filterValue'])?.trim() ?? '';
+        const limit = Math.max(1, Number(firstQueryValue(query['limit']) ?? 5));
+        const filterDefinition = queueDefinition?.filters?.find((filter) => filter.key === filterKey);
+
+        if (!filterDefinition || !filterValue) {
+          return { items: [] };
+        }
+
+        const items = await listRelatedJobs(adapter, queueKey, filterDefinition.path, filterValue, limit);
+        return { items };
+      },
+    },
     queueActionEndpoint('pause', actionPermissions, async (adapterContext) => {
       await adapter.pauseQueue(adapterContext.params['queueKey'] ?? '');
       return { success: true };
@@ -500,6 +584,38 @@ function createEndpoints(
       return { success: true };
     }),
   ];
+}
+
+async function listRelatedJobs(
+  adapter: QueueAdapter,
+  queueKey: string,
+  path: string,
+  value: string,
+  limit: number,
+): Promise<QueueJobSummary[]> {
+  const jobs: QueueJobSummary[] = [];
+
+  for (const state of ['completed', 'failed', 'waiting', 'delayed', 'active'] satisfies QueueJobState[]) {
+    if (jobs.length >= limit) {
+      break;
+    }
+
+    const result = await adapter.listJobs(queueKey, state, {
+      page: 1,
+      pageSize: limit,
+      payloadFilters: [{ path, value }],
+    });
+
+    for (const job of result.items) {
+      if (jobs.length >= limit) {
+        break;
+      }
+
+      jobs.push(job);
+    }
+  }
+
+  return jobs;
 }
 
 function withQueueDefinition<TQueue extends QueueSummary | QueueDetails>(

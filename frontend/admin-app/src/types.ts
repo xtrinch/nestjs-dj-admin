@@ -234,6 +234,14 @@ export interface HrefWidgetSchema extends WidgetSchemaBase {
 
 export type WidgetSchema = PageLinkWidgetSchema | RouteWidgetSchema | HrefWidgetSchema;
 
+export interface ResourceDetailPanelSchema {
+  key: string;
+  resource: string;
+  title: string;
+  screen: string;
+  config?: Record<string, unknown>;
+}
+
 export interface ExtensionActionResult {
   success?: boolean;
   count?: number;
@@ -255,5 +263,6 @@ export interface AdminMetaResponse {
 export interface ResourceMetaResponse {
   resource: ResourceSchema;
   filterOptions: Array<{ field: string; values: Array<string | number> }>;
+  detailPanels: ResourceDetailPanelSchema[];
   display?: AdminDisplayConfig;
 }

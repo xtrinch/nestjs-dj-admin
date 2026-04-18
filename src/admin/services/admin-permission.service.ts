@@ -13,6 +13,7 @@ import type {
   AdminNavItemSchema,
   AdminExtensionPostEndpointDefinition,
   AdminPageSchema,
+  AdminResourceDetailPanelSchema,
   AdminWidgetSchema,
 } from '../../extension-api/types.js';
 
@@ -40,6 +41,10 @@ export class AdminPermissionService {
 
   canReadWidget(user: AdminRequestUser, widget: AdminWidgetSchema): boolean {
     return this.hasPermission(user, widget.permissions?.read);
+  }
+
+  canReadDetailPanel(user: AdminRequestUser, detailPanel: AdminResourceDetailPanelSchema): boolean {
+    return this.hasPermission(user, detailPanel.permissions?.read);
   }
 
   canReadExtensionEndpoint(

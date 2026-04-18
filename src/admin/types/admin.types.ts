@@ -10,6 +10,7 @@ import type { Request, Response } from 'express';
 import type {
   AdminPageSchema,
   AdminNavItemSchema,
+  AdminResourceDetailPanelSchema,
   AdminWidgetSchema,
   DjAdminExtension,
 } from '../../extension-api/types.js';
@@ -469,4 +470,5 @@ export interface AdminExtensionsSchema {
   pages: AdminPageSchema[];
   navItems: AdminNavItemSchema[];
   widgets: AdminWidgetSchema[];
+  detailPanels: AdminResourceDetailPanelSchema[];
 }

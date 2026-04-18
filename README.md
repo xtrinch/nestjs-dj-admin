@@ -687,6 +687,7 @@ AdminModule.forRoot({
           description: 'Transactional mail delivery.',
           filters: [
             { key: 'userId', label: 'User', path: 'userId' },
+            { key: 'orderId', label: 'Order', path: 'orderId' },
             { key: 'template', label: 'Template', path: 'template' },
           ],
         },
@@ -694,6 +695,19 @@ AdminModule.forRoot({
           key: 'webhooks',
           label: 'Webhooks',
           description: 'Outbound partner webhook fanout.',
+          filters: [
+            { key: 'orderId', label: 'Order', path: 'orderId' },
+          ],
+        },
+      ],
+      recordPanels: [
+        {
+          resource: 'orders',
+          title: 'Related queue jobs',
+          links: [
+            { queueKey: 'email', filterKey: 'orderId', recordField: 'id', label: 'Email jobs' },
+            { queueKey: 'webhooks', filterKey: 'orderId', recordField: 'id', label: 'Webhook jobs' },
+          ],
         },
       ],
     }),
@@ -713,6 +727,8 @@ The queue extension follows the same implicit permission naming pattern as resou
 
 - `queues.read`
 - `queues.write`
+
+`queues[].filters` define the payload fields that can be filtered on queue detail pages, and `recordPanels` lets the extension surface matching jobs directly on resource detail pages such as `orders/:id`.
 
 For production deployments, the main auth hardening knobs are:
 

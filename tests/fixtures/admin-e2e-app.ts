@@ -578,6 +578,7 @@ Module({
               description: 'Transactional email delivery queue.',
               filters: [
                 { key: 'userId', label: 'User', path: 'userId' },
+                { key: 'orderId', label: 'Order', path: 'orderId' },
                 { key: 'template', label: 'Template', path: 'template' },
               ],
             },
@@ -586,6 +587,7 @@ Module({
               label: 'Webhooks',
               description: 'Outbound webhook fanout for partner systems.',
               filters: [
+                { key: 'orderId', label: 'Order', path: 'orderId' },
                 { key: 'target', label: 'Target', path: 'target' },
               ],
             },
@@ -595,6 +597,16 @@ Module({
               description: 'Batch ingest and reconciliation tasks.',
               filters: [
                 { key: 'source', label: 'Source', path: 'source' },
+              ],
+            },
+          ],
+          recordPanels: [
+            {
+              resource: 'orders',
+              title: 'Related queue jobs',
+              links: [
+                { queueKey: 'email', filterKey: 'orderId', recordField: 'id', label: 'Email jobs' },
+                { queueKey: 'webhooks', filterKey: 'orderId', recordField: 'id', label: 'Webhook jobs' },
               ],
             },
           ],
