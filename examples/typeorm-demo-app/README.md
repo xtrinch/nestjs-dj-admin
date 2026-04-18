@@ -16,7 +16,7 @@ Runs the admin backend at `http://127.0.0.1:3000/admin` using:
 
 ```bash
 npm install
-docker compose up -d postgres grafana redis
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -44,6 +44,7 @@ password: editor123
 - Uses the shared demo database `nestjs_dj_admin_demo` on `127.0.0.1:5432`
 - Uses the local Grafana demo at `http://127.0.0.1:3001`
 - Uses Redis on `127.0.0.1:6379` for the live BullMQ demo queues
+- Keeps its local Docker stack in `examples/typeorm-demo-app/docker-compose.yml`
 - Creates the demo database if needed and applies TypeORM migrations on startup
 - Seeds baseline users, orders, categories, products, order details, and live BullMQ demo jobs on startup
 - Registers the Grafana extensions plus the queue extension with live `email`, `webhooks`, and `imports` queues

@@ -234,7 +234,7 @@ The repo ships runnable examples for the supported persistence layers plus a hos
 TypeORM example:
 
 ```bash
-docker compose up -d postgres grafana redis
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -242,7 +242,7 @@ npm run dev:typeorm-example
 MikroORM example:
 
 ```bash
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run mikroorm:setup:example
 npm run dev:mikroorm-example
 ```
@@ -250,7 +250,7 @@ npm run dev:mikroorm-example
 Prisma example:
 
 ```bash
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run prisma:setup:example
 npm run dev:prisma-example
 ```
@@ -1467,7 +1467,7 @@ Clean setup:
 
 ```bash
 npm install
-docker compose up -d postgres grafana
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -1503,7 +1503,7 @@ Clean setup:
 
 ```bash
 npm install
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run mikroorm:setup:example
 npm run dev:mikroorm-example
 ```
@@ -1538,7 +1538,7 @@ Clean setup:
 
 ```bash
 npm install
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run prisma:setup:example
 npm run dev:prisma-example
 ```
@@ -1594,14 +1594,14 @@ npm run build:examples
 Default full-stack development flow:
 
 ```bash
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run dev
 ```
 
 Stop and remove the demo Postgres volume:
 
 ```bash
-docker compose down -v
+docker compose -f examples/typeorm-demo-app/docker-compose.yml down -v
 ```
 
 ## Testing
