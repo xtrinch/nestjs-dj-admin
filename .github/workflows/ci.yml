@@ -158,9 +158,6 @@ jobs:
       - name: Wait for Postgres
         run: until pg_isready -h 127.0.0.1 -p 5432 -U postgres; do sleep 1; done
 
-      - name: Wait for Redis
-        run: until redis-cli -h 127.0.0.1 -p 6379 ping; do sleep 1; done
-
       - name: Setup TypeORM example database
         run: npm run typeorm:setup:example
 
