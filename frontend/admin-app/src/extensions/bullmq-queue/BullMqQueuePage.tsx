@@ -37,6 +37,8 @@ type QueueJobDetails = QueueJobSummary & {
   stackTrace?: string[];
 };
 
+const QUEUE_STATE_ORDER: QueueJobState[] = ['completed', 'failed', 'waiting', 'delayed', 'active'];
+
 export function BullMqQueuePage(props: AdminExtensionPageProps<ScreenPageSchema>) {
   if (props.page.screen === 'bullmq-queue-overview') {
     return <QueueOverviewPage {...props} />;
@@ -89,14 +91,14 @@ function QueueOverviewPage({
 
   const totals = items.reduce(
     (accumulator, item) => ({
-      waiting: accumulator.waiting + item.counts.waiting,
-      active: accumulator.active + item.counts.active,
-      delayed: accumulator.delayed + item.counts.delayed,
-      failed: accumulator.failed + item.counts.failed,
       completed: accumulator.completed + item.counts.completed,
+      failed: accumulator.failed + item.counts.failed,
+      waiting: accumulator.waiting + item.counts.waiting,
+      delayed: accumulator.delayed + item.counts.delayed,
+      active: accumulator.active + item.counts.active,
       paused: accumulator.paused + (item.isPaused ? 1 : 0),
     }),
-    { waiting: 0, active: 0, delayed: 0, failed: 0, completed: 0, paused: 0 },
+    { completed: 0, failed: 0, waiting: 0, delayed: 0, active: 0, paused: 0 },
   );
 
   return (
@@ -112,11 +114,11 @@ function QueueOverviewPage({
       </section>
 
       <div className="queue-summary-grid">
-        <QueueMetricCard label="Waiting jobs" value={totals.waiting} />
-        <QueueMetricCard label="Active jobs" value={totals.active} />
-        <QueueMetricCard label="Delayed jobs" value={totals.delayed} />
-        <QueueMetricCard label="Failed jobs" value={totals.failed} />
         <QueueMetricCard label="Completed jobs" value={totals.completed} />
+        <QueueMetricCard label="Failed jobs" value={totals.failed} />
+        <QueueMetricCard label="Waiting jobs" value={totals.waiting} />
+        <QueueMetricCard label="Delayed jobs" value={totals.delayed} />
+        <QueueMetricCard label="Active jobs" value={totals.active} />
         <QueueMetricCard label="Paused queues" value={totals.paused} tone={totals.paused > 0 ? 'warning' : 'neutral'} />
       </div>
 
@@ -146,11 +148,11 @@ function QueueOverviewPage({
                 </span>
               </div>
               <div className="queue-card__stats">
-                <QueueInlineStat label="Waiting" value={item.counts.waiting} />
-                <QueueInlineStat label="Active" value={item.counts.active} />
-                <QueueInlineStat label="Delayed" value={item.counts.delayed} />
-                <QueueInlineStat label="Failed" value={item.counts.failed} />
                 <QueueInlineStat label="Completed" value={item.counts.completed} />
+                <QueueInlineStat label="Failed" value={item.counts.failed} />
+                <QueueInlineStat label="Waiting" value={item.counts.waiting} />
+                <QueueInlineStat label="Delayed" value={item.counts.delayed} />
+                <QueueInlineStat label="Active" value={item.counts.active} />
               </div>
               <div className="queue-card__actions">
                 <a className="button button--primary" href={`#/queues/${item.key}`}>
@@ -174,7 +176,7 @@ function QueueDetailPage({
 }: AdminExtensionPageProps<ScreenPageSchema> & { queueKey: string }) {
   const [queue, setQueue] = useState<QueueDetails | null>(null);
   const [jobs, setJobs] = useState<QueueJobSummary[]>([]);
-  const [filter, setFilter] = useState<QueueJobState>('waiting');
+  const [filter, setFilter] = useState<QueueJobState>('completed');
   const [pageNumber, setPageNumber] = useState(1);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -259,11 +261,11 @@ function QueueDetailPage({
 
       {queue ? (
         <div className="queue-summary-grid">
-          <QueueMetricCard label="Waiting" value={queue.counts.waiting} />
-          <QueueMetricCard label="Active" value={queue.counts.active} />
-          <QueueMetricCard label="Delayed" value={queue.counts.delayed} />
-          <QueueMetricCard label="Failed" value={queue.counts.failed} tone={queue.counts.failed > 0 ? 'warning' : 'neutral'} />
           <QueueMetricCard label="Completed" value={queue.counts.completed} />
+          <QueueMetricCard label="Failed" value={queue.counts.failed} tone={queue.counts.failed > 0 ? 'warning' : 'neutral'} />
+          <QueueMetricCard label="Waiting" value={queue.counts.waiting} />
+          <QueueMetricCard label="Delayed" value={queue.counts.delayed} />
+          <QueueMetricCard label="Active" value={queue.counts.active} />
         </div>
       ) : null}
 
@@ -330,7 +332,7 @@ function QueueDetailPage({
           </div>
         </header>
         <div className="queue-tabs">
-          {(['waiting', 'active', 'delayed', 'failed', 'completed'] as QueueJobState[]).map((state) => (
+          {QUEUE_STATE_ORDER.map((state) => (
             <button
               key={state}
               className={state === filter ? 'button button--primary' : 'button'}
