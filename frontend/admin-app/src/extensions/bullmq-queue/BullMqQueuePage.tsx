@@ -350,7 +350,7 @@ function QueueDetailPage({
 
   useEffect(() => {
     void load();
-  }, [filter, pageNumber, queueKey]);
+  }, [filter, pageNumber, queueKey, JSON.stringify(activeFilters)]);
 
   useEffect(() => {
     onTitleChange?.(queue?.label ?? page.title ?? null);
