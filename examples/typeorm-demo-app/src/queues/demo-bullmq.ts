@@ -97,6 +97,7 @@ async function ensureWorkersStarted(): Promise<void> {
 
 async function seedEmailQueue(): Promise<void> {
   for (const payload of [
+    { name: 'send-order-confirmation', data: { orderId: 301, template: 'order-confirmation' } },
     { name: 'send-password-reset', data: { userId: 1, template: 'password-reset' } },
     { name: 'send-welcome-email', data: { userId: 2, template: 'welcome' } },
     { name: 'send-security-alert', data: { userId: 3, template: 'security-alert' } },
@@ -172,6 +173,7 @@ async function seedImportsQueue(): Promise<void> {
 async function seedWebhookQueue(): Promise<void> {
   await queues.webhooks.pause();
   for (const payload of [
+    { name: 'emit-order-queued', data: { orderId: 301, target: 'erp' } },
     { name: 'emit-customer-sync', data: { customerId: 2, target: 'crm' } },
     { name: 'emit-inventory-sync', data: { sku: 'NW-010', target: 'warehouse' } },
     { name: 'emit-order-updated', data: { orderId: 305, target: 'erp' } },
@@ -185,6 +187,7 @@ async function seedWebhookQueue(): Promise<void> {
   }
 
   for (const payload of [
+    { name: 'emit-order-retry', data: { orderId: 301, target: 'billing' } },
     { name: 'emit-order-created', data: { orderId: 302, target: 'erp' } },
     { name: 'emit-delayed-billing-sync', data: { orderId: 303, target: 'billing' } },
     { name: 'emit-delayed-warehouse-sync', data: { sku: 'NW-007', target: 'warehouse' } },
