@@ -38,6 +38,11 @@ export class AdminRegistry {
       const resourceName = options.resourceName ?? buildResourceName(options.model.name);
       const createFields = this.buildFieldsForMode(options, 'create').filter((field) => !field.readOnly);
       const updateFields = this.buildFieldsForMode(options, 'update');
+      const displayFields =
+        options.schema.buildDisplayFields?.({
+          readonlyFields: options.readonly ?? [],
+          model: options.model,
+        }) ?? mergeFields(createFields, updateFields);
       const listDisplayLinks =
         options.listDisplayLinks === null
           ? []
@@ -76,7 +81,7 @@ export class AdminRegistry {
               filterField: '__softDeleteState',
             }
           : undefined,
-        fields: mergeFields(createFields, updateFields),
+        fields: mergeFields(displayFields, mergeFields(createFields, updateFields)),
         createFields,
         updateFields,
         password: options.password

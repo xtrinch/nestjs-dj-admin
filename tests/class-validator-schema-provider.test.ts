@@ -10,6 +10,11 @@ import type {
   AdminResourceSchema,
 } from '../src/index.js';
 import { CreateOrderDto, OrderStatus, UpdateOrderDto } from '#examples-shared/modules/order/shared.js';
+import {
+  CreateDisplayOrderDto,
+  DisplayOrderDto,
+  UpdateDisplayOrderDto,
+} from './fixtures/class-validator-display-dtos.js';
 
 describe('adminSchemaFromClassValidator', () => {
   it('builds field metadata from DTOs', () => {
@@ -48,6 +53,58 @@ describe('adminSchemaFromClassValidator', () => {
         },
         { name: 'status', input: 'select', required: true, enumValues: ['pending', 'paid', 'cancelled'], relation: undefined },
         { name: 'total', input: 'number', required: true, enumValues: undefined, relation: undefined },
+      ],
+    );
+  });
+
+  it('uses displayDto as the canonical field schema and allows mode-specific overrides', () => {
+    const schema = adminSchemaFromClassValidator({
+      displayDto: DisplayOrderDto,
+      createDto: CreateDisplayOrderDto,
+      updateDto: UpdateDisplayOrderDto,
+    });
+
+    const displayFields = schema.buildDisplayFields?.({ readonlyFields: [] }) ?? [];
+    const createFields = schema.buildCreateFields({ readonlyFields: [] });
+    const updateFields = schema.buildUpdateFields({ readonlyFields: [] });
+
+    assert.deepEqual(
+      displayFields.map((field) => ({
+        name: field.name,
+        label: field.label,
+        input: field.input,
+        relation: field.relation,
+      })),
+      [
+        {
+          name: 'userId',
+          label: 'User',
+          input: 'select',
+          relation: {
+            kind: 'many-to-one',
+            option: { resource: 'users', labelField: 'email', valueField: 'id' },
+          },
+        },
+        {
+          name: 'internalNote',
+          label: 'Internal note',
+          input: 'textarea',
+          relation: undefined,
+        },
+      ],
+    );
+
+    assert.deepEqual(
+      createFields.map((field) => ({ name: field.name, label: field.label, input: field.input })),
+      [
+        { name: 'internalNote', label: 'Comment', input: 'textarea' },
+      ],
+    );
+
+    assert.deepEqual(
+      updateFields.map((field) => ({ name: field.name, label: field.label, input: field.input })),
+      [
+        { name: 'internalNote', label: 'Internal note', input: 'textarea' },
       ],
     );
   });
@@ -111,6 +168,12 @@ describe('adminSchemaFromClassValidator', () => {
             schema,
             options,
           };
+        },
+      } as never,
+      {
+        initialize() {},
+        getSchema() {
+          return { pages: [], navItems: [], widgets: [], detailPanels: [] };
         },
       } as never,
       {

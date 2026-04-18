@@ -28,8 +28,10 @@ export function buildClassValidatorFields(
   readonlyFields: string[],
   modelClass?: Function,
   mode?: AdminFieldMode,
+  baseFields?: AdminFieldSchema[],
 ): AdminFieldSchema[] {
   const fields = new Map<string, AdminFieldSchema>();
+  const baseFieldMap = new Map((baseFields ?? []).map((field) => [field.name, field] as const));
 
   if (dtoClass) {
     const metadata = getClassValidatorMetadata(dtoClass);
@@ -53,16 +55,25 @@ export function buildClassValidatorFields(
         continue;
       }
 
+      const baseField = baseFieldMap.get(propertyName);
+      const resolvedInput =
+        extra.input != null
+          ? extra.input
+          : extra.relation?.kind != null
+            ? resolveClassValidatorInput(propertyName, validators, type, extra.relation.kind)
+            : baseField?.input ?? resolveClassValidatorInput(propertyName, validators, type, baseField?.relation?.kind);
+      const enumValues = resolveClassValidatorEnumValues(validators) ?? baseField?.enumValues;
+
       fields.set(propertyName, {
         name: propertyName,
-        label: extra.label ?? startCase(propertyName),
-        input: extra.input ?? resolveClassValidatorInput(propertyName, validators, type, extra.relation?.kind),
+        label: extra.label ?? baseField?.label ?? startCase(propertyName),
+        input: resolvedInput,
         required: !validators.some((validator) => matchesValidator(validator, 'conditionalValidation', 'isOptional')),
         readOnly: readonlyFields.includes(propertyName),
         modes,
-        helpText: extra.helpText,
-        enumValues: resolveClassValidatorEnumValues(validators),
-        relation: extra.relation,
+        helpText: extra.helpText ?? baseField?.helpText,
+        enumValues,
+        relation: extra.relation ?? baseField?.relation,
       });
     }
   }

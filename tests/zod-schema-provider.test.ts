@@ -66,6 +66,39 @@ describe('adminSchemaFromZod', () => {
     );
   });
 
+  it('uses display schema as the canonical field set', () => {
+    const schema = adminSchemaFromZod({
+      display: z.object({
+        id: z.coerce.number(),
+        email: z.email(),
+        userId: z.coerce.number(),
+      }),
+      create: z.object({
+        email: z.email(),
+      }),
+      update: z.object({
+        email: z.email().optional(),
+      }),
+      fields: {
+        userId: {
+          label: 'User',
+          relation: {
+            kind: 'many-to-one',
+            option: { resource: 'users', labelField: 'email', valueField: 'id' },
+          },
+        },
+      },
+    });
+
+    const displayFields = schema.buildDisplayFields?.({ readonlyFields: [] }) ?? [];
+    const createFields = schema.buildCreateFields({ readonlyFields: [] });
+    const updateFields = schema.buildUpdateFields({ readonlyFields: [] });
+
+    assert.deepEqual(displayFields.map((field) => field.name), ['id', 'email', 'userId']);
+    assert.deepEqual(createFields.map((field) => field.name), ['email']);
+    assert.deepEqual(updateFields.map((field) => field.name), ['email']);
+  });
+
   it('validates and coerces payloads through admin service', async () => {
     let createdPayload: Record<string, unknown> | null = null;
 
@@ -133,6 +166,12 @@ describe('adminSchemaFromZod', () => {
             schema,
             options,
           };
+        },
+      } as never,
+      {
+        initialize() {},
+        getSchema() {
+          return { pages: [], navItems: [], widgets: [], detailPanels: [] };
         },
       } as never,
       {

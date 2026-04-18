@@ -279,6 +279,7 @@ export interface AdminSchemaBuildContext<TModel extends AdminEntity = AdminEntit
 }
 
 export interface AdminSchemaProvider<TModel extends AdminEntity = AdminEntity> {
+  buildDisplayFields?(context: AdminSchemaBuildContext<TModel>): AdminFieldSchema[];
   buildCreateFields(context: AdminSchemaBuildContext<TModel>): AdminFieldSchema[];
   buildUpdateFields(context: AdminSchemaBuildContext<TModel>): AdminFieldSchema[];
   validateCreate(payload: Record<string, unknown>): Promise<Record<string, unknown>> | Record<string, unknown>;

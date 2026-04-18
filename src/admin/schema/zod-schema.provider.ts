@@ -37,16 +37,37 @@ type ZodObjectLike = ZodSchemaLike & {
 };
 
 export function adminSchemaFromZod(config: {
+  display?: ZodObjectLike;
   create: ZodObjectLike;
   update: ZodObjectLike;
   fields?: Record<string, AdminDtoFieldConfig>;
 }): AdminSchemaProvider {
   return {
+    buildDisplayFields(context: AdminSchemaBuildContext) {
+      if (config.display) {
+        return buildFieldsFromZodShape(config.display, config.fields ?? {}, context.readonlyFields);
+      }
+
+      return mergeFields(
+        buildFieldsFromZodShape(config.create, config.fields ?? {}, context.readonlyFields),
+        buildFieldsFromZodShape(config.update, config.fields ?? {}, context.readonlyFields),
+      );
+    },
     buildCreateFields(context: AdminSchemaBuildContext) {
-      return buildFieldsFromZodShape(config.create, config.fields ?? {}, context.readonlyFields);
+      return buildFieldsFromZodShape(
+        config.create,
+        config.fields ?? {},
+        context.readonlyFields,
+        config.display ? buildFieldsFromZodShape(config.display, config.fields ?? {}, context.readonlyFields) : undefined,
+      );
     },
     buildUpdateFields(context: AdminSchemaBuildContext) {
-      return buildFieldsFromZodShape(config.update, config.fields ?? {}, context.readonlyFields);
+      return buildFieldsFromZodShape(
+        config.update,
+        config.fields ?? {},
+        context.readonlyFields,
+        config.display ? buildFieldsFromZodShape(config.display, config.fields ?? {}, context.readonlyFields) : undefined,
+      );
     },
     async validateCreate(payload: Record<string, unknown>) {
       return parseZodPayload(config.create, payload);
@@ -61,26 +82,30 @@ function buildFieldsFromZodShape(
   schema: ZodObjectLike,
   fieldConfig: Record<string, AdminDtoFieldConfig>,
   readonlyFields: string[],
+  baseFields?: AdminFieldSchema[],
 ): AdminFieldSchema[] {
   const shape = getObjectShape(schema);
   const fields = new Map<string, AdminFieldSchema>();
+  const baseFieldMap = new Map((baseFields ?? []).map((field) => [field.name, field] as const));
 
   for (const [propertyName, rawSchema] of Object.entries(shape)) {
     const extra = fieldConfig[propertyName] ?? {};
     const unwrapped = unwrapZodSchema(rawSchema);
+    const baseField = baseFieldMap.get(propertyName);
 
     fields.set(propertyName, {
       name: propertyName,
-      label: extra.label ?? startCase(propertyName),
+      label: extra.label ?? baseField?.label ?? startCase(propertyName),
       input:
         extra.input ??
+        baseField?.input ??
         resolveZodInput(propertyName, unwrapped, extra.relation?.kind),
       required: !isOptionalSchema(rawSchema),
       readOnly: readonlyFields.includes(propertyName),
       modes: extra.modes,
-      helpText: extra.helpText,
-      enumValues: resolveZodEnumValues(unwrapped),
-      relation: extra.relation,
+      helpText: extra.helpText ?? baseField?.helpText,
+      enumValues: resolveZodEnumValues(unwrapped) ?? baseField?.enumValues,
+      relation: extra.relation ?? baseField?.relation,
     });
   }
 
@@ -99,6 +124,29 @@ function buildFieldsFromZodShape(
   }
 
   return [...fields.values()];
+}
+
+function mergeFields(primary: AdminFieldSchema[], secondary: AdminFieldSchema[]): AdminFieldSchema[] {
+  const merged = new Map(primary.map((field) => [field.name, field] as const));
+
+  for (const field of secondary) {
+    const existing = merged.get(field.name);
+    if (!existing) {
+      merged.set(field.name, field);
+      continue;
+    }
+
+    merged.set(field.name, {
+      ...existing,
+      ...field,
+      modes: (() => {
+        const modes = [...new Set([...(existing.modes ?? []), ...(field.modes ?? [])])];
+        return modes.length > 0 ? modes : undefined;
+      })(),
+    });
+  }
+
+  return [...merged.values()];
 }
 
 async function parseZodPayload(

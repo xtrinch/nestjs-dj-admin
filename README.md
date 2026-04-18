@@ -184,6 +184,7 @@ import { User } from './user.entity.js';
   filters: ['role', 'active'],
   readonly: ['createdAt'],
   schema: adminSchemaFromClassValidator({
+    displayDto: UserAdminDto,
     createDto: CreateUserDto,
     updateDto: UpdateUserDto,
   }),
@@ -191,7 +192,7 @@ import { User } from './user.entity.js';
 export class UserAdmin {}
 ```
 
-Admin form fields come from your DTOs, and create/update payloads are validated through `class-validator`.
+Use `displayDto` as the canonical admin field schema for list/detail/filter/search metadata. `createDto` and `updateDto` define writable fields and validation. If you omit `displayDto`, the library falls back to the legacy create/update merge behavior.
 
 Build the library UI assets and start your app. The admin API and UI will be mounted at the `path` you configured, such as `/admin`.
 
@@ -969,6 +970,7 @@ Example:
 
 ```ts
 const orderSchema = adminSchemaFromClassValidator({
+  displayDto: OrderAdminDto,
   createDto: CreateOrderDto,
   updateDto: UpdateOrderDto,
 });
@@ -1076,6 +1078,7 @@ Use `adminSchemaFromClassValidator(...)` by default:
   search: ['email'],
   filters: ['role', 'active'],
   schema: adminSchemaFromClassValidator({
+    displayDto: UserAdminDto,
     createDto: CreateUserDto,
     updateDto: UpdateUserDto,
   }),
@@ -1101,6 +1104,13 @@ const createUserSchema = z.object({
 });
 
 const updateUserSchema = createUserSchema.partial();
+const displayUserSchema = z.object({
+  id: z.coerce.number(),
+  email: z.email(),
+  role: z.enum(['admin', 'editor', 'viewer']),
+  active: z.boolean(),
+  userId: z.coerce.number(),
+});
 
 @Injectable()
 @AdminResource({
@@ -1109,6 +1119,7 @@ const updateUserSchema = createUserSchema.partial();
   search: ['email'],
   filters: ['role', 'active'],
   schema: adminSchemaFromZod({
+    display: displayUserSchema,
     create: createUserSchema,
     update: updateUserSchema,
     fields: {
@@ -1124,6 +1135,8 @@ const updateUserSchema = createUserSchema.partial();
 })
 export class UserAdmin {}
 ```
+
+For both schema providers, prefer a `displayDto` / `display` schema whenever your readable resource fields differ from your writable create/update payloads.
 
 This gives you:
 
@@ -1181,6 +1194,7 @@ Example:
 
 ```ts
 const userSchema = adminSchemaFromClassValidator({
+  displayDto: UserAdminDto,
   createDto: CreateUserDto,
   updateDto: UpdateUserDto,
 });
