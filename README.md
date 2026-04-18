@@ -656,8 +656,9 @@ Example:
 
 ```ts
 import { Queue } from 'bullmq';
+import { z } from 'zod';
 import { dashboardLinkWidgetExtension } from 'nestjs-dj-admin/dashboard-link-widget-extension';
-import { bullmqQueueExtension, BullMqQueueAdapter } from 'nestjs-dj-admin/bullmq-queue-extension';
+import { adminSchemaFromZod, bullmqQueueExtension, BullMqQueueAdapter } from 'nestjs-dj-admin';
 
 const queues = {
   email: new Queue('email', {
@@ -675,6 +676,36 @@ const queues = {
     },
   }),
 };
+
+const emailQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    userId: z.coerce.number(),
+    orderId: z.coerce.number().optional(),
+    template: z.string(),
+  }),
+  fields: {
+    userId: {
+      label: 'User',
+      relation: {
+        kind: 'many-to-one',
+        option: { resource: 'users', labelField: 'email', valueField: 'id' },
+      },
+    },
+    orderId: { label: 'Order' },
+    template: { label: 'Template' },
+  },
+});
+
+const webhookQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    orderId: z.coerce.number().optional(),
+    target: z.string(),
+  }),
+  fields: {
+    orderId: { label: 'Order' },
+    target: { label: 'Target' },
+  },
+});
 
 AdminModule.forRoot({
   path: '/admin',
@@ -695,26 +726,17 @@ AdminModule.forRoot({
           key: 'email',
           label: 'Email',
           description: 'Transactional mail delivery.',
-          filters: [
-            { key: 'userId', label: 'User', path: 'userId' },
-            { key: 'orderId', label: 'Order', path: 'orderId' },
-            { key: 'template', label: 'Template', path: 'template' },
-          ],
-          list: [
-            { key: 'userId', label: 'User', path: 'userId' },
-            { key: 'template', label: 'Template', path: 'template' },
-          ],
+          payloadSchema: emailQueuePayloadSchema,
+          filters: ['userId', 'orderId', 'template'],
+          list: ['userId', 'template'],
         },
         {
           key: 'webhooks',
           label: 'Webhooks',
           description: 'Outbound partner webhook fanout.',
-          filters: [
-            { key: 'orderId', label: 'Order', path: 'orderId' },
-          ],
-          list: [
-            { key: 'orderId', label: 'Order', path: 'orderId' },
-          ],
+          payloadSchema: webhookQueuePayloadSchema,
+          filters: ['orderId'],
+          list: ['orderId'],
         },
       ],
       recordPanels: [
@@ -734,7 +756,7 @@ AdminModule.forRoot({
 
 If you want queues promoted on the dashboard, add that separately with `dashboardLinkWidgetExtension(...)`. The queue feature itself only registers queue pages, nav items, actions, and optional resource-detail panels.
 
-`filters` controls the queue page filter inputs. `list` controls extra payload-backed columns shown in the jobs table, so you can surface fields like `userId`, `template`, or `orderNumber` directly in the list view.
+`payloadSchema` is the canonical queue payload field schema. `filters` and `list` are string arrays resolved against that schema, so queue payload configuration now follows the same schema-derived model as admin resources.
 
 That extension mounts route-backed queue screens inside the admin shell:
 

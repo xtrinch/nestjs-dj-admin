@@ -1,4 +1,6 @@
 import type {
+  AdminFieldSchema,
+  AdminSchemaProvider,
   AdminExtensionActionAuditEvent,
   AdminResourceDetailPanelDefinition,
   AdminExtensionEndpointDefinition,
@@ -50,6 +52,8 @@ export interface QueueListFieldDefinition {
   label: string;
   path: string;
 }
+
+export type QueuePayloadSchema = Pick<AdminSchemaProvider, 'buildDisplayFields'>;
 
 export interface QueuePayloadFilter {
   path: string;
@@ -281,8 +285,19 @@ export interface BullMqQueueDefinition {
   key: string;
   label: string;
   description?: string;
-  filters?: QueueFilterDefinition[];
-  list?: QueueListFieldDefinition[];
+  payloadSchema: QueuePayloadSchema;
+  filters?: string[];
+  list?: string[];
+}
+
+interface NormalizedBullMqQueueDefinition {
+  key: string;
+  label: string;
+  description?: string;
+  payloadSchema: QueuePayloadSchema;
+  payloadFields: QueueFilterDefinition[];
+  filters: QueueFilterDefinition[];
+  list: QueueListFieldDefinition[];
 }
 
 export interface BullMqQueueRecordLink {
@@ -310,7 +325,7 @@ export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAd
   const readPermissions = ['queues.read'];
   const actionPermissions = ['queues.write'];
   const indexedQueues = options.queues.map((queue, index) => ({ queue, index }));
-  const queueDefinitions = new Map(options.queues.map((queue) => [queue.key, queue] as const));
+  const queueDefinitions = new Map(options.queues.map((queue) => [queue.key, normalizeQueueDefinition(queue)] as const));
   const endpoints = createEndpoints(options.adapter, actionPermissions, readPermissions, queueDefinitions);
   const detailPanels = createDetailPanels(readPermissions, options.recordPanels ?? [], queueDefinitions);
 
@@ -375,14 +390,14 @@ export function bullmqQueueExtension(options: BullMqQueueExtensionOptions): DjAd
 function createDetailPanels(
   readPermissions: string[],
   recordPanels: BullMqQueueRecordPanelDefinition[],
-  queueDefinitions: ReadonlyMap<string, BullMqQueueDefinition>,
+  queueDefinitions: ReadonlyMap<string, NormalizedBullMqQueueDefinition>,
 ): AdminResourceDetailPanelDefinition[] {
   const detailPanels: Array<AdminResourceDetailPanelDefinition | null> = recordPanels
     .map((recordPanel): AdminResourceDetailPanelDefinition | null => {
       const links = recordPanel.links
         .map((link) => {
           const queueDefinition = queueDefinitions.get(link.queueKey);
-          const filterDefinition = queueDefinition?.filters?.find((filter) => filter.key === link.filterKey);
+          const filterDefinition = queueDefinition?.payloadFields.find((filter) => filter.key === link.filterKey);
           if (!queueDefinition || !filterDefinition) {
             return null;
           }
@@ -421,7 +436,7 @@ function createEndpoints(
   adapter: QueueAdapter,
   actionPermissions: string[],
   readPermissions: string[],
-  queueDefinitions: ReadonlyMap<string, BullMqQueueDefinition>,
+  queueDefinitions: ReadonlyMap<string, NormalizedBullMqQueueDefinition>,
 ): AdminExtensionEndpointDefinition[] {
   return [
     {
@@ -489,7 +504,7 @@ function createEndpoints(
         const filterKey = firstQueryValue(query['filterKey']) ?? '';
         const filterValue = firstQueryValue(query['filterValue'])?.trim() ?? '';
         const limit = Math.max(1, Number(firstQueryValue(query['limit']) ?? 5));
-        const filterDefinition = queueDefinition?.filters?.find((filter) => filter.key === filterKey);
+        const filterDefinition = queueDefinition?.filters.find((filter) => filter.key === filterKey);
 
         if (!filterDefinition || !filterValue) {
           return { items: [] };
@@ -582,7 +597,7 @@ async function listRelatedJobs(
 
 function withQueueDefinition<TQueue extends QueueSummary | QueueDetails>(
   queue: TQueue,
-  queueDefinitions: ReadonlyMap<string, BullMqQueueDefinition>,
+  queueDefinitions: ReadonlyMap<string, NormalizedBullMqQueueDefinition>,
 ): TQueue {
   const definition = queueDefinitions.get(queue.key);
   if (!definition) {
@@ -596,6 +611,38 @@ function withQueueDefinition<TQueue extends QueueSummary | QueueDetails>(
     filters: definition.filters,
     list: definition.list,
   };
+}
+
+function normalizeQueueDefinition(queue: BullMqQueueDefinition): NormalizedBullMqQueueDefinition {
+  const fields = queue.payloadSchema.buildDisplayFields({ readonlyFields: [] });
+  const payloadFields = resolveQueueFieldDefinitions(fields.map((field) => field.name), fields);
+
+  return {
+    ...queue,
+    payloadFields,
+    filters: resolveQueueFieldDefinitions(queue.filters ?? [], fields),
+    list: resolveQueueFieldDefinitions(queue.list ?? [], fields),
+  };
+}
+
+function resolveQueueFieldDefinitions(
+  fieldNames: string[],
+  fields: AdminFieldSchema[],
+): Array<{ key: string; label: string; path: string }> {
+  const fieldMap = new Map(fields.map((field) => [field.name, field] as const));
+
+  return fieldNames.map((fieldName) => {
+    const field = fieldMap.get(fieldName);
+    if (!field) {
+      throw new Error(`Unknown queue payload field "${fieldName}"`);
+    }
+
+    return {
+      key: field.name,
+      label: field.label,
+      path: field.name,
+    };
+  });
 }
 
 function queueActionEndpoint(

@@ -37,6 +37,7 @@ export type {
   QueueJobState,
   QueueJobSummary,
   QueueListQuery,
+  QueuePayloadSchema,
   QueueSummary,
   RetryFailedJobsInput,
   RetryJobsResult,

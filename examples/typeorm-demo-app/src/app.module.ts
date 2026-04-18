@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ADMIN_ADAPTER } from '#src/admin/admin.constants.js';
 import { TypeOrmAdminAdapter } from '#src/admin/adapters/typeorm.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { adminSchemaFromZod } from '#src/admin/schema/zod-schema.provider.js';
 import { dashboardLinkWidgetExtension } from '#src/extensions/dashboard-link-widget/index.js';
 import { bullmqQueueExtension } from '#src/extensions/bullmq-queue/index.js';
 import { embedPageExtension } from '#src/extensions/embed/index.js';
@@ -20,8 +21,43 @@ import { UserModule } from './modules/user/user.module.js';
 import { DEMO_PERMISSIONS, permissionsForDemoRole } from '../../shared/src/admin-permissions.js';
 import { demoBullMqQueueAdapter } from './queues/demo-bullmq.js';
 import { DemoQueueService } from './queues/demo-queue.service.js';
+import { z } from 'zod';
 
 const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:3001/d-solo/dj-admin-overview/dj-admin-overview?orgId=1&from=now-6h&to=now&theme=dark&panelId=1';
+const emailQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    userId: z.coerce.number(),
+    orderId: z.coerce.number().optional(),
+    orderNumber: z.string().optional(),
+    template: z.string(),
+  }),
+  fields: {
+    userId: { label: 'User', relation: { kind: 'many-to-one', option: { resource: 'users', labelField: 'email', valueField: 'id' } } },
+    orderId: { label: 'Order' },
+    orderNumber: { label: 'Order number' },
+    template: { label: 'Template' },
+  },
+});
+const webhookQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    orderId: z.coerce.number().optional(),
+    orderNumber: z.string().optional(),
+    target: z.string(),
+  }),
+  fields: {
+    orderId: { label: 'Order' },
+    orderNumber: { label: 'Order number' },
+    target: { label: 'Target' },
+  },
+});
+const importQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    source: z.string(),
+  }),
+  fields: {
+    source: { label: 'Source' },
+  },
+});
 
 @Module({
   imports: [
@@ -66,42 +102,25 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
               key: 'email',
               label: 'Email',
               description: 'Transactional messages waiting for SMTP delivery.',
-              filters: [
-                { key: 'userId', label: 'User', path: 'userId' },
-                { key: 'orderId', label: 'Order', path: 'orderId' },
-                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
-                { key: 'template', label: 'Template', path: 'template' },
-              ],
-              list: [
-                { key: 'userId', label: 'User', path: 'userId' },
-                { key: 'template', label: 'Template', path: 'template' },
-                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
-              ],
+              payloadSchema: emailQueuePayloadSchema,
+              filters: ['userId', 'orderId', 'orderNumber', 'template'],
+              list: ['userId', 'template', 'orderNumber'],
             },
             {
               key: 'webhooks',
               label: 'Webhooks',
               description: 'Outbound partner webhook fanout and retries.',
-              filters: [
-                { key: 'orderId', label: 'Order', path: 'orderId' },
-                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
-                { key: 'target', label: 'Target', path: 'target' },
-              ],
-              list: [
-                { key: 'target', label: 'Target', path: 'target' },
-                { key: 'orderNumber', label: 'Order number', path: 'orderNumber' },
-              ],
+              payloadSchema: webhookQueuePayloadSchema,
+              filters: ['orderId', 'orderNumber', 'target'],
+              list: ['target', 'orderNumber'],
             },
             {
               key: 'imports',
               label: 'Imports',
               description: 'Nightly ingest and reconciliation jobs.',
-              filters: [
-                { key: 'source', label: 'Source', path: 'source' },
-              ],
-              list: [
-                { key: 'source', label: 'Source', path: 'source' },
-              ],
+              payloadSchema: importQueuePayloadSchema,
+              filters: ['source'],
+              list: ['source'],
             },
           ],
           recordPanels: [

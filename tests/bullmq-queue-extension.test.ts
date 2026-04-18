@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { z } from 'zod';
 import {
   BullMqQueueAdapter,
   bullmqQueueExtension,
   type BullMqJobLike,
   type QueueJobState,
 } from '../src/extensions/bullmq-queue/index.js';
+import { adminSchemaFromZod } from '../src/index.js';
 
 class FakeJob implements BullMqJobLike {
   public processedOn?: number;
@@ -110,8 +112,14 @@ describe('bullmq queue extension', () => {
       queues: [{
         key: 'email',
         label: 'Email',
-        filters: [{ key: 'orderId', label: 'Order', path: 'orderId' }],
-        list: [{ key: 'userId', label: 'User', path: 'userId' }],
+        payloadSchema: adminSchemaFromZod({
+          display: z.object({
+            orderId: z.coerce.number(),
+            userId: z.coerce.number(),
+          }),
+        }),
+        filters: ['orderId'],
+        list: ['userId'],
       }],
       recordPanels: [
         {
@@ -142,8 +150,18 @@ describe('bullmq queue extension', () => {
         key: 'email',
         label: 'Email',
         description: 'Transactional messages.',
-        filters: [{ key: 'userId', label: 'User', path: 'userId' }],
-        list: [{ key: 'template', label: 'Template', path: 'template' }],
+        payloadSchema: adminSchemaFromZod({
+          display: z.object({
+            userId: z.coerce.number(),
+            template: z.string(),
+          }),
+          fields: {
+            userId: { label: 'User' },
+            template: { label: 'Template' },
+          },
+        }),
+        filters: ['userId'],
+        list: ['template'],
       }],
     });
 
@@ -187,9 +205,15 @@ describe('bullmq queue extension', () => {
         {
           key: 'email',
           label: 'Email',
-          filters: [
-            { key: 'userId', label: 'User', path: 'userId' },
-          ],
+          payloadSchema: adminSchemaFromZod({
+            display: z.object({
+              userId: z.coerce.number(),
+            }),
+            fields: {
+              userId: { label: 'User' },
+            },
+          }),
+          filters: ['userId'],
         },
       ],
     });
@@ -226,9 +250,15 @@ describe('bullmq queue extension', () => {
         {
           key: 'email',
           label: 'Email',
-          filters: [
-            { key: 'orderId', label: 'Order', path: 'orderId' },
-          ],
+          payloadSchema: adminSchemaFromZod({
+            display: z.object({
+              orderId: z.coerce.number(),
+            }),
+            fields: {
+              orderId: { label: 'Order' },
+            },
+          }),
+          filters: ['orderId'],
         },
       ],
       recordPanels: [

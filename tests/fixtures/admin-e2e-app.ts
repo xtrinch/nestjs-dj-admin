@@ -10,6 +10,7 @@ import { userAdminOptions } from '#examples-shared/modules/user/shared.js';
 import { InMemoryAdminAdapter, createInMemoryAdminStore } from '../../src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '../../src/admin/admin.module.js';
 import { AdminResource } from '../../src/admin/decorators/admin-resource.decorator.js';
+import { adminSchemaFromZod } from '../../src/admin/schema/zod-schema.provider.js';
 import { dashboardLinkWidgetExtension } from '../../src/extensions/dashboard-link-widget/index.js';
 import type {
   JobListResult,
@@ -22,6 +23,7 @@ import type {
 import { bullmqQueueExtension } from '../../src/extensions/bullmq-queue/index.js';
 import { embedPageExtension } from '../../src/extensions/embed/index.js';
 import { AdminUiService } from '../../src/admin/services/admin-ui.service.js';
+import { z } from 'zod';
 
 const dashboardPreviewHtml = `
 <!doctype html>
@@ -122,6 +124,36 @@ const dashboardPreviewHtml = `
 `;
 
 const dashboardPreviewUrl = `data:text/html;charset=utf-8,${encodeURIComponent(dashboardPreviewHtml)}`;
+const emailQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    userId: z.coerce.number(),
+    orderId: z.coerce.number().optional(),
+    template: z.string(),
+  }),
+  fields: {
+    userId: { label: 'User', relation: { kind: 'many-to-one', option: { resource: 'users', labelField: 'email', valueField: 'id' } } },
+    orderId: { label: 'Order' },
+    template: { label: 'Template' },
+  },
+});
+const webhookQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    orderId: z.coerce.number().optional(),
+    target: z.string(),
+  }),
+  fields: {
+    orderId: { label: 'Order' },
+    target: { label: 'Target' },
+  },
+});
+const importQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    source: z.string(),
+  }),
+  fields: {
+    source: { label: 'Source' },
+  },
+});
 
 const SEEDED_USERS = [
   {
@@ -583,38 +615,25 @@ Module({
               key: 'email',
               label: 'Email',
               description: 'Transactional email delivery queue.',
-              filters: [
-                { key: 'userId', label: 'User', path: 'userId' },
-                { key: 'orderId', label: 'Order', path: 'orderId' },
-                { key: 'template', label: 'Template', path: 'template' },
-              ],
-              list: [
-                { key: 'userId', label: 'User', path: 'userId' },
-                { key: 'template', label: 'Template', path: 'template' },
-              ],
+              payloadSchema: emailQueuePayloadSchema,
+              filters: ['userId', 'orderId', 'template'],
+              list: ['userId', 'template'],
             },
             {
               key: 'webhooks',
               label: 'Webhooks',
               description: 'Outbound webhook fanout for partner systems.',
-              filters: [
-                { key: 'orderId', label: 'Order', path: 'orderId' },
-                { key: 'target', label: 'Target', path: 'target' },
-              ],
-              list: [
-                { key: 'target', label: 'Target', path: 'target' },
-              ],
+              payloadSchema: webhookQueuePayloadSchema,
+              filters: ['orderId', 'target'],
+              list: ['target'],
             },
             {
               key: 'imports',
               label: 'Imports',
               description: 'Batch ingest and reconciliation tasks.',
-              filters: [
-                { key: 'source', label: 'Source', path: 'source' },
-              ],
-              list: [
-                { key: 'source', label: 'Source', path: 'source' },
-              ],
+              payloadSchema: importQueuePayloadSchema,
+              filters: ['source'],
+              list: ['source'],
             },
           ],
           recordPanels: [
