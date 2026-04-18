@@ -109,79 +109,105 @@ async function ensureWorkersStarted(): Promise<void> {
 }
 
 async function seedEmailQueue(): Promise<void> {
-  const completedJob = await queues.email.add(
-    'send-password-reset',
-    { userId: 1, template: 'password-reset' },
-    { removeOnComplete: false, removeOnFail: false },
-  );
-  await completedJob.waitUntilFinished(queueEvents.email);
+  for (const payload of [
+    { name: 'send-password-reset', data: { userId: 1, template: 'password-reset' } },
+    { name: 'send-welcome-email', data: { userId: 2, template: 'welcome' } },
+    { name: 'send-security-alert', data: { userId: 3, template: 'security-alert' } },
+    { name: 'send-billing-reminder', data: { userId: 4, template: 'billing-reminder' } },
+  ]) {
+    const job = await queues.email.add(
+      payload.name,
+      payload.data,
+      { removeOnComplete: false, removeOnFail: false },
+    );
+    await job.waitUntilFinished(queueEvents.email);
+  }
 
-  const welcomeJob = await queues.email.add(
-    'send-welcome-email',
-    { userId: 2, template: 'welcome' },
-    { removeOnComplete: false, removeOnFail: false },
-  );
-  await welcomeJob.waitUntilFinished(queueEvents.email);
+  for (const payload of [
+    { name: 'send-order-receipt', data: { orderId: 301, template: 'receipt', shouldFail: true }, attempts: 3 },
+    { name: 'send-digest-email', data: { userId: 3, template: 'weekly-digest', shouldFail: true }, attempts: 2 },
+    { name: 'send-invoice-email', data: { invoiceId: 88, template: 'invoice', shouldFail: true }, attempts: 2 },
+  ]) {
+    const job = await queues.email.add(
+      payload.name,
+      payload.data,
+      { removeOnComplete: false, removeOnFail: false, attempts: payload.attempts },
+    );
+    await waitForTerminalState(job.id!, queueEvents.email);
+  }
 
-  const failedJob = await queues.email.add(
-    'send-order-receipt',
-    { orderId: 301, template: 'receipt', shouldFail: true },
-    { removeOnComplete: false, removeOnFail: false, attempts: 3 },
-  );
-  await waitForTerminalState(failedJob.id!, queueEvents.email);
-
-  const digestJob = await queues.email.add(
-    'send-digest-email',
-    { userId: 3, template: 'weekly-digest', shouldFail: true },
-    { removeOnComplete: false, removeOnFail: false, attempts: 2 },
-  );
-  await waitForTerminalState(digestJob.id!, queueEvents.email);
+  for (const payload of [
+    { name: 'send-marketing-digest', data: { segment: 'vip', template: 'marketing-digest' } },
+    { name: 'send-contract-renewal', data: { contractId: 14, template: 'renewal' } },
+  ]) {
+    await queues.email.add(
+      payload.name,
+      payload.data,
+      { removeOnComplete: false, removeOnFail: false, delay: 3 * 60 * 60 * 1000 },
+    );
+  }
 }
 
 async function seedImportsQueue(): Promise<void> {
-  const completedJob = await queues.imports.add(
-    'run-nightly-import',
-    { source: 'northwind/nightly.csv' },
-    { removeOnComplete: false, removeOnFail: false },
-  );
-  await completedJob.waitUntilFinished(queueEvents.imports);
+  for (const source of [
+    'northwind/nightly.csv',
+    'northwind/reconciliation.csv',
+    'northwind/catalog.csv',
+    'northwind/customer-sync.csv',
+  ]) {
+    const job = await queues.imports.add(
+      `import-${source.split('/').pop()?.replace('.csv', '') ?? 'dataset'}`,
+      { source },
+      { removeOnComplete: false, removeOnFail: false },
+    );
+    await job.waitUntilFinished(queueEvents.imports);
+  }
 
-  const reconciliationJob = await queues.imports.add(
-    'run-reconciliation-import',
-    { source: 'northwind/reconciliation.csv' },
-    { removeOnComplete: false, removeOnFail: false },
-  );
-  await reconciliationJob.waitUntilFinished(queueEvents.imports);
+  for (const source of [
+    'northwind/backfill.csv',
+    'northwind/pricing-refresh.csv',
+    'northwind/supplier-sync.csv',
+  ]) {
+    await queues.imports.add(
+      `import-${source.split('/').pop()?.replace('.csv', '') ?? 'delayed'}`,
+      { source },
+      { removeOnComplete: false, removeOnFail: false, delay: 6 * 60 * 60 * 1000 },
+    );
+  }
 
   await queues.imports.add(
-    'run-delayed-import',
-    { source: 'northwind/backfill.csv' },
-    { removeOnComplete: false, removeOnFail: false, delay: 6 * 60 * 60 * 1000 },
+    'run-live-import',
+    { source: 'northwind/live-sync.csv', durationMs: 60_000 },
+    { removeOnComplete: false, removeOnFail: false },
   );
 }
 
 async function seedWebhookQueue(): Promise<void> {
   await queues.webhooks.pause();
-  await queues.webhooks.add(
-    'emit-order-created',
-    { orderId: 302, target: 'erp' },
-    { removeOnComplete: false, removeOnFail: false, delay: 24 * 60 * 60 * 1000 },
-  );
-  await queues.webhooks.add(
-    'emit-customer-sync',
-    { customerId: 2, target: 'crm' },
-    { removeOnComplete: false, removeOnFail: false },
-  );
-  await queues.webhooks.add(
-    'emit-inventory-sync',
-    { sku: 'NW-010', target: 'warehouse' },
-    { removeOnComplete: false, removeOnFail: false },
-  );
-  await queues.webhooks.add(
-    'emit-delayed-billing-sync',
-    { orderId: 303, target: 'billing' },
-    { removeOnComplete: false, removeOnFail: false, delay: 2 * 60 * 60 * 1000 },
-  );
+  for (const payload of [
+    { name: 'emit-customer-sync', data: { customerId: 2, target: 'crm' } },
+    { name: 'emit-inventory-sync', data: { sku: 'NW-010', target: 'warehouse' } },
+    { name: 'emit-order-updated', data: { orderId: 305, target: 'erp' } },
+    { name: 'emit-return-created', data: { returnId: 41, target: 'returns-service' } },
+  ]) {
+    await queues.webhooks.add(
+      payload.name,
+      payload.data,
+      { removeOnComplete: false, removeOnFail: false },
+    );
+  }
+
+  for (const payload of [
+    { name: 'emit-order-created', data: { orderId: 302, target: 'erp' } },
+    { name: 'emit-delayed-billing-sync', data: { orderId: 303, target: 'billing' } },
+    { name: 'emit-delayed-warehouse-sync', data: { sku: 'NW-007', target: 'warehouse' } },
+  ]) {
+    await queues.webhooks.add(
+      payload.name,
+      payload.data,
+      { removeOnComplete: false, removeOnFail: false, delay: 2 * 60 * 60 * 1000 },
+    );
+  }
 }
 
 function createQueue(name: string) {
@@ -207,10 +233,22 @@ async function processEmailJob(job: Job): Promise<unknown> {
 }
 
 async function processImportJob(job: Job): Promise<unknown> {
+  const data = job.data as Record<string, unknown>;
+  const durationMs = Number(data['durationMs'] ?? 0);
+  if (durationMs > 0) {
+    await sleep(durationMs);
+  }
+
   return {
     importedRows: 42,
     skippedRows: job.name === 'run-nightly-import' ? 3 : 0,
   };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function waitForTerminalState(jobId: string, events: QueueEvents): Promise<void> {

@@ -39,6 +39,14 @@ type QueueJobDetails = QueueJobSummary & {
 
 const QUEUE_STATE_ORDER: QueueJobState[] = ['completed', 'failed', 'waiting', 'delayed', 'active'];
 
+type ConfirmationState = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  tone?: 'neutral' | 'danger';
+  onConfirm: () => Promise<void>;
+};
+
 export function BullMqQueuePage(props: AdminExtensionPageProps<ScreenPageSchema>) {
   if (props.page.screen === 'bullmq-queue-overview') {
     return <QueueOverviewPage {...props} />;
@@ -180,6 +188,8 @@ function QueueDetailPage({
   const [pageNumber, setPageNumber] = useState(1);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const canManage = user.isSuperuser === true || user.permissions.includes('queues.write');
 
   useEffect(() => {
@@ -220,11 +230,7 @@ function QueueDetailPage({
     }
   }
 
-  async function runAction(action: string, payload?: Record<string, unknown>, confirmation?: string) {
-    if (confirmation && !window.confirm(confirmation)) {
-      return;
-    }
-
+  async function executeQueueAction(action: string, payload?: Record<string, unknown>) {
     try {
       const result = await runExtensionAction<{ success: boolean; count?: number }>(
         `/queues/${queueKey}/actions/${action}`,
@@ -239,6 +245,34 @@ function QueueDetailPage({
       await load();
     } catch (reason) {
       showToast({ message: (reason as Error).message, variant: 'error' });
+    }
+  }
+
+  async function executeJobAction(jobId: string, action: string) {
+    try {
+      await runExtensionAction(`/queues/${queueKey}/jobs/${jobId}/actions/${action}`);
+      showToast({ message: `Job ${jobId} ${action.replace(/-/g, ' ')} complete.` });
+      await load();
+    } catch (reason) {
+      showToast({ message: (reason as Error).message, variant: 'error' });
+    }
+  }
+
+  function confirmAction(nextConfirmation: ConfirmationState) {
+    setConfirmation(nextConfirmation);
+  }
+
+  async function handleConfirm() {
+    if (!confirmation) {
+      return;
+    }
+
+    setConfirming(true);
+    try {
+      await confirmation.onConfirm();
+      setConfirmation(null);
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -280,18 +314,25 @@ function QueueDetailPage({
             </div>
           </header>
           <div className="queue-actions">
-            <button className="button" type="button" onClick={() => void runAction(queue?.isPaused ? 'resume' : 'pause')}>
+            <button
+              className="button"
+              type="button"
+              onClick={() =>
+                void executeQueueAction(queue?.isPaused ? 'resume' : 'pause')
+              }
+            >
               {queue?.isPaused ? 'Resume queue' : 'Pause queue'}
             </button>
             <button
               className="button"
               type="button"
               onClick={() =>
-                void runAction(
-                  'retry-failed',
-                  { count: 100 },
-                  `Retry up to 100 failed jobs in ${queue?.label ?? queueKey}?`,
-                )
+                confirmAction({
+                  title: 'Retry failed jobs',
+                  message: `Retry up to 100 failed jobs in ${queue?.label ?? queueKey}?`,
+                  confirmLabel: 'Retry failed jobs',
+                  onConfirm: async () => executeQueueAction('retry-failed', { count: 100 }),
+                })
               }
             >
               Retry failed jobs
@@ -300,11 +341,12 @@ function QueueDetailPage({
               className="button"
               type="button"
               onClick={() =>
-                void runAction(
-                  'clean',
-                  { graceMs: 0, limit: 100, state: filter },
-                  `Clean up to 100 ${filter} jobs from ${queue?.label ?? queueKey}?`,
-                )
+                confirmAction({
+                  title: 'Clean jobs',
+                  message: `Clean up to 100 ${filter} jobs from ${queue?.label ?? queueKey}?`,
+                  confirmLabel: 'Clean jobs',
+                  onConfirm: async () => executeQueueAction('clean', { graceMs: 0, limit: 100, state: filter }),
+                })
               }
             >
               Clean current tab
@@ -313,7 +355,13 @@ function QueueDetailPage({
               className="button button--danger"
               type="button"
               onClick={() =>
-                void runAction('empty', undefined, `Empty ${queue?.label ?? queueKey}? This removes queued jobs.`)
+                confirmAction({
+                  title: 'Empty queue',
+                  message: `Empty ${queue?.label ?? queueKey}? This removes queued jobs.`,
+                  confirmLabel: 'Empty queue',
+                  tone: 'danger',
+                  onConfirm: async () => executeQueueAction('empty'),
+                })
               }
             >
               Empty queue
@@ -352,7 +400,10 @@ function QueueDetailPage({
                 <th>State</th>
                 <th>Attempts</th>
                 <th>Created</th>
+                <th>Started</th>
+                <th>Finished</th>
                 <th>Failure</th>
+                {canManage ? <th>Actions</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -360,7 +411,12 @@ function QueueDetailPage({
                 jobs.map((job) => (
                   <tr key={job.id}>
                     <td>
-                      <a href={`#/queues/${queueKey}/jobs/${job.id}`}>{job.name ?? job.id}</a>
+                      <a
+                        className="table__link"
+                        href={`#/queues/${queueKey}/jobs/${job.id}`}
+                      >
+                        {job.name ?? job.id}
+                      </a>
                     </td>
                     <td>{job.state}</td>
                     <td>
@@ -368,12 +424,34 @@ function QueueDetailPage({
                       {job.attemptsConfigured ? ` / ${job.attemptsConfigured}` : ''}
                     </td>
                     <td>{formatAdminValue(job.createdAt, 'createdAt', display)}</td>
+                    <td>{formatAdminValue(job.processedAt, 'processedAt', display)}</td>
+                    <td>{formatAdminValue(job.finishedAt, 'finishedAt', display)}</td>
                     <td>{job.failedReason ?? ''}</td>
+                    {canManage ? (
+                      <td>
+                        {job.state === 'failed' ? (
+                          <button
+                            className="button"
+                            type="button"
+                            onClick={() =>
+                              confirmAction({
+                                title: 'Retry job',
+                                message: `Retry job ${job.name ?? job.id}?`,
+                                confirmLabel: 'Retry job',
+                                onConfirm: async () => executeJobAction(job.id, 'retry'),
+                              })
+                            }
+                          >
+                            Retry
+                          </button>
+                        ) : null}
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5}>No {filter} jobs found.</td>
+                  <td colSpan={canManage ? 8 : 7}>No {filter} jobs found.</td>
                 </tr>
               )}
             </tbody>
@@ -396,6 +474,16 @@ function QueueDetailPage({
           </button>
         </div>
       </section>
+      <ConfirmationDialog
+        confirmation={confirmation}
+        confirming={confirming}
+        onCancel={() => {
+          if (!confirming) {
+            setConfirmation(null);
+          }
+        }}
+        onConfirm={() => void handleConfirm()}
+      />
     </section>
   );
 }
@@ -411,7 +499,12 @@ function QueueJobDetailPage({
   const [job, setJob] = useState<QueueJobDetails | null>(null);
   const [queue, setQueue] = useState<QueueDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const canManage = user.isSuperuser === true || user.permissions.includes('queues.write');
+  const canRetry = job?.state === 'failed';
+  const canPromote = job?.state === 'delayed';
+  const canRemove = job?.state !== 'active';
 
   useEffect(() => {
     void load();
@@ -437,11 +530,7 @@ function QueueJobDetailPage({
     }
   }
 
-  async function runAction(action: string, confirmation?: string) {
-    if (confirmation && !window.confirm(confirmation)) {
-      return;
-    }
-
+  async function executeJobAction(action: string) {
     try {
       await runExtensionAction(`/queues/${queueKey}/jobs/${jobId}/actions/${action}`);
       showToast({ message: `Job ${jobId} ${action.replace(/-/g, ' ')} complete.` });
@@ -453,6 +542,24 @@ function QueueJobDetailPage({
       await load();
     } catch (reason) {
       showToast({ message: (reason as Error).message, variant: 'error' });
+    }
+  }
+
+  function confirmAction(nextConfirmation: ConfirmationState) {
+    setConfirmation(nextConfirmation);
+  }
+
+  async function handleConfirm() {
+    if (!confirmation) {
+      return;
+    }
+
+    setConfirming(true);
+    try {
+      await confirmation.onConfirm();
+      setConfirmation(null);
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -479,19 +586,58 @@ function QueueJobDetailPage({
             </div>
           </header>
           <div className="queue-actions">
-            <button className="button" type="button" onClick={() => void runAction('retry')}>
-              Retry job
-            </button>
-            <button className="button" type="button" onClick={() => void runAction('promote')}>
-              Promote job
-            </button>
-            <button
-              className="button button--danger"
-              type="button"
-              onClick={() => void runAction('remove', `Remove job ${jobId} from ${queue?.label ?? queueKey}?`)}
-            >
-              Remove job
-            </button>
+            {canRetry ? (
+              <button
+                className="button"
+                type="button"
+                onClick={() =>
+                  confirmAction({
+                    title: 'Retry job',
+                    message: `Retry job ${job?.name ?? jobId}?`,
+                    confirmLabel: 'Retry job',
+                    onConfirm: async () => executeJobAction('retry'),
+                  })
+                }
+              >
+                Retry job
+              </button>
+            ) : null}
+            {canPromote ? (
+              <button
+                className="button"
+                type="button"
+                onClick={() =>
+                  confirmAction({
+                    title: 'Promote job',
+                    message: `Promote delayed job ${job?.name ?? jobId}?`,
+                    confirmLabel: 'Promote job',
+                    onConfirm: async () => executeJobAction('promote'),
+                  })
+                }
+              >
+                Promote job
+              </button>
+            ) : null}
+            {canRemove ? (
+              <button
+                className="button button--danger"
+                type="button"
+                onClick={() =>
+                  confirmAction({
+                    title: 'Remove job',
+                    message: `Remove job ${jobId} from ${queue?.label ?? queueKey}?`,
+                    confirmLabel: 'Remove job',
+                    tone: 'danger',
+                    onConfirm: async () => executeJobAction('remove'),
+                  })
+                }
+              >
+                Remove job
+              </button>
+            ) : null}
+            {!canRetry && !canPromote && !canRemove ? (
+              <span className="resource-pill">No actions available for {job?.state ?? 'this job'}</span>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -507,9 +653,9 @@ function QueueJobDetailPage({
                 label="Attempts"
                 value={`${job.attemptsMade}${job.attemptsConfigured ? ` / ${job.attemptsConfigured}` : ''}`}
               />
-              <QueueDetailItem label="Created" value={formatAdminValue(job.createdAt, 'createdAt', display)} />
-              <QueueDetailItem label="Processed" value={formatAdminValue(job.processedAt, 'processedAt', display)} />
-              <QueueDetailItem label="Finished" value={formatAdminValue(job.finishedAt, 'finishedAt', display)} />
+              <QueueDetailItem label="Created at" value={formatAdminValue(job.createdAt, 'createdAt', display)} />
+              <QueueDetailItem label="Started processing" value={formatAdminValue(job.processedAt, 'processedAt', display)} />
+              <QueueDetailItem label="Finished at" value={formatAdminValue(job.finishedAt, 'finishedAt', display)} />
             </div>
             <QueueJsonBlock label="Payload" value={job.data} />
             <QueueJsonBlock label="Progress" value={job.progress} />
@@ -523,7 +669,63 @@ function QueueJobDetailPage({
           <p>Job not found.</p>
         )}
       </section>
+      <ConfirmationDialog
+        confirmation={confirmation}
+        confirming={confirming}
+        onCancel={() => {
+          if (!confirming) {
+            setConfirmation(null);
+          }
+        }}
+        onConfirm={() => void handleConfirm()}
+      />
     </section>
+  );
+}
+
+function ConfirmationDialog({
+  confirmation,
+  confirming,
+  onCancel,
+  onConfirm,
+}: {
+  confirmation: ConfirmationState | null;
+  confirming: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!confirmation) {
+    return null;
+  }
+
+  return (
+    <div className="queue-confirm" role="dialog" aria-modal="true" aria-labelledby="queue-confirm-title">
+      <div className="queue-confirm__backdrop" onClick={onCancel} />
+      <section className="panel queue-confirm__dialog">
+        <header className="panel__header">
+          <div>
+            <span className="panel__eyebrow">Confirm action</span>
+            <div className="panel__title-row">
+              <h3 id="queue-confirm-title">{confirmation.title}</h3>
+            </div>
+          </div>
+        </header>
+        <p className="queue-confirm__question">{confirmation.message}</p>
+        <div className="queue-confirm__actions">
+          <button
+            className={confirmation.tone === 'danger' ? 'button button--danger' : 'button button--primary'}
+            disabled={confirming}
+            type="button"
+            onClick={onConfirm}
+          >
+            {confirming ? `${confirmation.confirmLabel}…` : confirmation.confirmLabel}
+          </button>
+          <button className="button" disabled={confirming} type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
