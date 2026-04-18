@@ -116,12 +116,26 @@ async function seedEmailQueue(): Promise<void> {
   );
   await completedJob.waitUntilFinished(queueEvents.email);
 
+  const welcomeJob = await queues.email.add(
+    'send-welcome-email',
+    { userId: 2, template: 'welcome' },
+    { removeOnComplete: false, removeOnFail: false },
+  );
+  await welcomeJob.waitUntilFinished(queueEvents.email);
+
   const failedJob = await queues.email.add(
     'send-order-receipt',
     { orderId: 301, template: 'receipt', shouldFail: true },
     { removeOnComplete: false, removeOnFail: false, attempts: 3 },
   );
   await waitForTerminalState(failedJob.id!, queueEvents.email);
+
+  const digestJob = await queues.email.add(
+    'send-digest-email',
+    { userId: 3, template: 'weekly-digest', shouldFail: true },
+    { removeOnComplete: false, removeOnFail: false, attempts: 2 },
+  );
+  await waitForTerminalState(digestJob.id!, queueEvents.email);
 }
 
 async function seedImportsQueue(): Promise<void> {
@@ -131,6 +145,19 @@ async function seedImportsQueue(): Promise<void> {
     { removeOnComplete: false, removeOnFail: false },
   );
   await completedJob.waitUntilFinished(queueEvents.imports);
+
+  const reconciliationJob = await queues.imports.add(
+    'run-reconciliation-import',
+    { source: 'northwind/reconciliation.csv' },
+    { removeOnComplete: false, removeOnFail: false },
+  );
+  await reconciliationJob.waitUntilFinished(queueEvents.imports);
+
+  await queues.imports.add(
+    'run-delayed-import',
+    { source: 'northwind/backfill.csv' },
+    { removeOnComplete: false, removeOnFail: false, delay: 6 * 60 * 60 * 1000 },
+  );
 }
 
 async function seedWebhookQueue(): Promise<void> {
@@ -144,6 +171,16 @@ async function seedWebhookQueue(): Promise<void> {
     'emit-customer-sync',
     { customerId: 2, target: 'crm' },
     { removeOnComplete: false, removeOnFail: false },
+  );
+  await queues.webhooks.add(
+    'emit-inventory-sync',
+    { sku: 'NW-010', target: 'warehouse' },
+    { removeOnComplete: false, removeOnFail: false },
+  );
+  await queues.webhooks.add(
+    'emit-delayed-billing-sync',
+    { orderId: 303, target: 'billing' },
+    { removeOnComplete: false, removeOnFail: false, delay: 2 * 60 * 60 * 1000 },
   );
 }
 
