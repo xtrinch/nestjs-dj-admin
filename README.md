@@ -6,7 +6,7 @@
 
 NestJS-native admin framework inspired by Django admin, packaged as an npm library.
 
-It gives you:
+## It gives you:
 
 - server-side resource registration
 - DTO-driven form metadata
@@ -21,6 +21,10 @@ It gives you:
 - bundled admin UI assets
 - `TypeORM`, `MikroORM`, `Prisma`, and `in-memory` adapter support
 - runnable demo apps for `TypeORM`, `MikroORM`, `Prisma`, `in-memory`, and external-auth setups
+
+## Why not AdminJS?
+
+`nestjs-dj-admin` is designed to feel more NestJS-native and more Django-Admin-like, with server-side resource registration, DTO/schema-driven metadata, and a tighter integration model for Nest applications.
 
 ## Screenshots
 
