@@ -352,6 +352,10 @@ function FieldInput({
   readOnly?: boolean;
 }) {
   if (field.readOnly || readOnly) {
+    if (field.relation) {
+      return <ReadonlyRelationField field={field} value={values[field.name]} />;
+    }
+
     return (
       <div className="readonly-field">
         <span className="readonly-field__value">
@@ -455,6 +459,72 @@ function formatReadonlyValue(
 ): string {
   const formatted = formatAdminValue(value, fieldName, display);
   return formatted === '' ? 'Not set' : formatted;
+}
+
+function ReadonlyRelationField({
+  field,
+  value,
+}: {
+  field: ResourceField;
+  value: unknown;
+}) {
+  const [label, setLabel] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const relationValues = getSelectedRelationValues(field, value);
+  const relationKey = relationValues.join(',');
+
+  useEffect(() => {
+    if (!field.relation || relationValues.length === 0) {
+      setLabel(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    void lookupResource(field.relation.option.resource, {
+      ids: relationValues,
+      page: 1,
+      pageSize: relationValues.length,
+    })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        const items = relationValues.map(
+          (relationValue) =>
+            response.items.find((item) => item.value === relationValue)?.label ?? relationValue,
+        );
+        setLabel(items.join(', '));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLabel(relationValues.join(', '));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [field.relation?.option.resource, relationKey]);
+
+  const text = relationValues.length === 0
+    ? 'Not set'
+    : loading
+      ? 'Loading…'
+      : label ?? relationValues.join(', ');
+
+  return (
+    <div className="readonly-field">
+      <span className="readonly-field__value">{text}</span>
+    </div>
+  );
 }
 
 function RelationFieldInput({
