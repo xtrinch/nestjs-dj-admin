@@ -99,6 +99,36 @@ describe('adminSchemaFromZod', () => {
     assert.deepEqual(updateFields.map((field) => field.name), ['email']);
   });
 
+  it('supports readOnly in zod field config', () => {
+    const schema = adminSchemaFromZod({
+      display: z.object({
+        createdById: z.coerce.number(),
+      }),
+      create: z.object({}),
+      update: z.object({
+        createdById: z.coerce.number().optional(),
+      }),
+      fields: {
+        createdById: {
+          label: 'Created by',
+          readOnly: true,
+        },
+      },
+    });
+
+    const updateFields = schema.buildUpdateFields({ readonlyFields: [] });
+
+    assert.deepEqual(
+      updateFields.map((field) => ({
+        name: field.name,
+        readOnly: field.readOnly,
+      })),
+      [
+        { name: 'createdById', readOnly: true },
+      ],
+    );
+  });
+
   it('validates and coerces payloads through admin service', async () => {
     let createdPayload: Record<string, unknown> | null = null;
 

@@ -16,6 +16,10 @@ export class UpdateDisplayOrderDto {
   internalNote?: string;
 }
 
+export class ReadOnlyFieldDto {
+  createdById?: number;
+}
+
 AdminField({
   label: 'User',
   relation: {
@@ -41,3 +45,10 @@ IsOptional()(CreateDisplayOrderDto.prototype, 'internalNote');
 
 IsString()(UpdateDisplayOrderDto.prototype, 'internalNote');
 IsOptional()(UpdateDisplayOrderDto.prototype, 'internalNote');
+
+AdminField({
+  label: 'Created by',
+  readOnly: true,
+})(ReadOnlyFieldDto.prototype, 'createdById');
+IsInt()(ReadOnlyFieldDto.prototype, 'createdById');
+IsOptional()(ReadOnlyFieldDto.prototype, 'createdById');

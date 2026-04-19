@@ -121,7 +121,7 @@ function buildFieldsFromZodShape(
         baseField?.input ??
         resolveZodInput(propertyName, unwrapped, extra.relation?.kind),
       required: !isOptionalSchema(rawSchema),
-      readOnly: readonlyFields.includes(propertyName),
+      readOnly: extra.readOnly ?? baseField?.readOnly ?? readonlyFields.includes(propertyName),
       modes: extra.modes,
       helpText: extra.helpText ?? baseField?.helpText,
       enumValues: resolveZodEnumValues(unwrapped) ?? baseField?.enumValues,

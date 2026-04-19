@@ -201,6 +201,7 @@ export interface AdminDtoFieldConfig {
   label?: string;
   helpText?: string;
   input?: 'text' | 'email' | 'tel' | 'url' | 'password' | 'number' | 'checkbox' | 'date' | 'time' | 'datetime-local' | 'textarea' | 'select' | 'multiselect';
+  readOnly?: boolean;
   modes?: AdminFieldMode[];
   relation?: {
     kind: 'many-to-one' | 'many-to-many';

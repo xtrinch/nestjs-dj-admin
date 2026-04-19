@@ -13,6 +13,7 @@ import { CreateOrderDto, OrderStatus, UpdateOrderDto } from '#examples-shared/mo
 import {
   CreateDisplayOrderDto,
   DisplayOrderDto,
+  ReadOnlyFieldDto,
   UpdateDisplayOrderDto,
 } from './fixtures/class-validator-display-dtos.js';
 
@@ -73,6 +74,7 @@ describe('adminSchemaFromClassValidator', () => {
         name: field.name,
         label: field.label,
         input: field.input,
+        readOnly: field.readOnly,
         relation: field.relation,
       })),
       [
@@ -80,6 +82,7 @@ describe('adminSchemaFromClassValidator', () => {
           name: 'userId',
           label: 'User',
           input: 'select',
+          readOnly: false,
           relation: {
             kind: 'many-to-one',
             option: { resource: 'users', labelField: 'email', valueField: 'id' },
@@ -89,6 +92,7 @@ describe('adminSchemaFromClassValidator', () => {
           name: 'internalNote',
           label: 'Internal note',
           input: 'textarea',
+          readOnly: false,
           relation: undefined,
         },
       ],
@@ -105,6 +109,25 @@ describe('adminSchemaFromClassValidator', () => {
       updateFields.map((field) => ({ name: field.name, label: field.label, input: field.input })),
       [
         { name: 'internalNote', label: 'Internal note', input: 'textarea' },
+      ],
+    );
+  });
+
+  it('supports readOnly in field metadata', () => {
+    const schema = adminSchemaFromClassValidator({
+      displayDto: ReadOnlyFieldDto,
+      updateDto: ReadOnlyFieldDto,
+    });
+
+    const updateFields = schema.buildUpdateFields({ readonlyFields: [] });
+
+    assert.deepEqual(
+      updateFields.map((field) => ({
+        name: field.name,
+        readOnly: field.readOnly,
+      })),
+      [
+        { name: 'createdById', readOnly: true },
       ],
     );
   });

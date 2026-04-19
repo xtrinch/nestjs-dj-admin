@@ -17,6 +17,7 @@ export class CategoryAdminDto {
 
   @AdminField({
     label: 'Created by',
+    readOnly: true,
     relation: { kind: 'many-to-one', option: { resource: 'users', labelField: 'email', valueField: 'id' } },
   })
   @Type(() => Number)
@@ -41,6 +42,16 @@ export class UpdateCategoryDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @AdminField({
+    label: 'Created by',
+    readOnly: true,
+    relation: { kind: 'many-to-one', option: { resource: 'users', labelField: 'email', valueField: 'id' } },
+  })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  createdById?: number;
 }
 
 export const categoryAdminOptions = {

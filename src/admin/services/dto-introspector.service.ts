@@ -69,7 +69,7 @@ export function buildClassValidatorFields(
         label: extra.label ?? baseField?.label ?? startCase(propertyName),
         input: resolvedInput,
         required: !validators.some((validator) => matchesValidator(validator, 'conditionalValidation', 'isOptional')),
-        readOnly: readonlyFields.includes(propertyName),
+        readOnly: extra.readOnly ?? baseField?.readOnly ?? readonlyFields.includes(propertyName),
         modes,
         helpText: extra.helpText ?? baseField?.helpText,
         enumValues,
