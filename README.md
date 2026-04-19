@@ -30,6 +30,7 @@ It gives you:
   <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="32%" />
   <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/queues-overview.png" alt="Queue overview page" width="32%" />
   <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/queue-email-detail.png" alt="Queue detail page for the email queue" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/order-related-queue-jobs.png" alt="Order detail page with related queue jobs panel" width="32%" />
 </p>
 
 ## Quickstart
