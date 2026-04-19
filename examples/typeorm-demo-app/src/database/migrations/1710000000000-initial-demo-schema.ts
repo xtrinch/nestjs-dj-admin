@@ -37,11 +37,30 @@ export class InitialDemoSchema1710000000000 implements MigrationInterface {
           { name: 'id', type: 'int', isPrimary: true, isGenerated: true, generationStrategy: 'increment' },
           { name: 'name', type: 'varchar', isUnique: true },
           { name: 'description', type: 'varchar', default: queryRunner.connection.options.type === 'postgres' ? "''" : "''" },
+          { name: 'createdById', type: 'int' },
           { name: 'createdAt', type: 'timestamp', default: 'CURRENT_TIMESTAMP' },
           { name: 'updatedAt', type: 'timestamp', default: 'CURRENT_TIMESTAMP' },
         ],
       }),
       true,
+    );
+
+    await queryRunner.createIndex(
+      'categories',
+      new TableIndex({
+        name: 'IDX_categories_createdById',
+        columnNames: ['createdById'],
+      }),
+    );
+
+    await queryRunner.createForeignKey(
+      'categories',
+      new TableForeignKey({
+        columnNames: ['createdById'],
+        referencedTableName: 'users',
+        referencedColumnNames: ['id'],
+        onDelete: 'RESTRICT',
+      }),
     );
 
     await queryRunner.createTable(

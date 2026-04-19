@@ -13,7 +13,7 @@ It gives you:
 - built-in schema support for `class-validator` and `zod`
 - configurable list fields, filters, search, and lookup behavior
 - create, edit, delete, and detail flows for registered resources
-- extension-provided pages, nav items, and widgets, including embedded dashboards
+- extension-provided pages, nav items, widgets, and route-backed operational screens, including embedded dashboards and queues
 - optional soft delete support
 - built-in admin login and session management
 - built-in admin audit log support
@@ -24,10 +24,13 @@ It gives you:
 ## Screenshots
 
 <p>
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/users-list.png" alt="Users changelist" width="24%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="24%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="24%" />
-  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="24%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/users-list.png" alt="Users changelist" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/orders-list.png" alt="Orders changelist with filters" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/user-edit.png" alt="User change form" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/grafana-overview.png" alt="Custom Grafana overview page" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/queues-overview.png" alt="Queue overview page" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/queue-email-detail.png" alt="Queue detail page for the email queue" width="32%" />
+  <img src="https://raw.githubusercontent.com/xtrinch/nestjs-dj-admin/main/docs/screenshots/order-related-queue-jobs.png" alt="Order detail page with related queue jobs panel" width="32%" />
 </p>
 
 ## Quickstart
@@ -141,6 +144,24 @@ Define create and update DTOs for a resource:
 ```ts
 import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
 
+export class UserAdminDto {
+  @IsString()
+  id!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  role!: string;
+
+  @IsBoolean()
+  active!: boolean;
+
+  @IsString()
+  @IsOptional()
+  createdAt?: string;
+}
+
 export class CreateUserDto {
   @IsEmail()
   email!: string;
@@ -182,6 +203,7 @@ import { User } from './user.entity.js';
   filters: ['role', 'active'],
   readonly: ['createdAt'],
   schema: adminSchemaFromClassValidator({
+    displayDto: UserAdminDto,
     createDto: CreateUserDto,
     updateDto: UpdateUserDto,
   }),
@@ -189,7 +211,9 @@ import { User } from './user.entity.js';
 export class UserAdmin {}
 ```
 
-Admin form fields come from your DTOs, and create/update payloads are validated through `class-validator`.
+Use `displayDto` as the canonical admin field schema for list/detail/filter/search metadata. `createDto` and `updateDto` define writable fields and validation. If you omit `displayDto`, the library falls back to the legacy create/update merge behavior.
+
+The demo `Category` resource uses this pattern for a server-assigned `createdById` field: it is visible in admin list/filter/detail metadata through `displayDto`, but omitted from the create/update DTOs and defaulted on create from the authenticated user.
 
 Build the library UI assets and start your app. The admin API and UI will be mounted at the `path` you configured, such as `/admin`.
 
@@ -232,7 +256,7 @@ The repo ships runnable examples for the supported persistence layers plus a hos
 TypeORM example:
 
 ```bash
-docker compose up -d postgres grafana
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -240,7 +264,7 @@ npm run dev:typeorm-example
 MikroORM example:
 
 ```bash
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run mikroorm:setup:example
 npm run dev:mikroorm-example
 ```
@@ -248,7 +272,7 @@ npm run dev:mikroorm-example
 Prisma example:
 
 ```bash
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run prisma:setup:example
 npm run dev:prisma-example
 ```
@@ -603,7 +627,7 @@ These control the sidebar header, browser title suffix, dashboard title, and the
 
 ## Extensions
 
-`extensions` lets you register non-CRUD admin capabilities through a public extension API. Built-in helpers can be composed, for example `embedPageExtension(...)` for the page itself and `dashboardLinkWidgetExtension(...)` for dashboard promotion.
+`extensions` lets you register non-CRUD admin capabilities through a public extension API. Built-in helpers can be composed, for example `embedPageExtension(...)` for the page itself, `dashboardLinkWidgetExtension(...)` for dashboard promotion, and `bullmqQueueExtension(...)` for first-class queue inspection and actions.
 
 Example:
 
@@ -637,6 +661,149 @@ AdminModule.forRoot({
 ```
 
 Embedded pages still depend on the upstream app allowing framing. For Grafana, that means embedding must be enabled on the Grafana side or the browser will block the iframe.
+
+### BullMQ Queue Extension
+
+The queue extension registers:
+
+- queue overview and per-queue pages
+- job detail pages
+- sidebar entries
+- queue and job actions under the extension API
+
+Example:
+
+```ts
+import { Queue } from 'bullmq';
+import { AdminField } from 'nestjs-dj-admin';
+import { IsInt, IsOptional, IsString } from 'class-validator';
+import { dashboardLinkWidgetExtension } from 'nestjs-dj-admin/dashboard-link-widget-extension';
+import { adminSchemaFromClassValidator, bullmqQueueExtension, BullMqQueueAdapter } from 'nestjs-dj-admin';
+
+const queues = {
+  email: new Queue('email', {
+    connection: {
+      host: '127.0.0.1',
+      port: 6379,
+      maxRetriesPerRequest: null,
+    },
+  }),
+  webhooks: new Queue('webhooks', {
+    connection: {
+      host: '127.0.0.1',
+      port: 6379,
+      maxRetriesPerRequest: null,
+    },
+  }),
+};
+
+class EmailQueuePayloadDto {
+  @AdminField({ label: 'User' })
+  @IsInt()
+  userId!: number;
+
+  @AdminField({ label: 'Order' })
+  @IsInt()
+  @IsOptional()
+  orderId?: number;
+
+  @AdminField({ label: 'Template' })
+  @IsString()
+  template!: string;
+}
+
+class WebhookQueuePayloadDto {
+  @AdminField({ label: 'Order' })
+  @IsInt()
+  @IsOptional()
+  orderId?: number;
+
+  @AdminField({ label: 'Target' })
+  @IsString()
+  target!: string;
+}
+
+const emailQueuePayloadSchema = adminSchemaFromClassValidator({
+  displayDto: EmailQueuePayloadDto,
+});
+
+const webhookQueuePayloadSchema = adminSchemaFromClassValidator({
+  displayDto: WebhookQueuePayloadDto,
+});
+
+AdminModule.forRoot({
+  path: '/admin',
+  extensions: [
+    dashboardLinkWidgetExtension({
+      id: 'queues-widget',
+      title: 'Queues',
+      description: 'Inspect queue health, backlog, and recent jobs across configured queues.',
+      ctaLabel: 'Open queue overview',
+      pageSlug: 'queues-overview',
+    }),
+    bullmqQueueExtension({
+      adapter: new BullMqQueueAdapter({
+        queues,
+      }),
+      queues: [
+        {
+          key: 'email',
+          label: 'Email',
+          description: 'Transactional mail delivery.',
+          payloadSchema: emailQueuePayloadSchema,
+          filters: ['userId', 'orderId', 'template'],
+          list: ['userId', 'template'],
+        },
+        {
+          key: 'webhooks',
+          label: 'Webhooks',
+          description: 'Outbound partner webhook fanout.',
+          payloadSchema: webhookQueuePayloadSchema,
+          filters: ['orderId'],
+          list: ['orderId'],
+        },
+      ],
+      recordPanels: [
+        {
+          resource: 'orders',
+          title: 'Related queue jobs',
+          links: [
+            { queueKey: 'email', filterKey: 'orderId', recordField: 'id', label: 'Email jobs' },
+            { queueKey: 'webhooks', filterKey: 'orderId', recordField: 'id', label: 'Webhook jobs' },
+          ],
+        },
+      ],
+    }),
+  ],
+});
+```
+
+If you want queues promoted on the dashboard, add that separately with `dashboardLinkWidgetExtension(...)`. The queue feature itself only registers queue pages, nav items, actions, and optional resource-detail panels.
+
+`payloadSchema` is the canonical queue payload field schema. `filters` and `list` are string arrays resolved against that schema, so queue payload configuration now follows the same schema-derived model as admin resources.
+
+Queue filter and list labels come from the payload schema field metadata:
+
+- with `adminSchemaFromClassValidator(...)`, use `@AdminField({ label: '...' })` on the payload DTO field when you want a custom label
+- with `adminSchemaFromZod(...)`, use the `fields` map, for example `fields: { userId: { label: 'User' } }`
+- if you do not provide an explicit label, the admin falls back to a start-cased field name such as `orderNumber` -> `Order Number`
+
+If your app already uses Zod, you can use `adminSchemaFromZod({ display: ... })` for queue payload schemas instead.
+
+That extension mounts route-backed queue screens inside the admin shell:
+
+- `/queues`
+- `/queues/:queueKey`
+- `/queues/:queueKey/jobs/:jobId`
+
+The built-in `BullMqQueueAdapter` expects live BullMQ `Queue` instances from your app. It does not create Redis connections for you, and it assumes your workers and queue lifecycle are already managed by the host app.
+
+The queue extension follows the same implicit permission naming pattern as resources:
+
+- `queues.read`
+- `queues.write`
+
+`queues[].filters` define the payload fields that can be filtered on queue detail pages, and `recordPanels` lets the extension surface matching jobs directly on resource detail pages such as `orders/:id`.
 
 For production deployments, the main auth hardening knobs are:
 
@@ -859,6 +1026,7 @@ Example:
 
 ```ts
 const orderSchema = adminSchemaFromClassValidator({
+  displayDto: OrderAdminDto,
   createDto: CreateOrderDto,
   updateDto: UpdateOrderDto,
 });
@@ -966,6 +1134,7 @@ Use `adminSchemaFromClassValidator(...)` by default:
   search: ['email'],
   filters: ['role', 'active'],
   schema: adminSchemaFromClassValidator({
+    displayDto: UserAdminDto,
     createDto: CreateUserDto,
     updateDto: UpdateUserDto,
   }),
@@ -991,6 +1160,13 @@ const createUserSchema = z.object({
 });
 
 const updateUserSchema = createUserSchema.partial();
+const displayUserSchema = z.object({
+  id: z.coerce.number(),
+  email: z.email(),
+  role: z.enum(['admin', 'editor', 'viewer']),
+  active: z.boolean(),
+  userId: z.coerce.number(),
+});
 
 @Injectable()
 @AdminResource({
@@ -999,6 +1175,7 @@ const updateUserSchema = createUserSchema.partial();
   search: ['email'],
   filters: ['role', 'active'],
   schema: adminSchemaFromZod({
+    display: displayUserSchema,
     create: createUserSchema,
     update: updateUserSchema,
     fields: {
@@ -1014,6 +1191,8 @@ const updateUserSchema = createUserSchema.partial();
 })
 export class UserAdmin {}
 ```
+
+For both schema providers, prefer a `displayDto` / `display` schema whenever your readable resource fields differ from your writable create/update payloads.
 
 This gives you:
 
@@ -1071,6 +1250,7 @@ Example:
 
 ```ts
 const userSchema = adminSchemaFromClassValidator({
+  displayDto: UserAdminDto,
   createDto: CreateUserDto,
   updateDto: UpdateUserDto,
 });
@@ -1366,7 +1546,7 @@ Clean setup:
 
 ```bash
 npm install
-docker compose up -d postgres grafana
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -1390,7 +1570,7 @@ DB_PASSWORD=postgres
 DB_NAME=nestjs_dj_admin_demo
 ```
 
-The TypeORM example now applies migrations on startup instead of relying on runtime schema synchronization.
+`typeorm:setup:example` creates the demo database if needed and runs the checked-in TypeORM migrations. The app still runs pending migrations on startup as a safety net.
 
 More detail: [examples/typeorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/README.md)
 
@@ -1402,7 +1582,7 @@ Clean setup:
 
 ```bash
 npm install
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run mikroorm:setup:example
 npm run dev:mikroorm-example
 ```
@@ -1437,7 +1617,7 @@ Clean setup:
 
 ```bash
 npm install
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run prisma:setup:example
 npm run dev:prisma-example
 ```
@@ -1493,14 +1673,14 @@ npm run build:examples
 Default full-stack development flow:
 
 ```bash
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run dev
 ```
 
 Stop and remove the demo Postgres volume:
 
 ```bash
-docker compose down -v
+docker compose -f examples/typeorm-demo-app/docker-compose.yml down -v
 ```
 
 ## Testing

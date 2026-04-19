@@ -76,6 +76,30 @@ try {
     path: fileURLToPath(new URL('grafana-overview.png', outputDir)),
   });
 
+  console.log('Capturing queue overview');
+  await page.goto(`${baseUrl}/admin#/queues`);
+  await page.getByRole('heading', { name: 'Queues overview' }).waitFor({ timeout: 10000 });
+  await page.getByRole('link', { name: 'Email' }).waitFor({ timeout: 10000 });
+  await page.screenshot({
+    path: fileURLToPath(new URL('queues-overview.png', outputDir)),
+  });
+
+  console.log('Capturing queue detail');
+  await page.goto(`${baseUrl}/admin#/queues/email`);
+  await page.getByRole('heading', { name: 'Email' }).waitFor({ timeout: 10000 });
+  await page.locator('.queue-table').waitFor({ timeout: 10000 });
+  await page.screenshot({
+    path: fileURLToPath(new URL('queue-email-detail.png', outputDir)),
+  });
+
+  console.log('Capturing order detail with related queue jobs');
+  await page.goto(`${baseUrl}/admin#/orders/edit/301`);
+  await page.getByRole('heading', { name: 'ORD-1001' }).waitFor({ timeout: 10000 });
+  await page.getByRole('heading', { name: 'Related queue jobs' }).waitFor({ timeout: 10000 });
+  await page.screenshot({
+    path: fileURLToPath(new URL('order-related-queue-jobs.png', outputDir)),
+  });
+
   console.log('Done');
   await browser.close();
 } finally {

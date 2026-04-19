@@ -10,9 +10,20 @@ import { userAdminOptions } from '#examples-shared/modules/user/shared.js';
 import { InMemoryAdminAdapter, createInMemoryAdminStore } from '../../src/admin/adapters/in-memory.adapter.js';
 import { AdminModule } from '../../src/admin/admin.module.js';
 import { AdminResource } from '../../src/admin/decorators/admin-resource.decorator.js';
+import { adminSchemaFromZod } from '../../src/admin/schema/zod-schema.provider.js';
 import { dashboardLinkWidgetExtension } from '../../src/extensions/dashboard-link-widget/index.js';
+import type {
+  JobListResult,
+  QueueAdapter,
+  QueueDetails,
+  QueueJobDetails,
+  QueueJobState,
+  QueueSummary,
+} from '../../src/extensions/bullmq-queue/index.js';
+import { bullmqQueueExtension } from '../../src/extensions/bullmq-queue/index.js';
 import { embedPageExtension } from '../../src/extensions/embed/index.js';
 import { AdminUiService } from '../../src/admin/services/admin-ui.service.js';
+import { z } from 'zod';
 
 const dashboardPreviewHtml = `
 <!doctype html>
@@ -113,6 +124,36 @@ const dashboardPreviewHtml = `
 `;
 
 const dashboardPreviewUrl = `data:text/html;charset=utf-8,${encodeURIComponent(dashboardPreviewHtml)}`;
+const emailQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    userId: z.coerce.number(),
+    orderId: z.coerce.number().optional(),
+    template: z.string(),
+  }),
+  fields: {
+    userId: { label: 'User' },
+    orderId: { label: 'Order' },
+    template: { label: 'Template' },
+  },
+});
+const webhookQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    orderId: z.coerce.number().optional(),
+    target: z.string(),
+  }),
+  fields: {
+    orderId: { label: 'Order' },
+    target: { label: 'Target' },
+  },
+});
+const importQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    source: z.string(),
+  }),
+  fields: {
+    source: { label: 'Source' },
+  },
+});
 
 const SEEDED_USERS = [
   {
@@ -223,12 +264,242 @@ const SEEDED_ORDERS = [
   },
 ] as const;
 
+const SEEDED_QUEUES = [
+  {
+    key: 'email',
+    label: 'Email',
+    description: 'Transactional email delivery queue.',
+    isPaused: false,
+    jobs: [
+      {
+        id: 'email-1001',
+        name: 'send-welcome-email',
+        state: 'waiting',
+        data: { userId: '1', template: 'welcome' },
+        attemptsMade: 0,
+        attemptsConfigured: 3,
+        progress: 0,
+        createdAt: '2026-04-10T08:00:00.000Z',
+        failedReason: undefined,
+        result: undefined,
+        stackTrace: [],
+      },
+      {
+        id: 'email-1002',
+        name: 'send-receipt',
+        state: 'failed',
+        data: { orderId: '301' },
+        attemptsMade: 2,
+        attemptsConfigured: 3,
+        progress: 100,
+        createdAt: '2026-04-10T08:05:00.000Z',
+        processedAt: '2026-04-10T08:06:00.000Z',
+        finishedAt: '2026-04-10T08:06:05.000Z',
+        failedReason: 'SMTP timeout',
+        result: undefined,
+        stackTrace: ['Error: SMTP timeout', '    at Mailer.send (mailer.ts:18:9)'],
+      },
+    ],
+  },
+  {
+    key: 'webhooks',
+    label: 'Webhooks',
+    description: 'Outbound webhook fanout for partner systems.',
+    isPaused: true,
+    jobs: [
+      {
+        id: 'webhooks-2001',
+        name: 'emit-order-created',
+        state: 'delayed',
+        data: { orderId: '302', attempt: 1 },
+        attemptsMade: 0,
+        attemptsConfigured: 5,
+        progress: 0,
+        createdAt: '2026-04-11T09:10:00.000Z',
+        failedReason: undefined,
+        result: undefined,
+        stackTrace: [],
+      },
+    ],
+  },
+  {
+    key: 'imports',
+    label: 'Imports',
+    description: 'Batch ingest and reconciliation tasks.',
+    isPaused: false,
+    jobs: [
+      {
+        id: 'imports-3001',
+        name: 'run-nightly-import',
+        state: 'completed',
+        data: { source: 's3://demo/import.csv' },
+        attemptsMade: 1,
+        attemptsConfigured: 2,
+        progress: 100,
+        createdAt: '2026-04-12T01:00:00.000Z',
+        processedAt: '2026-04-12T01:02:00.000Z',
+        finishedAt: '2026-04-12T01:03:00.000Z',
+        failedReason: undefined,
+        result: { imported: 42 },
+        stackTrace: [],
+      },
+    ],
+  },
+] as const;
+
 const TEST_ADMIN_STORE = createInMemoryAdminStore();
+const TEST_QUEUE_STORE: TestQueueRecord[] = [];
 
 class User {}
 class Category {}
 class Product {}
 class Order {}
+
+type TestQueueJob = QueueJobDetails & {
+  state: QueueJobState;
+};
+
+type TestQueueRecord = {
+  key: string;
+  label: string;
+  description?: string;
+  isPaused: boolean;
+  jobs: TestQueueJob[];
+};
+
+class TestQueueAdapter implements QueueAdapter {
+  constructor(private readonly queues: TestQueueRecord[]) {}
+
+  async listQueues(): Promise<QueueSummary[]> {
+    return this.queues.map((queue) => this.serializeQueue(queue));
+  }
+
+  async getQueue(queueKey: string): Promise<QueueDetails> {
+    return this.serializeQueue(this.requireQueue(queueKey));
+  }
+
+  async listJobs(
+    queueKey: string,
+    filter: QueueJobState,
+    query: { page: number; pageSize: number; payloadFilters?: Array<{ path: string; value: string }> },
+  ): Promise<JobListResult> {
+    const queue = this.requireQueue(queueKey);
+    const items = queue.jobs.filter((job) =>
+      job.state === filter
+      && (query.payloadFilters ?? []).every((payloadFilter) => {
+        const candidate = getValueAtPath(job.data, payloadFilter.path);
+        return candidate != null && String(candidate) === payloadFilter.value;
+      }),
+    );
+    const page = Math.max(1, query.page);
+    const pageSize = Math.max(1, query.pageSize);
+    const start = (page - 1) * pageSize;
+    return {
+      items: items.slice(start, start + pageSize).map((job) => ({ ...job })),
+      total: items.length,
+      page,
+      pageSize,
+    };
+  }
+
+  async getJob(queueKey: string, jobId: string): Promise<QueueJobDetails | null> {
+    return this.requireQueue(queueKey).jobs.find((job) => job.id === jobId) ?? null;
+  }
+
+  async pauseQueue(queueKey: string): Promise<void> {
+    this.requireQueue(queueKey).isPaused = true;
+  }
+
+  async resumeQueue(queueKey: string): Promise<void> {
+    this.requireQueue(queueKey).isPaused = false;
+  }
+
+  async cleanQueue(queueKey: string, input: { limit: number; state: QueueJobState }): Promise<{ count: number }> {
+    const queue = this.requireQueue(queueKey);
+    const toRemove = queue.jobs.filter((job) => job.state === input.state).slice(0, input.limit);
+    queue.jobs = queue.jobs.filter((job) => !toRemove.includes(job));
+    return { count: toRemove.length };
+  }
+
+  async retryFailedJobs(queueKey: string, input: { count?: number }): Promise<{ count: number }> {
+    const queue = this.requireQueue(queueKey);
+    const retried = queue.jobs.filter((job) => job.state === 'failed').slice(0, input.count ?? 100);
+    for (const job of retried) {
+      job.state = 'waiting';
+      job.failedReason = undefined;
+      job.stackTrace = [];
+      job.attemptsMade += 1;
+    }
+
+    return { count: retried.length };
+  }
+
+  async emptyQueue(queueKey: string): Promise<void> {
+    this.requireQueue(queueKey).jobs = [];
+  }
+
+  async retryJob(queueKey: string, jobId: string): Promise<void> {
+    const job = this.requireJob(queueKey, jobId);
+    job.state = 'waiting';
+    job.failedReason = undefined;
+    job.stackTrace = [];
+    job.attemptsMade += 1;
+  }
+
+  async removeJob(queueKey: string, jobId: string): Promise<void> {
+    const queue = this.requireQueue(queueKey);
+    queue.jobs = queue.jobs.filter((job) => job.id !== jobId);
+  }
+
+  async promoteJob(queueKey: string, jobId: string): Promise<void> {
+    const job = this.requireJob(queueKey, jobId);
+    job.state = 'waiting';
+  }
+
+  private requireQueue(queueKey: string): TestQueueRecord {
+    const queue = this.queues.find((candidate) => candidate.key === queueKey);
+    if (!queue) {
+      throw new Error(`Unknown queue "${queueKey}"`);
+    }
+
+    return queue;
+  }
+
+  private requireJob(queueKey: string, jobId: string): TestQueueJob {
+    const job = this.requireQueue(queueKey).jobs.find((candidate) => candidate.id === jobId);
+    if (!job) {
+      throw new Error(`Unknown job "${jobId}"`);
+    }
+
+    return job;
+  }
+
+  private serializeQueue(queue: TestQueueRecord): QueueSummary {
+    return {
+      key: queue.key,
+      label: queue.label,
+      description: queue.description,
+      isPaused: queue.isPaused,
+      counts: {
+        waiting: queue.jobs.filter((job) => job.state === 'waiting').length,
+        active: queue.jobs.filter((job) => job.state === 'active').length,
+        delayed: queue.jobs.filter((job) => job.state === 'delayed').length,
+        failed: queue.jobs.filter((job) => job.state === 'failed').length,
+        completed: queue.jobs.filter((job) => job.state === 'completed').length,
+      },
+    };
+  }
+}
+
+function getValueAtPath(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (current == null || typeof current !== 'object' || !(segment in current)) {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, value);
+}
 
 class TestUserAdmin {}
 Injectable()(TestUserAdmin);
@@ -330,6 +601,52 @@ Module({
           description: 'Open the embedded monitoring dashboard from the admin home screen.',
           pageSlug: 'grafana-overview',
         }),
+        dashboardLinkWidgetExtension({
+          id: 'test-queues-widget',
+          title: 'Queues',
+          description: 'Inspect queue health, backlog, and recent jobs across configured queues.',
+          ctaLabel: 'Open queue overview',
+          pageSlug: 'queues-overview',
+        }),
+        bullmqQueueExtension({
+          adapter: new TestQueueAdapter(TEST_QUEUE_STORE),
+          queues: [
+            {
+              key: 'email',
+              label: 'Email',
+              description: 'Transactional email delivery queue.',
+              payloadSchema: emailQueuePayloadSchema,
+              filters: ['userId', 'orderId', 'template'],
+              list: ['userId', 'template'],
+            },
+            {
+              key: 'webhooks',
+              label: 'Webhooks',
+              description: 'Outbound webhook fanout for partner systems.',
+              payloadSchema: webhookQueuePayloadSchema,
+              filters: ['orderId', 'target'],
+              list: ['target'],
+            },
+            {
+              key: 'imports',
+              label: 'Imports',
+              description: 'Batch ingest and reconciliation tasks.',
+              payloadSchema: importQueuePayloadSchema,
+              filters: ['source'],
+              list: ['source'],
+            },
+          ],
+          recordPanels: [
+            {
+              resource: 'orders',
+              title: 'Related queue jobs',
+              links: [
+                { queueKey: 'email', filterKey: 'orderId', recordField: 'id', label: 'Email jobs' },
+                { queueKey: 'webhooks', filterKey: 'orderId', recordField: 'id', label: 'Webhook jobs' },
+              ],
+            },
+          ],
+        }),
       ],
       display: {
         locale: 'en-US',
@@ -386,6 +703,14 @@ function resetStore() {
   TEST_ADMIN_STORE.orders = SEEDED_ORDERS.map((order) => ({ ...order }));
   TEST_ADMIN_STORE.products = SEEDED_PRODUCTS.map((product) => ({ ...product }));
   TEST_ADMIN_STORE['order-details'] = [];
+  TEST_QUEUE_STORE.splice(
+    0,
+    TEST_QUEUE_STORE.length,
+    ...SEEDED_QUEUES.map((queue) => ({
+      ...queue,
+      jobs: queue.jobs.map((job) => ({ ...job, stackTrace: [...job.stackTrace] })),
+    })),
+  );
 }
 
 await bootstrap().catch((error) => {

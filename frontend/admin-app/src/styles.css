@@ -511,34 +511,6 @@ a {
   margin-top: 1rem;
 }
 
-.custom-page {
-  display: grid;
-  gap: 1rem;
-}
-
-.custom-page__hero {
-  padding: 1.1rem 1.2rem;
-}
-
-.custom-page__copy {
-  max-width: 52rem;
-  margin: 0.6rem 0 0;
-  color: var(--admin-text-muted);
-  line-height: 1.6;
-}
-
-.custom-page__panel {
-  padding: 0.75rem;
-}
-
-.custom-page__embed {
-  width: 100%;
-  min-height: 30rem;
-  border: 0;
-  border-radius: 0.7rem;
-  background: #101418;
-}
-
 .changelist__main {
   min-width: 0;
 }
@@ -1130,4 +1102,5 @@ a {
   .filters-sidebar {
     order: -1;
   }
+
 }

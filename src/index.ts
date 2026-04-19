@@ -17,8 +17,31 @@ export { adminSchemaFromClassValidator } from './admin/schema/class-validator-sc
 export { adminSchemaFromZod } from './admin/schema/zod-schema.provider.js';
 export { embedPageExtension } from './extensions/embed/index.js';
 export { dashboardLinkWidgetExtension } from './extensions/dashboard-link-widget/index.js';
+export { bullmqQueueExtension, BullMqQueueAdapter } from './extensions/bullmq-queue/index.js';
 export type { EmbedPageExtensionOptions } from './extensions/embed/index.js';
 export type { DashboardLinkWidgetExtensionOptions } from './extensions/dashboard-link-widget/index.js';
+export type {
+  BullMqJobLike,
+  BullMqQueueAdapterOptions,
+  BullMqQueueDefinition,
+  BullMqQueueExtensionOptions,
+  BullMqQueueRecordLink,
+  BullMqQueueRecordPanelDefinition,
+  BullMqQueueLike,
+  CleanQueueInput,
+  CleanQueueResult,
+  JobListResult,
+  QueueAdapter,
+  QueueDetails,
+  QueueJobDetails,
+  QueueJobState,
+  QueueJobSummary,
+  QueueListQuery,
+  QueuePayloadSchema,
+  QueueSummary,
+  RetryFailedJobsInput,
+  RetryJobsResult,
+} from './extensions/bullmq-queue/index.js';
 
 export { PrismaAdminAdapter } from './admin/adapters/prisma.adapter.js';
 export { TypeOrmAdminAdapter } from './admin/adapters/typeorm.adapter.js';
@@ -72,6 +95,12 @@ export type {
 
 export type {
   AdminEmbedPageDefinition,
+  AdminExtensionActionAuditEvent,
+  AdminExtensionActionPermissions,
+  AdminExtensionEndpointContext,
+  AdminExtensionEndpointDefinition,
+  AdminExtensionGetEndpointDefinition,
+  AdminExtensionPostEndpointDefinition,
   AdminHrefNavItemDefinition,
   AdminHrefWidgetDefinition,
   AdminNavItemDefinition,
@@ -80,6 +109,9 @@ export type {
   AdminPageNavItemDefinition,
   AdminPageSchema,
   AdminPageLinkWidgetDefinition,
+  AdminResourceDetailPanelDefinition,
+  AdminResourceDetailPanelSchema,
+  AdminRouteWidgetDefinition,
   AdminWidgetDefinition,
   AdminWidgetSchema,
   DjAdminExtension,

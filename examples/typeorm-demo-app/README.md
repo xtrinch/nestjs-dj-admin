@@ -7,6 +7,8 @@ Runs the admin backend at `http://127.0.0.1:3000/admin` using:
 - TypeORM
 - PostgreSQL
 - Grafana
+- BullMQ
+- Redis
 - startup migrations
 - startup seed data
 
@@ -14,7 +16,7 @@ Runs the admin backend at `http://127.0.0.1:3000/admin` using:
 
 ```bash
 npm install
-docker compose up -d postgres grafana
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
 npm run dev:typeorm-example
 ```
@@ -41,8 +43,12 @@ password: editor123
 
 - Uses the shared demo database `nestjs_dj_admin_demo` on `127.0.0.1:5432`
 - Uses the local Grafana demo at `http://127.0.0.1:3001`
-- Creates the demo database if needed and applies TypeORM migrations on startup
-- Seeds baseline users, orders, categories, products, and order details on startup
-- Registers a composable embed page extension plus dashboard link widget extension for `Grafana overview`
+- Uses Redis on `127.0.0.1:6379` for the live BullMQ demo queues
+- Keeps its local Docker stack in `examples/typeorm-demo-app/docker-compose.yml`
+- Creates the demo database if needed and runs checked-in TypeORM migrations with `typeorm:setup:example`
+- Still applies pending migrations on startup as a safety net
+- Seeds baseline users, orders, categories, products, order details, and live BullMQ demo jobs on startup
+- Registers the Grafana extensions plus the queue extension with live `email`, `webhooks`, and `imports` queues
 - This is the default primary demo used by `npm run dev`
-- `typeorm:setup:example` prepares the Postgres database, while the app itself runs pending migrations before serving requests
+- `typeorm:setup:example` prepares the Postgres database and runs the checked-in TypeORM migrations
+- the app itself still runs pending migrations before serving requests

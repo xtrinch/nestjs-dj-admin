@@ -4,6 +4,7 @@ import { AdminAuditLogEntity } from '../modules/admin-audit/admin-audit-log.enti
 import { InitialDemoSchema1710000000000 } from './migrations/1710000000000-initial-demo-schema.js';
 import { AddSoftDeleteToProducts1710000000001 } from './migrations/1710000000001-add-soft-delete-to-products.js';
 import { AddAdminAuditLog1710000000002 } from './migrations/1710000000002-add-admin-audit-log.js';
+import { AddCategoryCreatedBy1710000000003 } from './migrations/1710000000003-add-category-created-by.js';
 import { OrderDetail } from '../modules/order-detail/order-detail.entity.js';
 import { Order } from '../modules/order/order.entity.js';
 import { Product } from '../modules/product/product.entity.js';
@@ -17,7 +18,7 @@ export const demoDataSource = new DataSource({
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_NAME ?? 'nestjs_dj_admin_demo',
   entities: [User, Order, Category, Product, OrderDetail, AdminAuditLogEntity],
-  migrations: [InitialDemoSchema1710000000000, AddSoftDeleteToProducts1710000000001, AddAdminAuditLog1710000000002],
+  migrations: [InitialDemoSchema1710000000000, AddSoftDeleteToProducts1710000000001, AddAdminAuditLog1710000000002, AddCategoryCreatedBy1710000000003],
   synchronize: false,
 });
 

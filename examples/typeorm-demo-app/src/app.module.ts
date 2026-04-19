@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { ADMIN_ADAPTER } from '#src/admin/admin.constants.js';
 import { TypeOrmAdminAdapter } from '#src/admin/adapters/typeorm.adapter.js';
 import { AdminModule } from '#src/admin/admin.module.js';
+import { adminSchemaFromZod } from '#src/admin/schema/zod-schema.provider.js';
 import { dashboardLinkWidgetExtension } from '#src/extensions/dashboard-link-widget/index.js';
+import { bullmqQueueExtension } from '#src/extensions/bullmq-queue/index.js';
 import { embedPageExtension } from '#src/extensions/embed/index.js';
 import { verifyPassword } from './auth/password.js';
 import { DataSource } from 'typeorm';
@@ -17,8 +19,45 @@ import { ProductModule } from './modules/product/product.module.js';
 import { Role, User } from './modules/user/user.entity.js';
 import { UserModule } from './modules/user/user.module.js';
 import { DEMO_PERMISSIONS, permissionsForDemoRole } from '../../shared/src/admin-permissions.js';
+import { demoBullMqQueueAdapter } from './queues/demo-bullmq.js';
+import { DemoQueueService } from './queues/demo-queue.service.js';
+import { z } from 'zod';
 
 const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:3001/d-solo/dj-admin-overview/dj-admin-overview?orgId=1&from=now-6h&to=now&theme=dark&panelId=1';
+const emailQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    userId: z.coerce.number(),
+    orderId: z.coerce.number().optional(),
+    orderNumber: z.string().optional(),
+    template: z.string(),
+  }),
+  fields: {
+    userId: { label: 'User' },
+    orderId: { label: 'Order' },
+    orderNumber: { label: 'Order number' },
+    template: { label: 'Template' },
+  },
+});
+const webhookQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    orderId: z.coerce.number().optional(),
+    orderNumber: z.string().optional(),
+    target: z.string(),
+  }),
+  fields: {
+    orderId: { label: 'Order' },
+    orderNumber: { label: 'Order number' },
+    target: { label: 'Target' },
+  },
+});
+const importQueuePayloadSchema = adminSchemaFromZod({
+  display: z.object({
+    source: z.string(),
+  }),
+  fields: {
+    source: { label: 'Source' },
+  },
+});
 
 @Module({
   imports: [
@@ -48,6 +87,52 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
           description: 'Open the embedded monitoring dashboard from the admin home screen.',
           ctaLabel: 'Open Grafana overview',
           pageSlug: 'grafana-overview',
+        }),
+        dashboardLinkWidgetExtension({
+          id: 'queues-widget',
+          title: 'Queues',
+          description: 'Inspect queue health, backlog, and recent jobs across configured queues.',
+          ctaLabel: 'Open queue overview',
+          pageSlug: 'queues-overview',
+        }),
+        bullmqQueueExtension({
+          adapter: demoBullMqQueueAdapter,
+          queues: [
+            {
+              key: 'email',
+              label: 'Email',
+              description: 'Transactional messages waiting for SMTP delivery.',
+              payloadSchema: emailQueuePayloadSchema,
+              filters: ['userId', 'orderId', 'orderNumber', 'template'],
+              list: ['userId', 'template', 'orderNumber'],
+            },
+            {
+              key: 'webhooks',
+              label: 'Webhooks',
+              description: 'Outbound partner webhook fanout and retries.',
+              payloadSchema: webhookQueuePayloadSchema,
+              filters: ['orderId', 'orderNumber', 'target'],
+              list: ['target', 'orderNumber'],
+            },
+            {
+              key: 'imports',
+              label: 'Imports',
+              description: 'Nightly ingest and reconciliation jobs.',
+              payloadSchema: importQueuePayloadSchema,
+              filters: ['source'],
+              list: ['source'],
+            },
+          ],
+          recordPanels: [
+            {
+              resource: 'orders',
+              title: 'Related queue jobs',
+              links: [
+                { queueKey: 'email', filterKey: 'orderNumber', recordField: 'number', label: 'Email jobs' },
+                { queueKey: 'webhooks', filterKey: 'orderNumber', recordField: 'number', label: 'Webhook jobs' },
+              ],
+            },
+          ],
         }),
       ],
       branding: {
@@ -118,6 +203,7 @@ const grafanaEmbedUrl = process.env['GRAFANA_EMBED_URL'] ?? 'http://127.0.0.1:30
       inject: [DataSource],
     },
     DemoDataService,
+    DemoQueueService,
   ],
 })
 export class AppModule {}

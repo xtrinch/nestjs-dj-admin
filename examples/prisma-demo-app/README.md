@@ -13,7 +13,7 @@ Runs the admin backend at `http://127.0.0.1:3000/admin` using:
 
 ```bash
 npm install
-docker compose up -d postgres
+docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres
 npm run prisma:setup:example
 npm run dev:prisma-example
 ```

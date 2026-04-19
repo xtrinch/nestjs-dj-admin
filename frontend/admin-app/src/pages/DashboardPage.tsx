@@ -215,6 +215,10 @@ function resolveWidgetHref(widget: WidgetSchema, pages: CustomPageSchema[]): str
     return widget.href;
   }
 
+  if (widget.kind === 'route') {
+    return `#${widget.route}`;
+  }
+
   const page = pages.find((entry) => entry.slug === widget.pageSlug);
-  return page ? `#/pages/${page.slug}` : '#';
+  return page ? `#${page.route}` : '#';
 }

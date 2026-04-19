@@ -6,10 +6,11 @@ import { PasswordPage } from './pages/PasswordPage.js';
 import { DeleteConfirmPage } from './pages/DeleteConfirmPage.js';
 import { AuditLogPage } from './pages/AuditLogPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
-import { CustomPage } from './pages/CustomPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { ExternalAuthPage } from './pages/ExternalAuthPage.js';
+import { getExtensionPageComponent } from './extensions/registry.js';
 import { canWriteResource } from './permissions.js';
+import { matchExtensionRoute, normalizeExtensionRoute } from './route-utils.js';
 import { getAdminAuthConfig, getCurrentAdminUser, logoutAdmin } from './services/auth.service.js';
 import { getAdminMeta } from './services/resources.service.js';
 import { consumeToast, onToast } from './services/toast.service.js';
@@ -52,6 +53,8 @@ type AppRoute =
       resourceName: string;
       resourceLabel: string;
       pageLabel: null;
+      href: string;
+      params: Record<string, string>;
     }
   | {
       kind: 'resource';
@@ -225,6 +228,7 @@ export function App() {
             activeRoute={activeRoute}
             auditLogEnabled={meta.auditLog?.enabled === true}
             navigation={navigation}
+            pages={meta.pages}
           />
         </nav>
       </aside>
@@ -367,10 +371,12 @@ function SidebarNav({
   activeRoute,
   auditLogEnabled,
   navigation,
+  pages,
 }: {
   activeRoute: AppRoute | null;
   auditLogEnabled: boolean;
   navigation: NavigationGroup[];
+  pages: CustomPageSchema[];
 }) {
   return (
     <>
@@ -404,7 +410,7 @@ function SidebarNav({
                   ? 'nav__link active'
                   : 'nav__link'
               }
-              href={navItem.kind === 'page' ? `#/pages/${navItem.pageSlug}` : navItem.href}
+              href={navItem.kind === 'page' ? `#${resolvePageHref(navItem.pageSlug, pages)}` : navItem.href}
             >
               {navItem.label}
             </a>
@@ -465,7 +471,20 @@ function RouteContent({
   }
 
   if (route.kind === 'page') {
-    return <CustomPage key={`page:${route.page.slug}`} page={route.page} onTitleChange={onTitleChange} />;
+    const ExtensionPageComponent = getExtensionPageComponent(route.page);
+    return ExtensionPageComponent ? (
+      <ExtensionPageComponent
+        key={`page:${route.page.slug}:${route.href}`}
+        display={display}
+        page={route.page}
+        pagePath={route.href}
+        params={route.params}
+        user={user}
+        onTitleChange={onTitleChange}
+      />
+    ) : (
+      <section className="panel">Unsupported extension page: {route.page.label}</section>
+    );
   }
 
   if (route.mode === 'list') {
@@ -507,6 +526,7 @@ function RouteContent({
       resource={route.resource}
       id={route.id}
       readOnly={route.mode === 'view' || !canWriteResource(route.resource, user)}
+      user={user}
       onTitleChange={onTitleChange}
     />
   );
@@ -536,7 +556,7 @@ function describeRoute(route: AppRoute, subjectLabel: string | null) {
   return {
     category: route.kind === 'resource' ? route.resource.category : route.category,
     resourceName: route.resourceName,
-    resourceHref: route.kind === 'page' ? `#/pages/${route.page.slug}` : `#/${route.resourceName}`,
+    resourceHref: route.kind === 'page' ? `#${route.href}` : `#/${route.resourceName}`,
     resourceLabel: route.kind === 'resource' ? route.resource.label : route.resourceLabel,
     pageLabel: getRoutePageLabel(route, subjectLabel),
   };
@@ -570,7 +590,7 @@ function getRoutePageLabel(route: AppRoute, subjectLabel: string | null): string
   }
 
   if (route.kind === 'page') {
-    return null;
+    return subjectLabel;
   }
 
   if (route.mode === 'list') {
@@ -601,9 +621,9 @@ function isActiveNavItemRoute(route: AppRoute, navItem: NavItemSchema): boolean 
 }
 
 function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPageSchema[]): AppRoute {
-  const normalized = hash.replace(/^#\/?/, '');
+  const normalized = normalizeExtensionRoute(hash.replace(/^#/, ''));
 
-  if (normalized === '' || normalized === 'home') {
+  if (normalized === '/' || normalized === '/home') {
     return {
       kind: 'home',
       category: 'Home',
@@ -613,7 +633,7 @@ function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPage
     };
   }
 
-  if (normalized === 'audit-log') {
+  if (normalized === '/audit-log') {
     return {
       kind: 'audit',
       category: 'System',
@@ -623,12 +643,9 @@ function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPage
     };
   }
 
-  const segments = normalized.split('/');
-  if (segments[0] === 'pages') {
-    const resourceName = segments[1];
-    const fallbackPage = pages[0];
-    if (fallbackPage) {
-      const page = pages.find((item) => item.slug === resourceName) ?? fallbackPage;
+  for (const page of pages) {
+    const matched = matchExtensionRoute(page.route, normalized);
+    if (matched) {
       return {
         kind: 'page',
         page,
@@ -636,10 +653,13 @@ function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPage
         resourceName: page.slug,
         resourceLabel: page.label,
         pageLabel: null,
+        href: normalized,
+        params: matched.params,
       };
     }
   }
 
+  const segments = normalized.split('/').filter(Boolean);
   const [resourceName, mode, id, extra] = segments;
   const fallback = resources[0];
   if (!fallback) {
@@ -661,6 +681,8 @@ function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPage
       resourceName: fallbackPage.slug,
       resourceLabel: fallbackPage.label,
       pageLabel: null,
+      href: fallbackPage.route,
+      params: {},
     };
   }
 
@@ -701,4 +723,9 @@ function parseRoute(hash: string, resources: ResourceSchema[], pages: CustomPage
     id: mode === 'edit' || mode === 'view' ? id : undefined,
     deleteIds: [] as string[],
   };
+}
+
+function resolvePageHref(pageSlug: string, pages: CustomPageSchema[]): string {
+  const page = pages.find((entry) => entry.slug === pageSlug);
+  return page?.route ?? '/';
 }

@@ -13,6 +13,9 @@ export class Category {
   @Property({ columnType: 'text', default: '' })
   description = '';
 
+  @Property()
+  createdById!: number;
+
   @ManyToMany({
     entity: () => Product,
     mappedBy: (product) => product.categories,

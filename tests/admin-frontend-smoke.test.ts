@@ -157,12 +157,49 @@ describe('Admin frontend smoke', { timeout: 90_000 }, () => {
     await expectUnchecked(checkboxField(page, 'Active'));
   });
 
+  it('renders related queue jobs on order detail pages', { timeout: 45_000 }, async () => {
+    await login(page, baseUrl);
+
+    await sidebarLink(page, 'Order').click();
+    await page.getByRole('heading', { name: 'Order' }).waitFor();
+    await row(page, 'ORD-1001').getByRole('link').first().click();
+
+    await page.getByRole('heading', { name: 'ORD-1001' }).waitFor();
+    await page.getByRole('heading', { name: 'Related queue jobs' }).waitFor();
+    await page.getByRole('heading', { name: 'Email jobs' }).waitFor();
+    await page.getByRole('link', { name: 'send-receipt' }).waitFor();
+  });
+
   it('renders extension-provided embed pages in the sidebar', { timeout: 45_000 }, async () => {
     await login(page, baseUrl);
 
     await sidebarLink(page, 'Grafana overview').click();
     await page.getByRole('heading', { name: 'Grafana Overview' }).waitFor();
     await page.locator('iframe[title="Grafana Overview"]').waitFor();
+  });
+
+  it('renders queue extension pages and supports queue/job actions', { timeout: 45_000 }, async () => {
+    await login(page, baseUrl);
+
+    await page.goto(`${baseUrl}/admin#/queues`);
+    await page.getByRole('heading', { name: 'Queues overview' }).waitFor();
+    await page.getByRole('link', { name: 'Open queue' }).first().click();
+
+    await page.getByRole('heading', { name: 'Email' }).waitFor();
+    await page.getByRole('button', { name: 'Retry failed jobs' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Retry failed jobs', exact: true }).click();
+    await expectToast(page, 'Email retry failed complete');
+
+    await page.getByRole('button', { name: 'Failed', exact: true }).click();
+    await page.getByRole('cell', { name: 'No failed jobs found.' }).waitFor();
+
+    await page.getByRole('button', { name: 'Waiting', exact: true }).click();
+    await page.getByRole('link', { name: 'send-welcome-email' }).click();
+    await page.getByRole('heading', { name: 'send-welcome-email' }).waitFor();
+    await page.getByRole('button', { name: 'Remove job' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Remove job', exact: true }).click();
+    await expectToast(page, 'Job email-1001 remove complete.');
+    await page.getByRole('heading', { name: 'Email' }).waitFor();
   });
 });
 

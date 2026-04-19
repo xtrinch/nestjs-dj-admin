@@ -37,6 +37,10 @@
     "./dashboard-link-widget-extension": {
       "types": "./dist/src/extensions/dashboard-link-widget/index.d.ts",
       "import": "./dist/src/extensions/dashboard-link-widget/index.js"
+    },
+    "./bullmq-queue-extension": {
+      "types": "./dist/src/extensions/bullmq-queue/index.d.ts",
+      "import": "./dist/src/extensions/bullmq-queue/index.js"
     }
   },
   "imports": {
@@ -82,7 +86,7 @@
     "build:built-consumer-example": "npm run clean && npm run build:lib && tsc -p examples/built-consumer-demo-app/tsconfig.json",
     "build:example": "npm run build:typeorm-example",
     "build:examples": "npm run prisma:generate:example && npm run mikroorm:setup:example && npm run clean && npm run build:lib && tsc -p examples/typeorm-demo-app/tsconfig.json && tsc -p examples/in-memory-demo-app/tsconfig.json && tsc -p examples/external-auth-demo-app/tsconfig.json && tsc -p examples/prisma-demo-app/tsconfig.json && tsc -p examples/mikroorm-demo-app/tsconfig.json",
-    "typeorm:setup:example": "node scripts/setup-typeorm-example.mjs",
+    "typeorm:setup:example": "node --loader ts-node/esm scripts/setup-typeorm-example.mjs",
     "mikroorm:setup:example": "node scripts/setup-mikroorm-example.mjs",
     "prisma:generate:example": "prisma generate --config examples/prisma-demo-app/prisma.config.ts",
     "prisma:migrate:deploy:example": "prisma migrate deploy --config examples/prisma-demo-app/prisma.config.ts",
@@ -102,13 +106,14 @@
     "test:frontend-smoke": "npm run build:ui && node --import tsx --test tests/admin-frontend-smoke.test.ts"
   },
   "dependencies": {
+    "bullmq": "^5.74.1",
     "express": "5.1.0"
   },
   "peerDependencies": {
+    "@mikro-orm/core": "^7.0.11",
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
-    "@mikro-orm/core": "^7.0.11",
     "@prisma/client": "^6.15.0 || ^7.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",

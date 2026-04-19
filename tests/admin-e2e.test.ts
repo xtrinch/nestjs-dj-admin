@@ -100,6 +100,15 @@ describe('Admin backend e2e', () => {
         (action: { slug: string }) => action.slug === 'deactivate-selected',
       ),
     );
+
+    const orderMeta = await request(adminBaseUrl, '/_meta/orders', { cookie });
+    assert.equal(orderMeta.response.status, 200);
+    assert.ok(
+      orderMeta.body.detailPanels.some(
+        (panel: { key: string; screen: string }) =>
+          panel.key === 'queues:related:orders' && panel.screen === 'bullmq-related-jobs',
+      ),
+    );
   });
 
   it('enforces permissions for authenticated non-admin users', async () => {

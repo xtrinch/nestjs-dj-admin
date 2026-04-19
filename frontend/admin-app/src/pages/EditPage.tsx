@@ -1,5 +1,6 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useRef, useState } from 'react';
 import { AdminApiError } from '../api.js';
+import { getExtensionDetailPanelComponent } from '../extensions/registry.js';
 import { formatAdminValue } from '../formatters.js';
 import {
   createResourceEntity,
@@ -10,7 +11,14 @@ import {
   updateResourceEntity,
 } from '../services/resources.service.js';
 import { queueToast, showToast } from '../services/toast.service.js';
-import type { AdminDisplayConfig, AdminLookupItem, ResourceField, ResourceSchema } from '../types.js';
+import type {
+  AdminDisplayConfig,
+  AdminLookupItem,
+  ResourceDetailPanelSchema,
+  ResourceField,
+  ResourceSchema,
+  AdminUser,
+} from '../types.js';
 
 const RELATION_LOOKUP_PAGE_SIZE = 20;
 type SaveIntent = 'list' | 'continue' | 'add-another';
@@ -19,17 +27,21 @@ export function EditPage({
   resource,
   id,
   readOnly = false,
+  user,
   onTitleChange,
 }: {
   resource: ResourceSchema;
   id?: string;
   readOnly?: boolean;
+  user: AdminUser;
   onTitleChange?: (label: string | null) => void;
 }) {
   const [fields, setFields] = useState<ResourceField[]>(id ? resource.updateFields : resource.createFields);
   const [display, setDisplay] = useState<AdminDisplayConfig | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
+  const [loadedRecord, setLoadedRecord] = useState<Record<string, unknown> | null>(null);
   const [entityLabel, setEntityLabel] = useState<string | null>(null);
+  const [detailPanels, setDetailPanels] = useState<ResourceDetailPanelSchema[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [actionError, setActionError] = useState<string | null>(null);
   const [runningActionSlug, setRunningActionSlug] = useState<string | null>(null);
@@ -42,16 +54,19 @@ export function EditPage({
     const metaJson = await getResourceMeta(resource.resourceName);
     setFields(id ? metaJson.resource.updateFields : metaJson.resource.createFields);
     setDisplay(metaJson.display ?? null);
+    setDetailPanels(metaJson.detailPanels ?? []);
     setActionError(null);
 
     if (id) {
       const entityJson = await getResourceEntity(resource.resourceName, id);
       setValues(entityJson);
+      setLoadedRecord(entityJson);
       const label = resolveEntityLabel(entityJson, id);
       setEntityLabel(label);
       onTitleChange?.(label);
     } else {
       setValues({});
+      setLoadedRecord(null);
       setEntityLabel(null);
       onTitleChange?.(null);
     }
@@ -220,6 +235,25 @@ export function EditPage({
           </div>
         ) : null}
       </form>
+      {id && loadedRecord && display
+        ? detailPanels.map((detailPanel) => {
+            const DetailPanelComponent = getExtensionDetailPanelComponent(detailPanel);
+            if (!DetailPanelComponent) {
+              return null;
+            }
+
+            return (
+              <DetailPanelComponent
+                key={detailPanel.key}
+                display={display}
+                panel={detailPanel}
+                resource={resource}
+                record={loadedRecord}
+                user={user}
+              />
+            );
+          })
+        : null}
     </section>
   );
 }
@@ -318,6 +352,10 @@ function FieldInput({
   readOnly?: boolean;
 }) {
   if (field.readOnly || readOnly) {
+    if (field.relation) {
+      return <ReadonlyRelationField field={field} value={values[field.name]} />;
+    }
+
     return (
       <div className="readonly-field">
         <span className="readonly-field__value">
@@ -421,6 +459,72 @@ function formatReadonlyValue(
 ): string {
   const formatted = formatAdminValue(value, fieldName, display);
   return formatted === '' ? 'Not set' : formatted;
+}
+
+function ReadonlyRelationField({
+  field,
+  value,
+}: {
+  field: ResourceField;
+  value: unknown;
+}) {
+  const [label, setLabel] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const relationValues = getSelectedRelationValues(field, value);
+  const relationKey = relationValues.join(',');
+
+  useEffect(() => {
+    if (!field.relation || relationValues.length === 0) {
+      setLabel(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    void lookupResource(field.relation.option.resource, {
+      ids: relationValues,
+      page: 1,
+      pageSize: relationValues.length,
+    })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        const items = relationValues.map(
+          (relationValue) =>
+            response.items.find((item) => item.value === relationValue)?.label ?? relationValue,
+        );
+        setLabel(items.join(', '));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLabel(relationValues.join(', '));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [field.relation?.option.resource, relationKey]);
+
+  const text = relationValues.length === 0
+    ? 'Not set'
+    : loading
+      ? 'Loading…'
+      : label ?? relationValues.join(', ');
+
+  return (
+    <div className="readonly-field">
+      <span className="readonly-field__value">{text}</span>
+    </div>
+  );
 }
 
 function RelationFieldInput({
