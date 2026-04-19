@@ -13,7 +13,8 @@ It gives you:
 - built-in schema support for `class-validator` and `zod`
 - configurable list fields, filters, search, and lookup behavior
 - create, edit, delete, and detail flows for registered resources
-- extension-provided pages, nav items, widgets, and route-backed operational screens, including embedded dashboards and queues
+- built-in queue explorer for BullMQ, including queue overview, queue/job detail pages, and operational actions
+- extension-provided pages, nav items, widgets, and route-backed operational screens, including embedded dashboards and resource-linked queue panels
 - optional soft delete support
 - built-in admin login and session management
 - built-in admin audit log support
