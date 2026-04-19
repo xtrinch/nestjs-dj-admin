@@ -1,7 +1,6 @@
 import {
   type MigrationInterface,
   type QueryRunner,
-  TableColumn,
   TableForeignKey,
   TableIndex,
 } from 'typeorm';
@@ -17,26 +16,19 @@ export class AddCategoryCreatedBy1710000000003 implements MigrationInterface {
 
     const hasColumn = table.columns.some((column) => column.name === 'createdById');
     if (!hasColumn) {
-      await queryRunner.addColumn(
-        'categories',
-        new TableColumn({
-          name: 'createdById',
-          type: 'int',
-          isNullable: true,
-        }),
-      );
+      await queryRunner.query('ALTER TABLE "categories" ADD COLUMN "createdById" int NULL');
     }
 
-    await queryRunner.query(`
-      UPDATE "categories"
-      SET "createdById" = (
-        SELECT "id"
-        FROM "users"
-        ORDER BY "id" ASC
-        LIMIT 1
-      )
-      WHERE "createdById" IS NULL
-    `);
+    const firstUser = await queryRunner.query(
+      'SELECT "id" FROM "users" ORDER BY "id" ASC LIMIT 1',
+    ) as Array<{ id: number }>;
+
+    if (firstUser[0]?.id != null) {
+      await queryRunner.query(
+        'UPDATE "categories" SET "createdById" = $1 WHERE "createdById" IS NULL',
+        [firstUser[0].id],
+      );
+    }
 
     const updatedTable = await queryRunner.getTable('categories');
     if (!updatedTable) {
@@ -75,15 +67,7 @@ export class AddCategoryCreatedBy1710000000003 implements MigrationInterface {
     ) as Array<{ exists: boolean }>;
 
     if (!hasNulls[0]?.exists) {
-      await queryRunner.changeColumn(
-        'categories',
-        'createdById',
-        new TableColumn({
-          name: 'createdById',
-          type: 'int',
-          isNullable: false,
-        }),
-      );
+      await queryRunner.query('ALTER TABLE "categories" ALTER COLUMN "createdById" SET NOT NULL');
     }
   }
 
