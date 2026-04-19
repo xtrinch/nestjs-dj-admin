@@ -6,6 +6,7 @@ const database = process.env.DB_NAME ?? 'nestjs_dj_admin_demo';
 const dbType = process.env.DB_TYPE ?? 'postgres';
 
 if (dbType !== 'postgres') {
+  console.log('[typeorm-demo] skipped database setup because DB_TYPE is not postgres');
   process.exit(0);
 }
 
@@ -27,6 +28,9 @@ try {
 
   if (!result.rows[0]?.exists) {
     await client.query(`CREATE DATABASE "${database.replaceAll('"', '""')}"`);
+    console.log(`[typeorm-demo] created database "${database}"`);
+  } else {
+    console.log(`[typeorm-demo] database "${database}" already exists`);
   }
 } finally {
   await client.end();
