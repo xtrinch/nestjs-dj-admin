@@ -257,7 +257,6 @@ TypeORM example:
 ```bash
 docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
-npm run typeorm:migrate:example
 npm run dev:typeorm-example
 ```
 
@@ -1548,7 +1547,6 @@ Clean setup:
 npm install
 docker compose -f examples/typeorm-demo-app/docker-compose.yml up -d postgres grafana redis
 npm run typeorm:setup:example
-npm run typeorm:migrate:example
 npm run dev:typeorm-example
 ```
 
@@ -1556,7 +1554,6 @@ Built run:
 
 ```bash
 npm run typeorm:setup:example
-npm run typeorm:migrate:example
 npm run build:typeorm-example
 npm run start:typeorm-example
 ```
@@ -1572,7 +1569,7 @@ DB_PASSWORD=postgres
 DB_NAME=nestjs_dj_admin_demo
 ```
 
-`typeorm:setup:example` only creates the demo database if needed. `typeorm:migrate:example` runs the checked-in TypeORM migrations explicitly. The app still runs pending migrations on startup as a safety net.
+`typeorm:setup:example` creates the demo database if needed and runs the checked-in TypeORM migrations. The app still runs pending migrations on startup as a safety net.
 
 More detail: [examples/typeorm-demo-app/README.md](/Users/mojca/repos/nestjs-dj-admin/examples/typeorm-demo-app/README.md)
 
